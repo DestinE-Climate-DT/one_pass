@@ -1,92 +1,73 @@
-# One_Pass
+# Description of one pass
 
 Development and implementation of intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations, taking the needs of the use cases into account. (WP9)
 
-## Getting started
+This README is a working document that will contain the sample one-pass algorithms that will be written in Python3. 
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+# One-pass method
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+$x_1 \qquad \qquad \qquad \qquad x_2 \qquad \qquad \qquad \qquad x_3 \qquad ... \qquad \qquad x_n$ 
+$\downarrow \qquad \qquad \qquad \qquad \; \; \downarrow \qquad \qquad \qquad \qquad \; \; \downarrow \qquad \qquad \qquad \quad \;\downarrow$
+$S_1 = g(x_1) \rightarrow S_2 = g(S_1, x_2) \rightarrow S_3 = g(S_2, x_3) \rightarrow S_n = g(S_{n-1}, x_n)$
 
-## Add your files
+Let $X_n = \{x_1, x_2, ..., x_n\}$ represent the data set, then $S_n = f(X_n) = g(S_{n-1}, x_n)$ 
+Where $f$ is a function that acts on the  whole data set and computes the summary $S_n$ at once with all values, $g$ is a 'one pass' function that updates a previous summary $S_{n-1}$ with a new value $x_n$. The summaries $S_n$ require less memory than the full dataset $X_n$. 
+# Algorithms
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## min / max 
 
-```
-cd existing_repo
-git remote add origin https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
-git branch -M main
-git push -uf origin main
-```
+$g(S_{n-1}, x_n) = g(min_{n-1}, x_n) 
+\newline \qquad \qquad \quad = if (x_n < min_{n-1})
+\newline \qquad \qquad \qquad \quad  min_{n-1} = x_n$
 
-## Integrate with your tools
+$g(S_{n-1}, x_n) = g(max_{n-1}, x_n) 
+\newline \qquad \qquad \quad = if (x_n > max_{n-1})
+\newline \qquad \qquad \qquad \quad  max_{n-1} = x_n$
 
-- [ ] [Set up project integrations](https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/-/settings/integrations)
+<u> memory requirements: </u>
+One spatial grid of double (float64) the same size as the original data to store $min_{n-1}$  or $max_{n-1}$
 
-## Collaborate with your team
+## mean 
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+$\bar{x}_n = g(S_{n-1}, x_n) = g(\bar{x}_{n-1}, x_n) = \frac{n-1}{n}\bar{x}_{n-1} + \frac{x_n}{n} = \bar{x}_{n-1} + \frac{x_n - \bar{x}_{n-1}}{n}$ 
 
-## Test and Deploy
+<u> memory requirements: </u>
+- One spatial grid of double (float64) the same size as the original data to store $\bar{x}_{n-1}$  
+- one int to store $n$ 
 
-Use the built-in continuous integration in GitLab.
+## threshold exceedance 
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+$g(S_{n-1}, x_n) = g(exc_{n-1}, x_n) 
+\newline \qquad \qquad \quad = if (x_n > threshold)
+\newline \qquad \qquad \qquad \quad  exc_{n-1} = exc_{n-1} + 1$
 
-***
+<u> memory requirements: </u>
+- one int to store $exc_{n-1}$ 
 
-# Editing this README
+## Variance 
+(shifted Welford's algorithm for the unbiased sample variance)
+Requires updating two estimates iteratively. Let $M_{2,n} = \sum_{i = 1}^{n}(x_i - \bar{x}_n)^2$ then: 
+$M_{2,n} = g(S_{n-1}, x_n) = g(M_{2,n-1}, x_n) =M_{2,n-1} + (x_i - \bar{x}_{n-1})(x_i - \bar{x}_n)$ and $\bar{x}_n$ is given by the algorithm of the mean shown above. At the end of the iterative process (when the last value is given):
+$var(X_n) = \frac{M_{2,n}}{n-1}$
+If a rough estimate of the mean is avaliable (needs to be a constant value), subtract at each step, as $var(X_n - k) = var(X_n)$ but subtracting mean can reduce large values that produce numerical instability. E.g. for sea level pressure, data is around 100000 Pa. If doing this, calculate $x' = x - k$ at the beginning of each step before computing algorithm.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Numerical stability warning. For large $n$, $M_{2,n}$ can become larger than max float value and produce inaccurate results. In such cases, one could divide by the current $n$ and store an intermediate variance value, to be cobined later with other chunks using Chan's formula for the general case of combining the variance of two chunks of data. An alternative is to explore Kahan summation.
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
 
-## Name
-Choose a self-explaining name for your project.
+## histogram
+Decide the bin size of the histogram based on the precision of your variable. e.g. for wind speed, storing more than one figure is meaningless for users. Considering a range of wind speed from 0 to 100 m/s every 0.1 ms results in storing counts for a maximum of 1000 values.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+<u> memory requirements: </u>
+- k integers to store occurrences for each bin
+- k doubles to store the bin centers (this could be derived from bin width as well
+saving a bit of space)
+Memory savings: this method starts to save space whenever values repeat themselves, therefore as soon as counts for each bin start to grow larger than 1 we save space.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## wind power CF
+Compute a histogram with previous algorithm. For each bin, look in the power curve for the power output or CF value. Weight all CF values by the frequency of each bin.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Algorithm for percentiles
+Compute the histogram above. Ensure a minimum number of bins in the histogram to get accurate results. Derive percentiles from the histogram by accumulating the histogram frequencies.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## wind direction standard deviation
+Difficulty: values close to 0/360 should not average to 180.Use Yamartino method.
