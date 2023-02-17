@@ -87,7 +87,6 @@ class meanOPA: # individual clusters
                 # we have a problem 
                 print('timeStep too large for hourly means')
 
-
         if(self.meanFreq == "daily"):
             #
             timeStampMin = timeStamp.minute 
@@ -244,7 +243,6 @@ class meanOPA: # individual clusters
         print('finished saving')
 
 
-
     def mean(self, ds): # acutal function that you call 
         
         # STEPS 
@@ -337,12 +335,6 @@ class meanOPA: # individual clusters
                 meanOPA.mean(self, ds) # calling recursive function 
 
             return dm # returning dm from the function only if this condtion is met 
-
-
-
-
-
-
 
 
 
