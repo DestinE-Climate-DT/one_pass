@@ -6,6 +6,7 @@ import glob
 from datetime import datetime, timedelta
 import yaml
 import sys
+import dask
 import dask.array as da
 import os
 import importlib
@@ -42,10 +43,16 @@ class meanOPA: # individual clusters
         self.count = 0
         # calculated by MIN freq of mean / timestep min of data
         self.nData = int(self.meanFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
+        
+        # not sure if this is necessary 
         if ds.chunks is None: 
-            self.meanCum = np.zeros((np.size(ds.lat), np.size(ds.lon))) 
+            
+            self.meanCum = np.zeros((1, np.size(ds.lat), np.size(ds.lon))) 
+            #self.meanCum = np.zeros((np.size(ds.lat), np.size(ds.lon))) 
+
         else:
-            self.meanCum = da.zeros((np.size(ds.lat), np.size(ds.lon))) 
+            self.meanCum = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+            #self.meanCum = da.zeros((np.size(ds.lat), np.size(ds.lon))) 
 
 
     def _checkTimeStamp(self, ds):
@@ -145,21 +152,23 @@ class meanOPA: # individual clusters
 
 
     def _npMean(self, ds): # computes np mean 
-        axNum = ds.get_axis_num('time')
+        #axNum = ds.get_axis_num('time')
         # first compute normal mean
-        tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
+        tempMean = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
+        #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
         #self.tempMean = tempMean
         return tempMean
 
     def _convertNumpy(self, ds):
         dsNp = np.squeeze(ds) # if there are multiple heights in the same file, this will remove redundant 1 dimensions and .data extracts numpy array
+        #self.dsNp = dsNp
         return dsNp
     
     # actual mean function
     def _update(self, dsNp, weight=1):# where x is the new value and weight is the new weight 
         self.count += weight
-        self.meanCum += weight*(dsNp - self.meanCum) / (self.count) # udating mean with one-pass algorithm
-
+        meanCum = self.meanCum + weight*(dsNp - self.meanCum) / (self.count) # udating mean with one-pass algorithm
+        self.meanCum = meanCum.data
 
     def _createDataSet(self, finalMean, finalTimeStamp, ds, attrs):
 
@@ -181,7 +190,8 @@ class meanOPA: # individual clusters
     def _dataOutput(self, ds):
 
         # this is really slow 
-        finalMean = np.expand_dims(self.meanCum, axis=0) # adding back extra time dimension 
+        #finalMean = np.expand_dims(self.meanCum, axis=0) # adding back extra time dimension 
+        finalMean = self.meanCum
 
         if (self.meanFreq == "hourly"):
             finalTimeStamp = self.timeStamp
@@ -193,7 +203,6 @@ class meanOPA: # individual clusters
 
         ds.attrs["OPA"] = "daily mean calculated using one-pass algorithm"
         attrs = ds.attrs
-
 
         dm = self._createDataSet(finalMean, finalTimeStamp, ds, attrs)
 
@@ -271,9 +280,11 @@ class meanOPA: # individual clusters
 
         if (timeNum == 1):
             # convert array to numpy 
-            dsNp = self._convertNumpy(ds) # this removes redundant singular dimensions         
+            #dsNp = self._convertNumpy(ds) # this removes redundant singular dimensions         
             # actually adding to the mean 
-            self._update(dsNp)
+            #self._update(dsNp)
+            self._update(ds)
+
         
         # will this span over a new statistic? no 
         elif (howMuch >= timeNum):
@@ -281,18 +292,20 @@ class meanOPA: # individual clusters
             # first compute normal mean
             tempMean = self._npMean(ds)
             # remove redundant time dimension 
-            dsNp = self._convertNumpy(tempMean)
+            #dsNp = self._convertNumpy(tempMean)
             # update rolling statistic with weight 
-            self._update(dsNp, timeNum)
+            self._update(tempMean, timeNum) # changed to tempMean? 
+            #self._update(dsNp, timeNum)
 
         # will this span over a new statistic? YES arrrgghhhh
         elif(howMuch < timeNum): 
             # first compute normal mean over the rest of the statistic left to compute 
             tempMean = self._npMean(ds.isel(time=slice(0,howMuch)))
             # remove redundant time dimension 
-            dsNp = self._convertNumpy(tempMean)
+            #dsNp = self._convertNumpy(tempMean)
             # update rolling statistic with weight of the last few days 
-            self._update(dsNp, howMuch)
+            self._update(tempMean, howMuch)
+            #self._update(dsNp, howMuch)
 
             # need to finish the statistic 
 
@@ -301,7 +314,7 @@ class meanOPA: # individual clusters
         if (self.count == self.nData):
         # how to output the data 
             dm, timeStampString = self._dataOutput(ds)
-
+            
             if(self.save == "true"): # only save if requested 
 
                 # converting save freq into a number
@@ -329,12 +342,12 @@ class meanOPA: # individual clusters
                         #self.finalTimeStamp = self.timeStamp
                         self._dataOutputAppend(ds, timeDimLength)
 
-            if(howMuch < timeNum):
+            if (howMuch < timeNum):
                 # need to run the mean function again 
                 ds = ds.isel(time=slice(howMuch,timeNum))
                 meanOPA.mean(self, ds) # calling recursive function 
 
-            return dm # returning dm from the function only if this condtion is met 
+            return dm 
 
 
 
