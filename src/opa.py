@@ -53,14 +53,24 @@ class opa: # individual clusters
             else:
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
-            self.__setattr__(self, str(self.statistic)+"Cum", value)
+            self.__setattr__(str(self.statistic+"Cum"), value)
 
-            if(self.statistic == "var" or self.statistic == "std"):
+            if(self.statistic == "var"):
                 # then also need to calculate the mean 
-                self.__setattr__(self, "meanCum", value)
-            
+                self.__setattr__("meanCum", value)
+
+            # for the standard deviation need both the mean and variance throughout 
+            elif(self.statistic == "std"):
+                self.__setattr__("meanCum", value)
+                self.__setattr__("varCum", value)
+
             # else loop for histograms of percentile calculations that may require a different intital grid
-        
+        else: # NEED TO CHANGE THIS! 
+            if ds.chunks is None: 
+                value = np.zeros((1, np.size(ds.lat), np.size(ds.lon))) 
+            else:
+                value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+
         
     def _checkTimeStamp(self, ds):
     # function to calculate: 
@@ -77,7 +87,7 @@ class opa: # individual clusters
         
         #self.timeStep = (self.timeStep.astype('timedelta64[m]') / np.timedelta64(1, 'm')) # converting timeStep into minutes, float 64
 
-        # converting statistic freq into a number
+        # converting statistic freq into a number other code 
         self.statFreqMin = convertTime(timeWord = self.statFreq, timeStamp = timeStampList)
 
         if(self.statFreq == "hourly"): 
@@ -85,19 +95,19 @@ class opa: # individual clusters
             # first thing to check is if this is the first in the series, time stamp must be less than 60 
             timeStampMin = self.timeStamp.minute
 
-            # timeStep < statFreq
+            # statFreq < timeStep  
             # this will only work if the one hour is wholly divisable by the timestep 
             if(timeStampMin <= self.timeStep): # this indicates that it's the first data of the day otherwise timeStamp will be larger
                 # initalise cumulative statistic array 
                 self._initalise(ds)
 
-            # timeStep == statFreq 
-            elif(self.timeStep == self.statFreqMin): # the case where timeStep matches statFreq 
+            # statFreq == timeStep # I THINK THIS IS WRONG? 
+            elif(self.statFreqMin == self.timeStep): # the case where timeStep matches statFreq 
                 # initalise cumulative statistic array 
                 self._initalise(ds)
 
-            # timeStep > statFreq 
-            elif(self.timeStep > self.statFreqMin):
+            # statFreq < timeStep
+            elif( self.statFreqMin < self.timeStep):
                 # we have a problem 
                 print('timeStep too large for hourly statistic')
 
@@ -161,44 +171,102 @@ class opa: # individual clusters
     def _npMean(self, ds): # computes np mean
         #axNum = ds.get_axis_num('time')
         # first compute normal mean
-        tempMean = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
+        temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
         #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
         #self.tempMean = tempMean
-        return tempMean
+        return temp
 
-    def _convertNumpy(self, ds):
-        dsNp = np.squeeze(ds) # if there are multiple heights in the same file, this will remove redundant 1 dimensions and .data extracts numpy array
-        #self.dsNp = dsNp
-        return dsNp
+    def _npVar(self, ds): # computes np mean
+
+        temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
+
+        return temp
+
+
+    def _twoPass(self, ds):
+
+        if (self.statistic == "mean"):
+            temp = self._npMean(ds)  
+
+        elif(self.statistic == "var"): 
+            temp = self._npMean(ds)  
+
+        elif(self.statistic == "std"): 
+            temp = self._npStd(ds)  
+
+        elif(self.statistic == "min"): 
+            temp = self._npMin(ds)  
+
+        elif(self.statistic == "max"): 
+            temp = self._npMax(ds)  
+
+        return temp 
+
+
+    #def _convertNumpy(self, ds):
+    #    dsNp = np.squeeze(ds) # if there are multiple heights in the same file, this will remove redundant 1 dimensions and .data extracts numpy array
+    #    #self.dsNp = dsNp
+    #    return dsNp
     
     # actual mean function
-    def _updateMean(self, dsNp, weight=1):# where x is the new value and weight is the new weight 
+    def _updateMean(self, dsNp, weight):# where x is the new value and weight is the new weight 
         self.count += weight
         meanCum = self.meanCum + weight*(dsNp - self.meanCum) / (self.count) # udating mean with one-pass algorithm
         self.meanCum = meanCum.data
 
 
     # varience one-pass 
-    def _updateVar(self, dsNp, weight=1):
+    def _updateVar(self, dsNp, weight):
+        
         # storing 'old' mean temporarily 
         tempMean = self.meanCum 
-        # now run mean algorithm 
-        self._updateMean(dsNp, weight)
-        varCum = self.varCum + weight*(dsNp - tempMean)*(dsNp - self.meanCum) 
+
+        if(weight == 1):
+            self._updateMean(dsNp, weight)
+            varCum = self.varCum + weight*(dsNp - tempMean)*(dsNp - self.meanCum) 
+        else:
+            npMean = self._npMean(dsNp) # two-pass mean 
+            self._updateMean(npMean, weight)
+            npVar = self._npVar(dsNp)
+            # see paper Mastelini. S
+            varCum = self.varCum + npVar + np.square(tempMean - npMean)*((self.count - weight)*weight/self.count)
+            
+        if (self.count == self.nData):
+            varCum = varCum/(self.count - 1) # using sample variance NOT population varience 
+            
         self.varCum = varCum.data
 
 
+    def _updateStd(self, dsNp, weight):
+
+        self._updateVar(dsNp, weight)
+        stdCum = np.sqrt(self.varCum)
+        self.stdCum = stdCum.data
+
+
+    def _updateMin(self, dsNp):
+        self.minCum = where(dsNp < self.minCum, dsNp, self.minCum)
+
+    def _updateMax(self, dsNp):
+        self.maxCum = where(dsNp > self.maxCum, dsNp, self.maxCum)
+
+
     def _update(self, ds, weight=1):
+        
         if (self.statistic == "mean"):
-            self._updateMean(self, ds, **kwargs) # sometimes called with weights and sometimes not 
+            self._updateMean(ds, weight) # sometimes called with weights and sometimes not 
 
         elif(self.statistic == "var"): 
-            self._updateVar(self, ds, **kwargs)
+            self._updateVar(ds, weight)
 
-        # elif(self.statistic == "var"): 
+        elif(self.statistic == "std"): 
+            self._updateStd(ds, weight)
 
+        elif(self.statistic == "min"): 
+            self._updateMin(ds, weight)
 
-
+        elif(self.statistic == "max"): 
+            self._updateMax(ds, weight)
 
 
     def _createDataSet(self, finalStat, finalTimeStamp, ds, attrs):
@@ -222,7 +290,21 @@ class opa: # individual clusters
 
         # this is really slow 
         #finalMean = np.expand_dims(self.meanCum, axis=0) # adding back extra time dimension 
-        finalStat = self.meanCum
+
+        if (self.statistic == "mean"):
+            finalStat = self.meanCum # sometimes called with weights and sometimes not 
+
+        elif(self.statistic == "var"): 
+            finalStat = self.varCum
+
+        elif(self.statistic == "std"): 
+            finalStat = self.stdCum
+
+        elif(self.statistic == "min"): 
+            finalStat = self.minCum
+
+        elif(self.statistic == "max"): 
+            finalStat = self.maxCum
 
         if (self.statFreq == "hourly"):
             finalTimeStamp = self.timeStamp
@@ -232,7 +314,7 @@ class opa: # individual clusters
             finalTimeStamp = self.timeStamp.date()
             timeStampString = self.timeStamp.strftime("%Y_%m_%d")
 
-        ds.attrs["OPA"] = "daily INSERT STATISTIC calculated using one-pass algorithm"
+        ds.attrs["OPA"] = str(self.statFreq + "_" + self.statistic + "_" + "calculated using one-pass algorithm")
         attrs = ds.attrs
 
         dm = self._createDataSet(finalStat, finalTimeStamp, ds, attrs)
@@ -316,9 +398,10 @@ class opa: # individual clusters
         elif (howMuch >= timeNum):
 
             # first compute normal mean
-            tempMean = self._npMean(ds)
+            tempValue = self._twoPass(ds)
+            
             # update rolling statistic with weight 
-            self._update(tempMean, timeNum) # changed to tempMean? 
+            self._update(ds, timeNum) # FIXXXXXXXX 29.02.23
 
         # will this span over a new statistic? YES arrrgghhhh
         elif(howMuch < timeNum): 
