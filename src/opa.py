@@ -1,5 +1,6 @@
 # module imports happen inside here
 import numpy as np
+from numpy import where
 import xarray as xr 
 import pandas as pd
 import glob
@@ -16,11 +17,14 @@ from convertTime import convertTime
 os.chdir('/home/b/b382291/regridder/AQUA')
 from aqua.util import load_yaml
 
+
+
+
 class opa: # individual clusters 
 
     # initalising the function from the ymal config file 
     def __init__(self, statistic = "mean", statFreq = "daily", outputFreq = "daily",
-                save = "false", saveFreq = None, var = None, threshold = None): # should this be **kwargs?  
+                save = "false", saveFreq = None, variable = None, threshold = None): # should this be **kwargs?  
 
         self.statistic = statistic 
         self.statFreq = statFreq
@@ -28,8 +32,8 @@ class opa: # individual clusters
         self.save = save
         self.saveFreq = saveFreq
 
-        if (var != None):
-            self.var = var 
+        if (variable != None):
+            self.variable = variable 
 
         filePath = "/home/b/b382291/git/one_pass/config.yml"
         config = load_yaml(filePath)
@@ -51,8 +55,9 @@ class opa: # individual clusters
             if ds.chunks is None: 
                 value = np.zeros((1, np.size(ds.lat), np.size(ds.lon))) 
             else:
+                self.stupid = 10
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
-
+                #, coords = ds.coords, dims= ds.dims
             self.__setattr__(str(self.statistic+"Cum"), value)
 
             if(self.statistic == "var"):
@@ -60,7 +65,7 @@ class opa: # individual clusters
                 self.__setattr__("meanCum", value)
 
             # for the standard deviation need both the mean and variance throughout 
-            elif(self.statistic == "std"):
+            elif(self.statistic == "std"): # can reduce storage here by not saving both the cumulative variance and std
                 self.__setattr__("meanCum", value)
                 self.__setattr__("varCum", value)
 
@@ -150,12 +155,13 @@ class opa: # individual clusters
 
     # reducing the variable space, if the input is in a dataset it will convert to a dataArray 
     def _checkVariable(self, ds): 
-        if(self.var == "tas"):
-            ds = ds.tas
-        elif(self.var == "uas"):
-            ds = ds.uas
-        elif(self.var == "vas"):
-            ds = ds.vas
+        #elif(self.var == "uas"):
+        #    ds = ds.uas
+        #elif(self.var == "vas"):
+            #ds = ds.vas
+        ds = ds.variable # THIS DOESN'T WORK! 
+        #stat1.__getattribute__(b)
+
         return ds
 
 
@@ -168,39 +174,17 @@ class opa: # individual clusters
         return timeNum
 
 
-    def _npMean(self, ds): # computes np mean
-        #axNum = ds.get_axis_num('time')
-        # first compute normal mean
+    def _twoPassMean(self, ds): # computes normal mean using two pass 
         temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
+        
+        #axNum = ds.get_axis_num('time')
         #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
         #self.tempMean = tempMean
         return temp
 
-    def _npVar(self, ds): # computes np mean
-
+    def _twoPassVar(self, ds): # computes sample (ddof = 1) varience using two pass 
         temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
-
         return temp
-
-
-    def _twoPass(self, ds):
-
-        if (self.statistic == "mean"):
-            temp = self._npMean(ds)  
-
-        elif(self.statistic == "var"): 
-            temp = self._npMean(ds)  
-
-        elif(self.statistic == "std"): 
-            temp = self._npStd(ds)  
-
-        elif(self.statistic == "min"): 
-            temp = self._npMin(ds)  
-
-        elif(self.statistic == "max"): 
-            temp = self._npMax(ds)  
-
-        return temp 
 
 
     #def _convertNumpy(self, ds):
@@ -211,7 +195,13 @@ class opa: # individual clusters
     # actual mean function
     def _updateMean(self, dsNp, weight):# where x is the new value and weight is the new weight 
         self.count += weight
-        meanCum = self.meanCum + weight*(dsNp - self.meanCum) / (self.count) # udating mean with one-pass algorithm
+        
+        if (weight == 1): 
+            meanCum = self.meanCum + weight*(dsNp - self.meanCum) / (self.count) # udating mean with one-pass algorithm
+        else:
+            tempMean = self._twoPassMean(dsNp) # compute two pass mean first 
+            meanCum = self.meanCum + weight*(tempMean - self.meanCum) / (self.count) # udating mean with one-pass algorithm
+
         self.meanCum = meanCum.data
 
 
@@ -219,17 +209,17 @@ class opa: # individual clusters
     def _updateVar(self, dsNp, weight):
         
         # storing 'old' mean temporarily 
-        tempMean = self.meanCum 
+        oldMean = self.meanCum 
 
         if(weight == 1):
             self._updateMean(dsNp, weight)
-            varCum = self.varCum + weight*(dsNp - tempMean)*(dsNp - self.meanCum) 
+            varCum = self.varCum + weight*(dsNp - oldMean)*(dsNp - self.meanCum) 
         else:
-            npMean = self._npMean(dsNp) # two-pass mean 
-            self._updateMean(npMean, weight)
-            npVar = self._npVar(dsNp)
+            tempMean = self._twoPassMean(dsNp) # two-pass mean 
+            self._updateMean(tempMean, weight) # update self.meanCum 
+            tempVar = self._twoPassVar(dsNp) # two pass varience 
             # see paper Mastelini. S
-            varCum = self.varCum + npVar + np.square(tempMean - npMean)*((self.count - weight)*weight/self.count)
+            varCum = self.varCum + tempVar + np.square(oldMean - tempMean)*((self.count - weight)*weight/self.count)
             
         if (self.count == self.nData):
             varCum = varCum/(self.count - 1) # using sample variance NOT population varience 
@@ -237,19 +227,31 @@ class opa: # individual clusters
         self.varCum = varCum.data
 
 
-    def _updateStd(self, dsNp, weight):
-
+    def _updateStd(self, dsNp, weight): 
+        # can reduce storage here if you choose not to have specific varCum and stdCum names 
         self._updateVar(dsNp, weight)
-        stdCum = np.sqrt(self.varCum)
-        self.stdCum = stdCum.data
+        if (self.count == self.nData):
+            self.stdCum = np.sqrt(self.varCum)
+
+    #def _updateMin(self, dsNp):
+    #    #if(weight == 1):
+    #    self.minCum = where(dsNp < self.minCum, dsNp, self.minCum)
+    #    #else:
 
 
     def _updateMin(self, dsNp):
-        self.minCum = where(dsNp < self.minCum, dsNp, self.minCum)
+
+        if(self.count > 0):
+            self.minCum['time'] = dsNp.time
+
+        dsNp.where(self.minCum < dsNp, self.minCum)
+        self.count += 1
+        self.minCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
+        return 
+
 
     def _updateMax(self, dsNp):
         self.maxCum = where(dsNp > self.maxCum, dsNp, self.maxCum)
-
 
     def _update(self, ds, weight=1):
         
@@ -263,10 +265,29 @@ class opa: # individual clusters
             self._updateStd(ds, weight)
 
         elif(self.statistic == "min"): 
-            self._updateMin(ds, weight)
+            
+            if (ds.chunks is None):
+                self.minCum = self._updateMin(self.minCum, ds)
+            else:
+                #tempMin = self.minCum
+                #tempDs = ds
+                #delayed_result = dask.delayed(self._updateMin)(tempMin, tempDs)
+                # to create a dask array to use in the future
+                #daskMin = da.from_delayed(delayed_result, dtype=tempMin.dtype, shape=tempMin.shape)
+                #self.minCum = daskMin.compute()
+                self._updateMin(ds)
+                #self.minCum = updateMin
+
+
+
+
+
+        #
+        #elif(self.statistic == "percentile"):
+        # run tdigest
 
         elif(self.statistic == "max"): 
-            self._updateMax(ds, weight)
+            self._updateMax(ds)
 
 
     def _createDataSet(self, finalStat, finalTimeStamp, ds, attrs):
@@ -301,7 +322,7 @@ class opa: # individual clusters
             finalStat = self.stdCum
 
         elif(self.statistic == "min"): 
-            finalStat = self.minCum
+            finalStat = self.minCum.data
 
         elif(self.statistic == "max"): 
             finalStat = self.maxCum
@@ -379,38 +400,31 @@ class opa: # individual clusters
         # check the time stamp and if the data needs to be reset 
         self._checkTimeStamp(ds)
 
-        if (hasattr(self, 'var')): # if there are multiple variables in the file 
+        if (hasattr(self, 'variable')): # if there are multiple variables in the file 
             # needs to convert from dataSet to a dataArray 
             ds = self._checkVariable(ds)
 
-        # try:
-        #     doStuff(a.property)
-        # except AttributeError:
-        #     otherStuff()
-
-        timeNum = self._checkNumTimeStamps(ds) # this checks if there are multiple time stamps in a file and will do np.mean
-        howMuch = (self.nData - self.count) # how much is let of your statistic to fill 
-
-        if (timeNum == 1):
-            self._update(ds)
-
-        # will this span over a new statistic? no 
-        elif (howMuch >= timeNum):
-
-            # first compute normal mean
-            tempValue = self._twoPass(ds)
+        #try:
+        #    getattr(self, "var")
+        #    ds = self._checkVariable(ds)
+        #except AttributeError:
             
+
+        weight = self._checkNumTimeStamps(ds) # this checks if there are multiple time stamps in a file and will do np.mean
+        howMuchLeft = (self.nData - self.count) # how much is let of your statistic to fill 
+
+        # will not span over new statistic 
+        if (weight == 1 or howMuchLeft >= weight):
             # update rolling statistic with weight 
-            self._update(ds, timeNum) # FIXXXXXXXX 29.02.23
+            self._update(ds, weight) 
 
-        # will this span over a new statistic? YES arrrgghhhh
-        elif(howMuch < timeNum): 
-            # first compute normal mean over the rest of the statistic left to compute 
-            tempMean = self._npMean(ds.isel(time=slice(0,howMuch)))
+        # will this span over a new statistic?
+        elif(howMuchLeft < weight): 
+            # extracting time until the end of the statistic 
+            dsLeft = ds.isel(time=slice(0,howMuchLeft))
             # update rolling statistic with weight of the last few days 
-            self._update(tempMean, howMuch)
-
-            # need to finish the statistic 
+            self._update(dsLeft, howMuchLeft)
+            # still need to finish the statistic (see below)
 
 
         # when the statistic is full
@@ -445,10 +459,10 @@ class opa: # individual clusters
                         #self.finalTimeStamp = self.timeStamp
                         self._dataOutputAppend(ds, timeDimLength)
 
-            if (howMuch < timeNum):
+            if (howMuchLeft < weight):
                 # need to run the function again 
-                ds = ds.isel(time=slice(howMuch,timeNum))
-                opa.mean(self, ds) # calling recursive function 
+                ds = ds.isel(time=slice(howMuchLeft, weight))
+                opa.compute(self, ds) # calling recursive function 
 
             return dm 
 
