@@ -31,6 +31,7 @@ class opa: # individual clusters
         self.outputFreq = outputFreq
         self.save = save
         self.saveFreq = saveFreq
+        self.threshold = threshold # this will only be set for looking at threshold exceedence 
 
         if (variable != None):
             self.variable = variable 
@@ -39,23 +40,36 @@ class opa: # individual clusters
         config = load_yaml(filePath)
 
         self.timeStep = config["timeStep"] # this is int value in minutes 
-
         self.filePathSave = config["filePathSave"]
 
 
-    def _initalise(self, ds): 
+    def _initalise(self, ds, timeStampMin): 
         # only initalise cumulative mean if you know this is the first input
         self.count = 0
         # calculated by MIN freq of mean / timestep min of data
-        self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
-                
+        if ((self.statFreqMin/self.timeStep).is_integer()):
+
+            if(timeStampMin == 0):
+                self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
+            else:
+                if((self.timeStep/timeStampMin).is_integer()):
+                    self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
+                else:
+                    # POTENTIALLY SHOULD ALSO RAISE EXPECTION HERE
+                    print('WARNING: timings of input data span over new statistic')
+                    self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
+
+        else: 
+            # we have a problem 
+            raise Exception('Frequency of the requested statistic (e.g. daily) must be wholly divisable by the timestep (dt) of the input data')
+       
                 
         if(self.statistic != "hist" or self.statistic != "percentile"):  
         # potentially don't want zeros for threshold exceedance as well? 
             if ds.chunks is None: 
                 value = np.zeros((1, np.size(ds.lat), np.size(ds.lon))) 
             else:
-                self.stupid = 10
+                
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
                 #, coords = ds.coords, dims= ds.dims
             self.__setattr__(str(self.statistic+"Cum"), value)
@@ -86,72 +100,86 @@ class opa: # individual clusters
 
         timeStampList = sorted(ds.time.data) # assuming that incoming data has a time dimension
         timeStampPandas = [pd.to_datetime(x) for x in timeStampList]
-        #self.timeStamp = timeStampList[0]
         timeStamp = timeStampPandas[0] # converting to a pandas datetime to calculate if it's the first 
         self.timeStamp = timeStamp
         
-        #self.timeStep = (self.timeStep.astype('timedelta64[m]') / np.timedelta64(1, 'm')) # converting timeStep into minutes, float 64
+        # converting statistic freq into a number 'other code -  convertTime' 
+        self.statFreqMin = convertTime(timeWord = self.statFreq, timeStampInput = timeStamp)
 
-        # converting statistic freq into a number other code 
-        self.statFreqMin = convertTime(timeWord = self.statFreq, timeStamp = timeStampList)
+        # statFreq < timeStep
+        if(self.statFreqMin < self.timeStep):
+            # we have a problem 
+            raise Exception('timeStep too large for requested statistic')
+        
 
         if(self.statFreq == "hourly"): 
-
             # first thing to check is if this is the first in the series, time stamp must be less than 60 
             timeStampMin = self.timeStamp.minute
 
-            # statFreq < timeStep  
-            # this will only work if the one hour is wholly divisable by the timestep 
-            if(timeStampMin <= self.timeStep): # this indicates that it's the first data of the day otherwise timeStamp will be larger
+            # statFreq >= timeStep  
+            if(timeStampMin <= self.timeStep): # this indicates that it's the first data of the hour otherwise timeStamp will be larger
                 # initalise cumulative statistic array 
-                self._initalise(ds)
+                self._initalise(ds, timeStampMin)
 
-            # statFreq == timeStep # I THINK THIS IS WRONG? 
-            elif(self.statFreqMin == self.timeStep): # the case where timeStep matches statFreq 
+
+        if(self.statFreq == "3hourly"): 
+            # first thing to check is if this is the first in the series, time stamp must be less than 3*60 
+            timeStampMin = timeStamp.minute 
+            timeStampHour = timeStamp.hour # converting to minutes - 
+            if(np.mod(timeStampHour, 3) != 0): 
+                timeStampTot = timeStampMin + timeStampHour*60
+            else:
+                timeStampTot = timeStampMin
+
+            # statFreq >= timeStep  
+            # just less than otherwise timestep 00:00 and 01:00 would both initalise
+            if(timeStampTot < self.timeStep): 
                 # initalise cumulative statistic array 
-                self._initalise(ds)
+                self._initalise(ds, timeStampTot)
 
-            # statFreq < timeStep
-            elif( self.statFreqMin < self.timeStep):
-                # we have a problem 
-                print('timeStep too large for hourly statistic')
+        if(self.statFreq == "6hourly"): 
+            # first thing to check is if this is the first in the series, time stamp must be less than 6*60 
+            timeStampMin = timeStamp.minute 
+            timeStampHour = timeStamp.hour # converting to minutes - 
+            if(np.mod(timeStampHour, 6) != 0): 
+                timeStampTot = timeStampMin + timeStampHour*60
+            else:
+                timeStampTot = timeStampMin
+
+            # statFreq >= timeStep  
+            # just less than otherwise timestep 00:00 and 01:00 would both initalise
+            if(timeStampTot < self.timeStep): 
+                # initalise cumulative statistic array 
+                self._initalise(ds, timeStampTot)
+
 
         if(self.statFreq == "daily"):
-            #
             timeStampMin = timeStamp.minute 
             timeStampHour = timeStamp.hour*60 # converting to minutes - 
             timeStampTot = timeStampMin + timeStampHour 
 
-            # first check if the timeStep is less than an hour, in which case need to count the minutes 
-            if(self.timeStep < 60):
-                # this will only work if the one hour is wholly divisable by the timestep 
-                if(timeStampTot <= self.timeStep): # this indicates that it's the first, works when comparing float64 to int
-                    # initalise cumulative statistic array 
-                    self._initalise(ds)
-
-
-            elif(self.timeStep < self.statFreqMin): # time step is less than a day 
-                # NEED TO FIND A MORE ROBUST WAY OF DOING THIS
-                if(timeStampHour == 0): # this indicates that it's the first, works when comparing float64 to int,
-                    # initalise cumulative statistic array 
-                    self._initalise(ds)
-
-
-        elif(self.statFreq == "weekly"):
-            self.nData = int(self.statFreqMin/self.timeStep) # is there ever not 7 days in a week? 
-            # NOT FINISHED 
-                #self._initalise(ds) 
-
+            # this will only work if the one hour is wholly divisable by the timestep 
+            if(timeStampTot < self.timeStep): # this indicates that it's the first, works when comparing float64 to int
+                # initalise cumulative statistic array 
+                self._initalise(ds, timeStampTot)
 
         elif(self.statFreq == "monthly"): 
-            # NOT FINISHED 
-            # need to check the month of input before making calculation 
-            # this extracts the month of the date, need to check this works with different versions of numpy 
-            month = timeStampPandas[0].month
 
-            #if(test_first == "true"): # FIX 
-            #    self._initalise(ds)
+            timeStampMin = timeStamp.minute 
+            timeStampHour = timeStamp.hour*60 # converting to minutes - 
+            timeStampDay = (timeStamp.day-1)*24*60
+            timeStampTot = timeStampMin + timeStampHour + timeStampDay
 
+            # this will only work if the one hour is wholly divisable by the timestep 
+            if(timeStampTot < self.timeStep): # this indicates that it's the first, works when comparing float64 to int
+                # initalise cumulative statistic array 
+                self._initalise(ds, timeStampTot)
+            
+            else:
+                try:
+                    getattr(self, "nData")
+                except AttributeError:
+                    raise Exception('cannot start required statistic without the initial data')
 
     # reducing the variable space, if the input is in a dataset it will convert to a dataArray 
     def _checkVariable(self, ds): 
@@ -159,7 +187,7 @@ class opa: # individual clusters
         #    ds = ds.uas
         #elif(self.var == "vas"):
             #ds = ds.vas
-        ds = ds.variable # THIS DOESN'T WORK! 
+        #ds = ds.variable # THIS DOESN'T WORK! 
         #stat1.__getattribute__(b)
 
         return ds
@@ -233,25 +261,61 @@ class opa: # individual clusters
         if (self.count == self.nData):
             self.stdCum = np.sqrt(self.varCum)
 
-    #def _updateMin(self, dsNp):
-    #    #if(weight == 1):
-    #    self.minCum = where(dsNp < self.minCum, dsNp, self.minCum)
-    #    #else:
 
+    def _updateMin(self, dsNp, weight):
 
-    def _updateMin(self, dsNp):
+        # NEED TO INCLUDE TIMESTAMPS HERE 
+        if(weight > 1):
+
+            axNum = dsNp.get_axis_num('time')
+            dsNp = np.amin(dsNp, axis = axNum, keepdims = True)
+            
 
         if(self.count > 0):
             self.minCum['time'] = dsNp.time
-
-        dsNp.where(self.minCum < dsNp, self.minCum)
+            # this gives the new self.minCum number when the  condition is FALSE (location at which to preserve the objects values)
+            dsNp = dsNp.where(dsNp < self.minCum, self.minCum)
+        
         self.count += 1
         self.minCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
+        
         return 
 
 
-    def _updateMax(self, dsNp):
-        self.maxCum = where(dsNp > self.maxCum, dsNp, self.maxCum)
+    def _updateMax(self, dsNp,weight):
+        
+        if(weight > 1):
+            axNum = dsNp.get_axis_num('time')
+            dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
+
+        if(self.count > 0):
+            self.maxCum['time'] = dsNp.time
+            # this gives the new self.maxCum number when the  condition is FALSE (location at which to preserve the objects values)
+            dsNp = dsNp.where(dsNp > self.maxCum, self.maxCum)
+        
+        self.count += 1
+        self.maxCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
+        
+        return 
+
+
+    def _updateThreshold(self, dsNp, weight):
+        
+        #if(weight > 1):
+        #    axNum = dsNp.get_axis_num('time')
+        #    dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
+
+        if(self.count > 0):
+            self.threshExceedCum['time'] = dsNp.time
+
+        dsNp = dsNp.where(dsNp < self.threshold, self.threshExceedCum + 1)
+        dsNp = dsNp.where(dsNp >= self.threshold, self.threshExceedCum)
+
+        self.count += 1
+        self.threshExceedCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
+        
+        return 
+
 
     def _update(self, ds, weight=1):
         
@@ -265,29 +329,16 @@ class opa: # individual clusters
             self._updateStd(ds, weight)
 
         elif(self.statistic == "min"): 
-            
-            if (ds.chunks is None):
-                self.minCum = self._updateMin(self.minCum, ds)
-            else:
-                #tempMin = self.minCum
-                #tempDs = ds
-                #delayed_result = dask.delayed(self._updateMin)(tempMin, tempDs)
-                # to create a dask array to use in the future
-                #daskMin = da.from_delayed(delayed_result, dtype=tempMin.dtype, shape=tempMin.shape)
-                #self.minCum = daskMin.compute()
-                self._updateMin(ds)
-                #self.minCum = updateMin
-
-
-
-
-
-        #
-        #elif(self.statistic == "percentile"):
-        # run tdigest
+            self._updateMin(ds, weight)
 
         elif(self.statistic == "max"): 
-            self._updateMax(ds)
+            self._updateMax(ds, weight)
+
+        elif(self.statistic == "threshExceed"): 
+            self._updateThreshold(ds, weight)
+
+        #elif(self.statistic == "percentile"):
+        # run tdigest
 
 
     def _createDataSet(self, finalStat, finalTimeStamp, ds, attrs):
@@ -325,7 +376,11 @@ class opa: # individual clusters
             finalStat = self.minCum.data
 
         elif(self.statistic == "max"): 
-            finalStat = self.maxCum
+            finalStat = self.maxCum # do you NEED .DATA? 
+
+
+        elif(self.statistic == "threshExceed"): 
+            finalStat = self.threshExceedCum.data
 
         if (self.statFreq == "hourly"):
             finalTimeStamp = self.timeStamp
@@ -334,6 +389,10 @@ class opa: # individual clusters
         elif (self.statFreq == "daily"): 
             finalTimeStamp = self.timeStamp.date()
             timeStampString = self.timeStamp.strftime("%Y_%m_%d")
+
+        elif (self.statFreq == "monthly"): 
+            finalTimeStamp = self.timeStamp.date()
+            timeStampString = self.timeStamp.strftime("%Y_%m")
 
         ds.attrs["OPA"] = str(self.statFreq + "_" + self.statistic + "_" + "calculated using one-pass algorithm")
         attrs = ds.attrs
@@ -403,6 +462,7 @@ class opa: # individual clusters
         if (hasattr(self, 'variable')): # if there are multiple variables in the file 
             # needs to convert from dataSet to a dataArray 
             ds = self._checkVariable(ds)
+            
 
         #try:
         #    getattr(self, "var")
@@ -471,3 +531,16 @@ class opa: # individual clusters
             # 1. do you want multiple variables per statistic? easier if not  
             # 2. where do you set the threshold? config file? as input into the function or the initalisation function?
         
+            #if (ds.chunks is None):
+             #   self.minCum = self._updateMin(self.minCum, ds)
+            #else:
+                #tempMin = self.minCum
+                #tempDs = ds
+                #delayed_result = dask.delayed(self._updateMin)(tempMin, tempDs)
+                # to create a dask array to use in the future
+                #daskMin = da.from_delayed(delayed_result, dtype=tempMin.dtype, shape=tempMin.shape)
+                #self.minCum = daskMin.compute()
+                #self.minCum = updateMin
+
+        #self.timeStep = (self.timeStep.astype('timedelta64[m]') / np.timedelta64(1, 'm')) # converting timeStep into minutes, float 64
+
