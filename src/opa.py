@@ -282,8 +282,6 @@ class opa: # individual clusters
         if(self.count > 0):
             self.minCum['time'] = dsNp.time
             self.timings['time'] = dsNp.time
-            #self.timings = self.timings.where(dsNp > self.minCum, timestamp) # replace if false 
-
             dsTime = dsTime.where(dsNp < self.minCum, self.timings)
             # this gives the new self.minCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp < self.minCum, self.minCum)
@@ -301,13 +299,20 @@ class opa: # individual clusters
             axNum = dsNp.get_axis_num('time')
             dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
 
+        timestamp = pd.to_datetime(dsNp.time.values[0]) # this will be a individual value (one time point)
+        dsTime = xr.zeros_like(dsNp)
+        dsTime = dsTime.where(dsTime != 0, timestamp)
+
         if(self.count > 0):
             self.maxCum['time'] = dsNp.time
+            self.timings['time'] = dsNp.time
+            dsTime = dsTime.where(dsNp > self.maxCum, self.timings)
             # this gives the new self.maxCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp > self.maxCum, self.maxCum)
         
         self.count += 1
         self.maxCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
+        self.timings = dsTime
         
         return 
 
@@ -359,8 +364,8 @@ class opa: # individual clusters
         # converting the mean into a new dataArray 
         dm = xr.Dataset(
         data_vars = dict(
-            stat = (["time","lat","lon"], finalStat),    # need to add variable attributes                         
-        ),
+                [(ds.name, (["time","lat","lon"], finalStat))],    # need to add variable attributes 
+            ),
         coords = dict(
             #time = (["time"], [pd.to_datetime(finalTimeStamp)]),
             time = (["time"], [finalTimeStamp]),
@@ -369,7 +374,27 @@ class opa: # individual clusters
         ),
         attrs = attrs
         )
+
+        if(hasattr(self, 'timings')):
+            dm = dm.assign(timings = (["time","lat","lon"], self.timings.data))
+
         return dm 
+
+
+    def _saveOutput(self, dm, ds, timeStampString):
+
+        if (hasattr(self, 'var')): # if there are multiple variables in the file 
+            # needs to convert from dataSet to a dataArray 
+            fileName = self.filePathSave + timeStampString + "_" + self.var + "_" + self.statFreq + "_" + self.statistic + ".nc" 
+        else: 
+            fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq + "_" + self.statistic + ".nc"
+        # + self.cfVarName 
+
+        #fileName = self.filePathSave + "_" + self.statFreq + str(finalTimeStamp) + "_STATISTIC.nc" 
+        dm.to_netcdf(path = fileName, mode ='w') # will re-write the file if it is already there
+        dm.close() 
+        print('finished saving')
+
 
 
     def _dataOutput(self, ds):
@@ -390,97 +415,79 @@ class opa: # individual clusters
             finalStat = self.minCum.data
 
         elif(self.statistic == "max"): 
-            finalStat = self.maxCum # do you NEED .DATA? 
-
+            finalStat = self.maxCum.data # do you NEED .DATA? 
 
         elif(self.statistic == "threshExceed"): 
             finalStat = self.threshExceedCum.data
 
+
         if (self.statFreq == "hourly"):
-            finalTimeStamp = self.timeStamp
+            finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[h]')
             timeStampString = self.timeStamp.strftime("%Y_%m_%d_%H") 
 
         elif (self.statFreq == "daily"): 
-            finalTimeStamp = self.timeStamp.date()
+            #finalTimeStamp = self.timeStamp.date()
+            finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[D]')
+            timeStampString = self.timeStamp.strftime("%Y_%m_%d")
+
+        elif (self.statFreq == "weekly"): 
+            finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[W]')
             timeStampString = self.timeStamp.strftime("%Y_%m_%d")
 
         elif (self.statFreq == "monthly"): 
-            
-            # this still doesn't work, doesn't seem possible to get an np.datetime as just month year 
-            strDate = self.timeStamp.strftime('%Y-%m')
-            finalTimeStamp = np.datetime64(strDate)
-
+            finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[M]')
             timeStampString = self.timeStamp.strftime("%Y_%m")
 
         elif (self.statFreq == "annual"): 
-            
-            finalTimeStamp = np.datetime64(self.timeStamp.year - 1970, 'Y')
-            timeStampString = self.timeStamp.strftime("%Y_%m")
+            finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[Y]')
+            timeStampString = self.timeStamp.strftime("%Y")
 
-        ds.attrs["OPA"] = str(self.statFreq + "_" + self.statistic + "_" + "calculated using one-pass algorithm")
+        ds.attrs["OPA"] = str(self.statFreq + " " + self.statistic + " " + "calculated using one-pass algorithm")
         attrs = ds.attrs
 
         dm = self._createDataSet(finalStat, finalTimeStamp, ds, attrs)
 
-        return dm, timeStampString
+            
+        return dm, timeStampString, finalTimeStamp
 
 
 
-    def _dataOutputAppend(self, ds, timeAppend):
+    def _dataOutputAppend(self, dm, ds, timeAppend):
 
-        if (self.countAppend > 0):
-            self.dmOutput = np.append(self.dmOutput, ds) # appending new time 
-        else: 
-            self.finalTimeStamp =[] # this needs to be self.
-
-        if (self.statFreq == "hourly"):
-            self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp)
-            timeStampString = self.finalTimeStamp[0].strftime("%Y_%m_%d_%H") + "_to_" + self.finalTimeStamp[-1].strftime("%Y_%m_%d_%H")
-
-        elif (self.statFreq == "daily"): 
-            self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.date()) # keeping as Pandas to keep date
-            timeStampString = self.timeStamp[0].strftime("%Y_%m_%d") + "_to_" + self.timeStamp[-1].strftime("%Y_%m_%d")
-
+        self.dmOutput = xr.concat([self.dmOutput, dm], "time")
         self.countAppend += 1 # updating count 
 
-        # do you have the full amount ready to save 
-        ds.attrs["OPA"] = str(self.statFreq + "_" + self.statistic + "_" + "calculated using one-pass algorithm")
-        attrs = ds.attrs
-        dm = self._createDataSet(self.dmOutput, self.finalTimeStamp, ds, attrs)
-            
         if(self.countAppend == timeAppend):
+
+            if (self.outputFreq == "hourly"):
+                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[h]'))
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d_%H")
+
+            elif (self.outputFreq == "daily"): 
+                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[D]')) 
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d")
+
+            elif (self.outputFreq == "weekly"): 
+                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[W]'))
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d")
+
+            
+            elif (self.outputFreq == "monthly"): 
+                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[M]')) 
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m")
+
+            elif (self.outputFreq == "annually"): 
+                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[Y]')) 
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y")
+
             if(self.save == True):
-                self._saveOutput(dm, timeStampString)
+                self._saveOutput(self.dmOutput, ds, self.timeStampString)
 
-
-
-
-
-    def _saveOutput(self, dm, timeStampString):
-
-        if (hasattr(self, 'var')): # if there are multiple variables in the file 
-            # needs to convert from dataSet to a dataArray 
-            fileName = self.filePathSave + timeStampString + "_" + self.var + "_" + self.statFreq + "_STAT.nc" 
-        else: 
-            fileName = self.filePathSave + timeStampString + "_" + dm.cfVarName + "_" + self.statFreq  + "_STAT.nc" 
-        # + self.cfVarName 
-
-        #fileName = self.filePathSave + "_" + self.statFreq + str(finalTimeStamp) + "_STATISTIC.nc" 
-        dm.to_netcdf(path = fileName, mode ='w') # will re-write the file if it is already there
-        dm.close() 
-        print('finished saving')
-
-
-
+        return self.dmOutput
 
 ###### the framework function is going to be the same for all alogirthms with a variable input depending on required statistic 
 
     def compute(self, ds):
-
-        # STEPS 
-        # 1. check time stamp of data and initalise the statistic (creating nData, empty grid and count)
-        # 2. check format of the data is DataArray (reduce variables?)
-        # 4. write algorithm 
 
         # check the time stamp and if the data needs to be reset 
         self._checkTimeStamp(ds)
@@ -515,44 +522,48 @@ class opa: # individual clusters
 
         # when the statistic is full
         if (self.count == self.nData):
+
         # how to output the data as a dataSet 
-            dm, timeStampString = self._dataOutput(ds)
+            dm, timeStampString, finalTimeStamp = self._dataOutput(ds)
             
-            #if(self.outputFreq)
-            # converting output freq into a number
-            outputFreqMin = convertTime(timeWord = self.outputFreq, timeStampInput = self.timeStamp)
-
-            if(self.save == True): # only save if requested 
-
-                if(outputFreqMin < self.statFreqMin): 
-                    print('Saving frequency can not be less than frequency of statistic!')
-                    
-                elif(outputFreqMin == self.statFreqMin):                     
-                    self._saveOutput(dm, timeStampString)
-
-                elif(outputFreqMin > self.statFreqMin): 
-                    
-                    # eg. how many days requested 7 days of saving with daily data
-                    timeAppend = outputFreqMin / self.statFreqMin # how many do you need to append 
-
-                    if hasattr(self, 'countAppend'):
-
-                        # append data array with new time outputs 
-                        self._dataOutputAppend(ds, timeAppend)
-                        
-                    else: 
-                        self.countAppend = 0
-                        self.dmOutput = ds
-                        self.finalTimeStamp = self.timeStamp
-                        #self._dataOutputAppend(ds, timeAppend)
-
-
+            # if there's more to compute? 
             if (howMuchLeft < weight):
                 # need to run the function again 
                 ds = ds.isel(time=slice(howMuchLeft, weight))
                 opa.compute(self, ds) # calling recursive function 
+            
+            # converting output freq into a number
+            outputFreqMin = convertTime(timeWord = self.outputFreq, timeStampInput = self.timeStamp)
+            # eg. how many days requested 7 days of saving with daily data
+            timeAppend = outputFreqMin / self.statFreqMin # how many do you need to append 
+            self.timeAppend = timeAppend
+            #if(self.save == True): # only save if requested 
 
-            return dm 
+            if(timeAppend < 1): #outputFreqMin < self.statFreqMin
+                print('Output frequency can not be less than frequency of statistic!')
+                
+            elif(timeAppend == 1): #outputFreqMin == self.statFreqMin
+                if(self.save == True):
+                    self._saveOutput(dm, ds, timeStampString)
+                return dm 
+            
+            elif(timeAppend > 1): #outputFreqMin > self.statFreqMin
+                
+                if (hasattr(self, 'countAppend') == False or self.countAppend == 0):
+                    self.countAppend = 1
+                    self.dmOutput = dm # storing the dataSet ready for appending 
+                    self.finalTimeStamp = finalTimeStamp 
+                    self.timeStampString = timeStampString 
+                else:
+                    # append data array with new time outputs 
+                    dm = self._dataOutputAppend(dm, ds, timeAppend)
+                   
+
+            if(self.countAppend == timeAppend):
+                self.countAppend = 0
+                delattr(self, "finalTimeStamp")
+                delattr(self, "timeStampString")
+                return dm
 
 
             # GENERAL QUESTIONS: 
@@ -572,3 +583,10 @@ class opa: # individual clusters
 
         #self.timeStep = (self.timeStep.astype('timedelta64[m]') / np.timedelta64(1, 'm')) # converting timeStep into minutes, float 64
 
+        # if (self.statFreq == "hourly"):
+        #     self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp)
+        #     timeStampString = self.finalTimeStamp[0].strftime("%Y_%m_%d_%H") + "_to_" + self.finalTimeStamp[-1].strftime("%Y_%m_%d_%H")
+
+        # elif (self.statFreq == "daily"): 
+        #     self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.date()) # keeping as Pandas to keep date
+        #     timeStampString = self.timeStamp[0].strftime("%Y_%m_%d") + "_to_" + self.timeStamp[-1].strftime("%Y_%m_%d")
