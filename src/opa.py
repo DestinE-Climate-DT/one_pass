@@ -270,15 +270,19 @@ class opa: # individual clusters
 
     def _updateMin(self, dsNp, weight):
 
+        # creating array of timestamps that corresponds to the min value 
+        timestamp = np.datetime_as_string((dsNp.time.values[0]))
+        dsTime = xr.zeros_like(dsNp)
+        dsTime = dsTime.where(dsTime != 0, timestamp)
+        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
+
         # NEED TO INCLUDE TIMESTAMPS HERE 
         if(weight > 1):
             axNum = dsNp.get_axis_num('time')
             dsNp = np.amin(dsNp, axis = axNum, keepdims = True)
+            minIndex = np.argmin(dsNp, axis = axNum, keepdims = True)
+            
               
-        timestamp = pd.to_datetime(dsNp.time.values[0]) # this will be a individual value (one time point)
-        dsTime = xr.zeros_like(dsNp)
-        dsTime = dsTime.where(dsTime != 0, timestamp)
-
         if(self.count > 0):
             self.minCum['time'] = dsNp.time
             self.timings['time'] = dsNp.time
@@ -295,13 +299,15 @@ class opa: # individual clusters
 
     def _updateMax(self, dsNp,weight):
         
+        timestamp = np.datetime_as_string(dsNp.time.values[0]) # this will be a individual value (one time point)
+        dsTime = xr.zeros_like(dsNp)
+        dsTime = dsTime.where(dsTime != 0, timestamp)
+        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
+
+
         if(weight > 1):
             axNum = dsNp.get_axis_num('time')
             dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
-
-        timestamp = pd.to_datetime(dsNp.time.values[0]) # this will be a individual value (one time point)
-        dsTime = xr.zeros_like(dsNp)
-        dsTime = dsTime.where(dsTime != 0, timestamp)
 
         if(self.count > 0):
             self.maxCum['time'] = dsNp.time
@@ -447,7 +453,6 @@ class opa: # individual clusters
 
         dm = self._createDataSet(finalStat, finalTimeStamp, ds, attrs)
 
-            
         return dm, timeStampString, finalTimeStamp
 
 
@@ -590,3 +595,8 @@ class opa: # individual clusters
         # elif (self.statFreq == "daily"): 
         #     self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.date()) # keeping as Pandas to keep date
         #     timeStampString = self.timeStamp[0].strftime("%Y_%m_%d") + "_to_" + self.timeStamp[-1].strftime("%Y_%m_%d")
+
+
+
+        #timestamp = self.timeStamp.strftime("%Y_%m_%d") # THIS WORKS BUT IT'S NOT HAPPY 
+        #timestamp = dsNp.time.values[0].astype('datetime64[h]') # THIS WORKS BUT ALSO NOT HAPPY 
