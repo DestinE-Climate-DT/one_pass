@@ -270,27 +270,35 @@ class opa: # individual clusters
 
     def _updateMin(self, dsNp, weight):
 
-        # creating array of timestamps that corresponds to the min value 
-        timestamp = np.datetime_as_string((dsNp.time.values[0]))
-        dsTime = xr.zeros_like(dsNp)
-        dsTime = dsTime.where(dsTime != 0, timestamp)
-        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
 
-        # NEED TO INCLUDE TIMESTAMPS HERE 
-        if(weight > 1):
+        # creating array of timestamps that corresponds to the min value 
+        if(weight == 1):
+            timestamp = np.datetime_as_string((dsNp.time.values[0]))
+            dsTime = xr.zeros_like(dsNp)
+            dsTime = dsTime.where(dsTime != 0, timestamp)
+
+        else:
             axNum = dsNp.get_axis_num('time')
+            timings = dsNp.time
+            minIndex = dsNp.argmin(axis = axNum, keep_attrs = False)
+            self.minIndex = minIndex 
             dsNp = np.amin(dsNp, axis = axNum, keepdims = True)
-            minIndex = np.argmin(dsNp, axis = axNum, keepdims = True)
-            
-              
+            dsTime = xr.zeros_like(dsNp) # now this will have dimensions 1,lat,lon
+
+            for i in range(0, weight):
+                dsTime = dsTime.where(minIndex != i, timestamp)  
+
         if(self.count > 0):
             self.minCum['time'] = dsNp.time
             self.timings['time'] = dsNp.time
             dsTime = dsTime.where(dsNp < self.minCum, self.timings)
             # this gives the new self.minCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp < self.minCum, self.minCum)
-            
-        self.count += 1
+
+        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
+        
+        #self.dsNp = dsNp
+        self.count += weight
         self.minCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
         self.timings = dsTime
 
@@ -316,7 +324,7 @@ class opa: # individual clusters
             # this gives the new self.maxCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp > self.maxCum, self.maxCum)
         
-        self.count += 1
+        self.count += weight
         self.maxCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
         self.timings = dsTime
         
@@ -523,6 +531,7 @@ class opa: # individual clusters
             # update rolling statistic with weight of the last few days 
             self._update(dsLeft, howMuchLeft)
             # still need to finish the statistic (see below)
+
 
 
         # when the statistic is full
