@@ -174,6 +174,26 @@ class opa: # individual clusters
             timeStampMin = timeStamp.minute 
             timeStampHour = timeStamp.hour*60 # converting to minutes - 
             timeStampDay = (timeStamp.day-1)*24*60
+            timeStampMonth = timeStamp.month * timeStamp.days_in_month
+            timeStampTot = timeStampMin + timeStampHour + timeStampDay + timeStampMonth
+
+            # this will only work if the one hour is wholly divisable by the timestep 
+            if(timeStampTot < self.timeStep): # this indicates that it's the first, works when comparing float64 to int
+                # initalise cumulative statistic array 
+                self._initalise(ds, timeStampTot)
+            
+            else:
+                try:
+                    getattr(self, "nData")
+                except AttributeError:
+                    raise Exception('cannot start required statistic without the initial data')
+
+
+        elif(self.statFreq == "annually"): 
+
+            timeStampMin = timeStamp.minute 
+            timeStampHour = timeStamp.hour*60 # converting to minutes - 
+            timeStampDay = (timeStamp.day-1)*24*60
             timeStampTot = timeStampMin + timeStampHour + timeStampDay
 
             # this will only work if the one hour is wholly divisable by the timestep 
@@ -187,9 +207,7 @@ class opa: # individual clusters
                 except AttributeError:
                     raise Exception('cannot start required statistic without the initial data')
 
-    # reducing the variable space, if the input is in a dataset it will convert to a dataArray 
-    
-    
+
     def _checkVariable(self, ds): 
 
         try:
@@ -206,22 +224,22 @@ class opa: # individual clusters
 
 
     def _checkNumTimeStamps(self, ds):
-        # checking to see how many time stamps are actually in the file, it's possible that the FDB interface will have mutliple messages 
+        # checking to see how many time stamps are actually in the file, it's possible that the GSV interface will have mutliple messages 
         timeStampList = sorted(ds.time.data) # this method could be very different for a GRIB file, need to understand time stamps 
         timeNum = np.size(timeStampList)
-        #self.timeNum = timeNum
         
         return timeNum
 
 
     def _twoPassMean(self, ds): # computes normal mean using two pass 
         temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
-        
         #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
+        
         return temp
 
     def _twoPassVar(self, ds): # computes sample (ddof = 1) varience using two pass 
         temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
+        
         return temp
 
     
@@ -266,8 +284,6 @@ class opa: # individual clusters
         self._updateVar(dsNp, weight)
         if (self.count == self.nData):
             self.stdCum = np.sqrt(self.varCum)
-
-
 
 
     def _updateMin(self, dsNp, weight):
@@ -415,13 +431,9 @@ class opa: # individual clusters
     def _saveOutput(self, dm, ds, timeStampString):
 
         if (hasattr(self, 'var')): # if there are multiple variables in the file 
-            # needs to convert from dataSet to a dataArray 
             fileName = self.filePathSave + timeStampString + "_" + self.var + "_" + self.statFreq + "_" + self.statistic + ".nc" 
         else: 
-            self.poo = 5
             fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq  + "_" + self.statistic + ".nc"
-            #fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq + "_" + self.statistic + ".nc"
-        # 
 
         dm.to_netcdf(path = fileName, mode ='w') # will re-write the file if it is already there
         dm.close() 
@@ -432,7 +444,7 @@ class opa: # individual clusters
     def _dataOutput(self, ds):
 
         if (self.statistic == "mean"):
-            finalStat = self.meanCum # sometimes called with weights and sometimes not 
+            finalStat = self.meanCum 
 
         elif(self.statistic == "var"): 
             finalStat = self.varCum
@@ -444,7 +456,7 @@ class opa: # individual clusters
             finalStat = self.minCum.data
 
         elif(self.statistic == "max"): 
-            finalStat = self.maxCum.data # do you NEED .DATA? 
+            finalStat = self.maxCum.data
 
         elif(self.statistic == "threshExceed"): 
             finalStat = self.threshExceedCum.data
@@ -511,35 +523,29 @@ class opa: # individual clusters
 
         return self.dmOutput
 
-###### the framework function is going to be the same for all alogirthms with a variable input depending on required statistic 
 
     def compute(self, ds):
 
-        # check the time stamp and if the data needs to be reset 
-        self._checkTimeStamp(ds)
+        self._checkTimeStamp(ds) # check the time stamp and if the data needs to be reset 
 
         ds = self._checkVariable(ds) # convert from a dataSet to a dataArray if required
         
-        weight = self._checkNumTimeStamps(ds) # this checks if there are multiple time stamps in a file and will do np.mean
+        weight = self._checkNumTimeStamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
         howMuchLeft = (self.nData - self.count) # how much is let of your statistic to fill 
 
-        # will not span over new statistic 
-        if (weight == 1 or howMuchLeft >= weight):
-            # update rolling statistic with weight 
-            self._update(ds, weight) 
+        if (weight == 1 or howMuchLeft >= weight): # will not span over new statistic 
 
-        # will this span over a new statistic?
-        elif(howMuchLeft < weight): 
-            # extracting time until the end of the statistic 
-            dsLeft = ds.isel(time=slice(0,howMuchLeft))
+            self._update(ds, weight)  # update rolling statistic with weight 
+
+        elif(howMuchLeft < weight): # will this span over a new statistic?
+
+            dsLeft = ds.isel(time=slice(0,howMuchLeft)) # extracting time until the end of the statistic 
+            
             # update rolling statistic with weight of the last few days 
             self._update(dsLeft, howMuchLeft)
             # still need to finish the statistic (see below)
 
-
-
-        # when the statistic is full
-        if (self.count == self.nData):
+        if (self.count == self.nData):  # when the statistic is full
 
         # how to output the data as a dataSet 
             dm, timeStampString, finalTimeStamp = self._dataOutput(ds)
@@ -582,34 +588,3 @@ class opa: # individual clusters
                 delattr(self, "finalTimeStamp")
                 delattr(self, "timeStampString")
                 return dm
-
-
-            # GENERAL QUESTIONS: 
-            # 1. do you want multiple variables per statistic? easier if not  
-            # 2. where do you set the threshold? config file? as input into the function or the initalisation function?
-        
-            #if (ds.chunks is None):
-             #   self.minCum = self._updateMin(self.minCum, ds)
-            #else:
-                #tempMin = self.minCum
-                #tempDs = ds
-                #delayed_result = dask.delayed(self._updateMin)(tempMin, tempDs)
-                # to create a dask array to use in the future
-                #daskMin = da.from_delayed(delayed_result, dtype=tempMin.dtype, shape=tempMin.shape)
-                #self.minCum = daskMin.compute()
-                #self.minCum = updateMin
-
-        #self.timeStep = (self.timeStep.astype('timedelta64[m]') / np.timedelta64(1, 'm')) # converting timeStep into minutes, float 64
-
-        # if (self.statFreq == "hourly"):
-        #     self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp)
-        #     timeStampString = self.finalTimeStamp[0].strftime("%Y_%m_%d_%H") + "_to_" + self.finalTimeStamp[-1].strftime("%Y_%m_%d_%H")
-
-        # elif (self.statFreq == "daily"): 
-        #     self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.date()) # keeping as Pandas to keep date
-        #     timeStampString = self.timeStamp[0].strftime("%Y_%m_%d") + "_to_" + self.timeStamp[-1].strftime("%Y_%m_%d")
-
-
-
-        #timestamp = self.timeStamp.strftime("%Y_%m_%d") # THIS WORKS BUT IT'S NOT HAPPY 
-        #timestamp = dsNp.time.values[0].astype('datetime64[h]') # THIS WORKS BUT ALSO NOT HAPPY 
