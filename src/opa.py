@@ -1,4 +1,3 @@
-# module imports happen inside here
 import numpy as np
 from numpy import where
 import xarray as xr 
@@ -11,12 +10,8 @@ import dask
 import dask.array as da
 import os
 import importlib
-#imported_module = importlib.import_module("convertTime")
-#importlib.reload(imported_module)
 from convertTime import convertTime
-os.chdir('/home/b/b382291/regridder/AQUA')
-from aqua.util import load_yaml
-
+from util import load_yaml
 
 class opa: # individual clusters 
 
