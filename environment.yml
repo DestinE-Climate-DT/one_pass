@@ -1,22 +1,26 @@
-name: onepass
+name: aqua
 channels:
   - conda-forge
 dependencies:
-  - python=3.9
-  - pyYAML
-  - xarray
-  - pandas
-    #- intake
-    #- dask
-    #- sparse
-  - numpy==1.23.5
-    #- jinja2
-    #- tqdm
-    #- udunits2
-    #- zarr
+  - metpy
+  - pyyaml
+  - zarr
+  - udunits2
+  - python[version='>=3.9,<3.11']
+  - dask
   - netcdf4
-    #- intake-xarray
-    #- ecCodes      
-    #- matplotlib
-    #- cartopy
-    #- healpy
+  - eccodes
+  - matplotlib
+  - cdo
+  - numpy
+  - pip
+  - intake
+  - jinja2
+  - ipykernel
+  - cfunits
+  - tqdm
+  - xarray
+  - intake-xarray
+  - healpy
+  - cartopy
+prefix: /home/b/b382291/.conda/envs/aqua

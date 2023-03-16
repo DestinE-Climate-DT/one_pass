@@ -11,33 +11,36 @@ import dask
 import dask.array as da
 import os
 import importlib
-imported_module = importlib.import_module("convertTime")
-importlib.reload(imported_module)
+#imported_module = importlib.import_module("convertTime")
+#importlib.reload(imported_module)
 from convertTime import convertTime
 os.chdir('/home/b/b382291/regridder/AQUA')
 from aqua.util import load_yaml
-
-
 
 
 class opa: # individual clusters 
 
     # initalising the function from the ymal config file 
     def __init__(self, statistic = "mean", statFreq = "daily", outputFreq = "daily",
-                save = "false", saveFreq = None, variable = None, threshold = None): # should this be **kwargs?  
+                save = "false", variable = None, threshold = None, configPath =  None): # should this be **kwargs?  
 
+        #saveFreq = None,
         self.statistic = statistic 
         self.statFreq = statFreq
         self.outputFreq = outputFreq
         self.save = save
-        self.saveFreq = saveFreq
+        self.configPath = configPath
+
+        #self.saveFreq = saveFreq
         self.threshold = threshold # this will only be set for looking at threshold exceedence 
+
+        if(self.statistic == "threshExceed" and threshold == None):
+            raise Exception('need to provide threshold of exceedance value')
 
         if (variable != None):
             self.variable = variable 
 
-        filePath = "/home/b/b382291/git/one_pass/config.yml"
-        config = load_yaml(filePath)
+        config = load_yaml(self.configPath)
 
         self.timeStep = config["timeStep"] # this is int value in minutes 
         self.filePathSave = config["filePathSave"]
@@ -185,13 +188,19 @@ class opa: # individual clusters
                     raise Exception('cannot start required statistic without the initial data')
 
     # reducing the variable space, if the input is in a dataset it will convert to a dataArray 
+    
+    
     def _checkVariable(self, ds): 
-        #elif(self.var == "uas"):
-        #    ds = ds.uas
-        #elif(self.var == "vas"):
-            #ds = ds.vas
-        #ds = ds.variable # THIS DOESN'T WORK! 
-        #stat1.__getattribute__(b)
+
+        try:
+            getattr(ds, "data_vars") # this means it a dataSet
+            self.dataSetAttr = ds.attrs #keeping the attributes of the full dataSet to append to the final dataSet      
+            try:
+                ds = getattr(ds, self.variable)
+            except AttributeError:
+                raise Exception('If passing dataSet need to provide variable, opa can only use one variable at the moment')
+        except AttributeError:
+            pass # data already at dataArray 
 
         return ds
 
@@ -208,20 +217,13 @@ class opa: # individual clusters
     def _twoPassMean(self, ds): # computes normal mean using two pass 
         temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
         
-        #axNum = ds.get_axis_num('time')
         #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
-        #self.tempMean = tempMean
         return temp
 
     def _twoPassVar(self, ds): # computes sample (ddof = 1) varience using two pass 
         temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
         return temp
 
-
-    #def _convertNumpy(self, ds):
-    #    dsNp = np.squeeze(ds) # if there are multiple heights in the same file, this will remove redundant 1 dimensions and .data extracts numpy array
-    #    #self.dsNp = dsNp
-    #    return dsNp
     
     # actual mean function
     def _updateMean(self, dsNp, weight):# where x is the new value and weight is the new weight 
@@ -269,8 +271,6 @@ class opa: # individual clusters
 
 
     def _updateMin(self, dsNp, weight):
-
-
         # creating array of timestamps that corresponds to the min value 
         if(weight == 1):
             timestamp = np.datetime_as_string((dsNp.time.values[0]))
@@ -281,11 +281,14 @@ class opa: # individual clusters
             axNum = dsNp.get_axis_num('time')
             timings = dsNp.time
             minIndex = dsNp.argmin(axis = axNum, keep_attrs = False)
-            self.minIndex = minIndex 
+            #self.minIndex = minIndex 
             dsNp = np.amin(dsNp, axis = axNum, keepdims = True)
             dsTime = xr.zeros_like(dsNp) # now this will have dimensions 1,lat,lon
 
             for i in range(0, weight):
+                #self.i = i
+                #self.timestamp = dsNp.time.values[i]
+                timestamp = np.datetime_as_string((timings.values[i]))
                 dsTime = dsTime.where(minIndex != i, timestamp)  
 
         if(self.count > 0):
@@ -295,7 +298,7 @@ class opa: # individual clusters
             # this gives the new self.minCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp < self.minCum, self.minCum)
 
-        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
+        dsTime = dsTime.astype('datetime64[ns]') # convert to datetime64 for saving 
         
         #self.dsNp = dsNp
         self.count += weight
@@ -307,22 +310,30 @@ class opa: # individual clusters
 
     def _updateMax(self, dsNp,weight):
         
-        timestamp = np.datetime_as_string(dsNp.time.values[0]) # this will be a individual value (one time point)
-        dsTime = xr.zeros_like(dsNp)
-        dsTime = dsTime.where(dsTime != 0, timestamp)
-        dsTime = dsTime.astype('datetime64') # convert to datetime64 for saving 
-
-
-        if(weight > 1):
+        if(weight == 1):
+            timestamp = np.datetime_as_string((dsNp.time.values[0]))
+            dsTime = xr.zeros_like(dsNp)
+            dsTime = dsTime.where(dsTime != 0, timestamp)
+        else:
             axNum = dsNp.get_axis_num('time')
+            timings = dsNp.time
+            maxIndex = dsNp.argmax(axis = axNum, keep_attrs = False)
+            self.maxIndex = maxIndex 
             dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
+            dsTime = xr.zeros_like(dsNp) # now this will have dimensions 1,lat,lon
 
+            for i in range(0, weight):
+                timestamp = np.datetime_as_string((timings.values[i]))
+                dsTime = dsTime.where(maxIndex != i, timestamp)  
+        
         if(self.count > 0):
             self.maxCum['time'] = dsNp.time
             self.timings['time'] = dsNp.time
             dsTime = dsTime.where(dsNp > self.maxCum, self.timings)
             # this gives the new self.maxCum number when the  condition is FALSE (location at which to preserve the objects values)
             dsNp = dsNp.where(dsNp > self.maxCum, self.maxCum)
+
+        dsTime = dsTime.astype('datetime64[ns]') # convert to datetime64 for saving 
         
         self.count += weight
         self.maxCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
@@ -333,17 +344,22 @@ class opa: # individual clusters
 
     def _updateThreshold(self, dsNp, weight):
         
-        #if(weight > 1):
-        #    axNum = dsNp.get_axis_num('time')
-        #    dsNp = np.amax(dsNp, axis = axNum, keepdims = True)
+        if(weight > 1):
+            
+            dsNp = dsNp.where(dsNp < self.threshold, 1)
+            dsNp = dsNp.where(dsNp >= self.threshold, 0)
+            #dsNp = dsNp.sum(dim = "time")
+            dsNp = np.sum(dsNp, axis = 0, keepdims = True) #try slower np version that preserves dimensions 
+            dsNp = self.threshExceedCum + dsNp
 
-        if(self.count > 0):
-            self.threshExceedCum['time'] = dsNp.time
+        else:
+            if(self.count > 0):
+                self.threshExceedCum['time'] = dsNp.time
 
-        dsNp = dsNp.where(dsNp < self.threshold, self.threshExceedCum + 1)
-        dsNp = dsNp.where(dsNp >= self.threshold, self.threshExceedCum)
+            dsNp = dsNp.where(dsNp < self.threshold, self.threshExceedCum + 1)
+            dsNp = dsNp.where(dsNp >= self.threshold, self.threshExceedCum)
 
-        self.count += 1
+        self.count += weight
         self.threshExceedCum = dsNp #running this way around as Array type does not have the function .where, this only works for dataArray
         
         return 
@@ -373,24 +389,25 @@ class opa: # individual clusters
         # run tdigest
 
 
-    def _createDataSet(self, finalStat, finalTimeStamp, ds, attrs):
+    def _createDataSet(self, finalStat, finalTimeStamp, ds):
 
         # converting the mean into a new dataArray 
         dm = xr.Dataset(
         data_vars = dict(
-                [(ds.name, (["time","lat","lon"], finalStat))],    # need to add variable attributes 
+                [(ds.name, (["time","lat","lon"], finalStat, ds.attrs))],    # need to add variable attributes 
             ),
         coords = dict(
             #time = (["time"], [pd.to_datetime(finalTimeStamp)]),
-            time = (["time"], [finalTimeStamp]),
-            lon = (["lon"], ds.lon.data),
-            lat = (["lat"], ds.lat.data),
+            time = (["time"], [finalTimeStamp], ds.time.attrs),
+            lon = (["lon"], ds.lon.data, ds.lon.attrs),
+            lat = (["lat"], ds.lat.data, ds.lat.attrs),
         ),
-        attrs = attrs
+        attrs = self.dataSetAttr
         )
 
         if(hasattr(self, 'timings')):
-            dm = dm.assign(timings = (["time","lat","lon"], self.timings.data))
+            timingAttrs = {'OPA':'time stamp of ' + str(self.statFreq + " " + self.statistic)}
+            dm = dm.assign(timings = (["time","lat","lon"], self.timings.data, timingAttrs))
 
         return dm 
 
@@ -401,10 +418,11 @@ class opa: # individual clusters
             # needs to convert from dataSet to a dataArray 
             fileName = self.filePathSave + timeStampString + "_" + self.var + "_" + self.statFreq + "_" + self.statistic + ".nc" 
         else: 
-            fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq + "_" + self.statistic + ".nc"
-        # + self.cfVarName 
+            self.poo = 5
+            fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq  + "_" + self.statistic + ".nc"
+            #fileName = self.filePathSave + timeStampString + "_" + ds.name + "_" + self.statFreq + "_" + self.statistic + ".nc"
+        # 
 
-        #fileName = self.filePathSave + "_" + self.statFreq + str(finalTimeStamp) + "_STATISTIC.nc" 
         dm.to_netcdf(path = fileName, mode ='w') # will re-write the file if it is already there
         dm.close() 
         print('finished saving')
@@ -412,9 +430,6 @@ class opa: # individual clusters
 
 
     def _dataOutput(self, ds):
-
-        # this is really slow 
-        #finalMean = np.expand_dims(self.meanCum, axis=0) # adding back extra time dimension 
 
         if (self.statistic == "mean"):
             finalStat = self.meanCum # sometimes called with weights and sometimes not 
@@ -433,14 +448,13 @@ class opa: # individual clusters
 
         elif(self.statistic == "threshExceed"): 
             finalStat = self.threshExceedCum.data
+            ds.name = 'exceedance_freq'
 
-
-        if (self.statFreq == "hourly"):
+        if (self.statFreq == "hourly" or self.statFreq == "3hourly" or self.statFreq == "6hourly"):
             finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[h]')
-            timeStampString = self.timeStamp.strftime("%Y_%m_%d_%H") 
-
+            timeStampString = self.timeStamp.strftime("%Y_%m_%d_T%H") 
+            
         elif (self.statFreq == "daily"): 
-            #finalTimeStamp = self.timeStamp.date()
             finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[D]')
             timeStampString = self.timeStamp.strftime("%Y_%m_%d")
 
@@ -456,10 +470,16 @@ class opa: # individual clusters
             finalTimeStamp = self.timeStamp.to_datetime64().astype('datetime64[Y]')
             timeStampString = self.timeStamp.strftime("%Y")
 
-        ds.attrs["OPA"] = str(self.statFreq + " " + self.statistic + " " + "calculated using one-pass algorithm")
-        attrs = ds.attrs
 
-        dm = self._createDataSet(finalStat, finalTimeStamp, ds, attrs)
+        try:
+            getattr(self, "dataSetAttr") # if it was originally a data set
+        except AttributeError: # only looking at a dataArray
+            self.dataSetAttr = ds.attrs #both dataSet and dataArray will have matching attribs
+
+        self.dataSetAttr["OPA"] = str(self.statFreq + " " + self.statistic + " " + "calculated using one-pass algorithm")
+        ds.attrs["OPA"] = str(self.statFreq + " " + self.statistic + " " + "calculated using one-pass algorithm")
+
+        dm = self._createDataSet(finalStat, finalTimeStamp, ds)
 
         return dm, timeStampString, finalTimeStamp
 
@@ -470,31 +490,24 @@ class opa: # individual clusters
         self.dmOutput = xr.concat([self.dmOutput, dm], "time")
         self.countAppend += 1 # updating count 
 
-        if(self.countAppend == timeAppend):
+        if(self.countAppend == timeAppend and self.save == True):
 
-            if (self.outputFreq == "hourly"):
-                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[h]'))
-                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d_%H")
+            if (self.statFreq == "hourly" or self.statFreq == "3hourly" or self.statFreq == "6hourly"):
+                self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d_T%H")
 
-            elif (self.outputFreq == "daily"): 
-                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[D]')) 
+            elif (self.statFreq == "daily"): 
                 self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d")
 
-            elif (self.outputFreq == "weekly"): 
-                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[W]'))
+            elif (self.statFreq == "weekly"): 
                 self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m_%d")
-
             
-            elif (self.outputFreq == "monthly"): 
-                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[M]')) 
+            elif (self.statFreq == "monthly"): 
                 self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y_%m")
 
-            elif (self.outputFreq == "annually"): 
-                self.finalTimeStamp = np.append(self.finalTimeStamp, self.timeStamp.to_datetime64().astype('datetime64[Y]')) 
+            elif (self.statFreq == "annually"): 
                 self.timeStampString = self.timeStampString + "_to_" + self.timeStamp.strftime("%Y")
-
-            if(self.save == True):
-                self._saveOutput(self.dmOutput, ds, self.timeStampString)
+           
+            self._saveOutput(self.dmOutput, ds, self.timeStampString)
 
         return self.dmOutput
 
@@ -505,17 +518,8 @@ class opa: # individual clusters
         # check the time stamp and if the data needs to be reset 
         self._checkTimeStamp(ds)
 
-        if (hasattr(self, 'variable')): # if there are multiple variables in the file 
-            # needs to convert from dataSet to a dataArray 
-            ds = self._checkVariable(ds)
-            
-
-        #try:
-        #    getattr(self, "var")
-        #    ds = self._checkVariable(ds)
-        #except AttributeError:
-            
-
+        ds = self._checkVariable(ds) # convert from a dataSet to a dataArray if required
+        
         weight = self._checkNumTimeStamps(ds) # this checks if there are multiple time stamps in a file and will do np.mean
         howMuchLeft = (self.nData - self.count) # how much is let of your statistic to fill 
 

@@ -1,29 +1,13 @@
 ---
-# input file for mean OPA 
+# input file for OPA 
 
 ##### GENERAL INPUTS 
+timeStep: 30 # TIMESTEP INPUT OF DATA FROM THE GSV (KNOWN IN THE REQUEST TO THE GSV)
 
-#meanFreq: 'daily' # frequency of the statistic 
-timeStep: 60 # # make with seconds
-#var: 'vas' # if the file has many variables, this might be different in reality 
-#save: 'true' # do you want the output in memory or as a netCDF 
-#saveFreq: 'daily' # frequency at which to output netCDF of calculated statistics 
-
-#### DATA INPUTS #### -eventually this will be from the GSV interface 
-#filePath: '/esarchive/scratch/alacima/projects/destination_earth/icon/tas-uas-vas-ngc2009_atm_2d_1h_inst_20200501T000000Z_5km.nc' # this has already been re-gridded onto regular lat / lon grid
+#### DATA INPUTS #### 
+# data loaded into memory from the GSV eventually this will be from the GSV interface 
 
 ### DATA OUTPUTS ### - where you want to the files to go (if you wave them saved anywhere)
 filePathSave: '/home/b/b382291/git/data/'
-# filePathSave: '/esarchive/scratch/kgrayson/git/one_pass/'
 
-# options for both saveFreq and meanFreq 
-# - hourly 
-# - 3 hourly 
-# - 6 hourly 
-# - 12 hourly 
-# - daily 
-# - weekly
-# - monlthy 
-# - annually 
-# - continious 
 
