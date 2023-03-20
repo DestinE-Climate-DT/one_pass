@@ -1,3 +1,3 @@
 """ OPA module"""
 
-import meanOPA
+import opa
