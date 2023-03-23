@@ -41,21 +41,22 @@ class opa: # individual clusters
         self.filePathSave = config["filePathSave"]
 
 
-    def _initalise(self, ds, timeStampMin): 
+    def _initalise(self, ds, timeStampTot): 
         # only initalise cumulative mean if you know this is the first input
         self.count = 0
-        # calculated by MIN freq of mean / timestep min of data
+        # calculated by MIN freq of stat / timestep min of data
         if ((self.statFreqMin/self.timeStep).is_integer()):
 
-            if(timeStampMin == 0):
+            if(timeStampTot == 0):
                 self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
             else:
-                if((self.timeStep/timeStampMin).is_integer()):
+                if((self.timeStep/timeStampTot).is_integer()):# THIS SHOULD BE GREATER THAN 1
                     self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
                 else:
+                    raise Exception('Timings of input data span over new statistic')
                     # POTENTIALLY SHOULD ALSO RAISE EXPECTION HERE
-                    print('WARNING: timings of input data span over new statistic')
-                    self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
+                    #print('WARNING: timings of input data span over new statistic')
+                    #self.nData = int(self.statFreqMin/self.timeStep) # number of elements of data that need to be added to the cumulative mean
 
         else: 
             # we have a problem 
@@ -91,6 +92,11 @@ class opa: # individual clusters
             else:
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
+    def _checknData(self):
+        try:
+            getattr(self, "nData")
+        except AttributeError:
+            raise Exception('cannot start required statistic without the initial data')
         
     def _checkTimeStamp(self, ds):
     # function to calculate: 
@@ -121,7 +127,8 @@ class opa: # individual clusters
             if(timeStampMin <= self.timeStep): # this indicates that it's the first data of the hour otherwise timeStamp will be larger
                 # initalise cumulative statistic array 
                 self._initalise(ds, timeStampMin)
-
+            else:
+                self._checknData()
 
         if(self.statFreq == "3hourly"): 
             # first thing to check is if this is the first in the series, time stamp must be less than 3*60 
@@ -137,6 +144,8 @@ class opa: # individual clusters
             if(timeStampTot < self.timeStep): 
                 # initalise cumulative statistic array 
                 self._initalise(ds, timeStampTot)
+            else:
+                self._checknData()
 
         if(self.statFreq == "6hourly"): 
             # first thing to check is if this is the first in the series, time stamp must be less than 6*60 
@@ -152,7 +161,8 @@ class opa: # individual clusters
             if(timeStampTot < self.timeStep): 
                 # initalise cumulative statistic array 
                 self._initalise(ds, timeStampTot)
-
+            else:
+                self._checknData()
 
         if(self.statFreq == "daily"):
             timeStampMin = timeStamp.minute 
@@ -163,8 +173,27 @@ class opa: # individual clusters
             if(timeStampTot < self.timeStep): # this indicates that it's the first, works when comparing float64 to int
                 # initalise cumulative statistic array 
                 self._initalise(ds, timeStampTot)
+            else:
+                self._checknData()
 
-        elif(self.statFreq == "monthly"): 
+        
+        elif(self.statFreq == "weekly"): 
+
+            timeStampMin = timeStamp.minute 
+            timeStampHour = timeStamp.hour*60 # converting to minutes - 
+            timeStampDay = (timeStamp.day_of_week)*24*60
+            timeStampTot = timeStampMin + timeStampHour + timeStampDay 
+
+            # this will only work if the one hour is wholly divisable by the timestep 
+            if(timeStampTot < self.timeStep): # this indicates that it's the first, works when comparing float64 to int
+                # initalise cumulative statistic array 
+                self._initalise(ds, timeStampTot)
+            
+            else:
+                self._checknData()
+
+
+        if(self.statFreq == "monthly"): 
 
             timeStampMin = timeStamp.minute 
             timeStampHour = timeStamp.hour*60 # converting to minutes - 
@@ -178,13 +207,9 @@ class opa: # individual clusters
                 self._initalise(ds, timeStampTot)
             
             else:
-                try:
-                    getattr(self, "nData")
-                except AttributeError:
-                    raise Exception('cannot start required statistic without the initial data')
+                self._checknData()
 
-
-        elif(self.statFreq == "annually"): 
+        if(self.statFreq == "annually"): 
 
             timeStampMin = timeStamp.minute 
             timeStampHour = timeStamp.hour*60 # converting to minutes - 
@@ -197,10 +222,7 @@ class opa: # individual clusters
                 self._initalise(ds, timeStampTot)
             
             else:
-                try:
-                    getattr(self, "nData")
-                except AttributeError:
-                    raise Exception('cannot start required statistic without the initial data')
+                self._checknData()
 
 
     def _checkVariable(self, ds): 
@@ -227,13 +249,17 @@ class opa: # individual clusters
 
 
     def _twoPassMean(self, ds): # computes normal mean using two pass 
-        temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
-        #tempMean = np.mean(ds, axis = axNum, dtype = np.float64)  # updating the mean with np.mean over the timesteps avaliable 
-        
+        axNum = dsNp.get_axis_num('time')
+        temp = np.mean(ds, axis = axNum, dtype = np.float64, keepdims=True)  # updating the mean with np.mean over the timesteps avaliable 
+        #temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
+
         return temp
 
     def _twoPassVar(self, ds): # computes sample (ddof = 1) varience using two pass 
-        temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
+        #temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
+        axNum = dsNp.get_axis_num('time')
+        temp = np.var(ds, axis = axNum, dtype = np.float64, keepdims=True, ddof = 1)  # updating the mean with np.mean over the timesteps avaliable 
+        
         
         return temp
 
