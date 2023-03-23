@@ -1,3 +1,3 @@
 """ OPA module"""
 
-import opa
+from src.opa import opa
