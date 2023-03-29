@@ -1,4 +1,19 @@
+import pandas as pd
+
 """Functions to convert time for the one pass algorithms."""
+
+# A mapping between time words and number of minutes,
+# to avoid having multiple if statements.
+times = {
+    "hourly": 60,
+    "3hourly": 3 * 60,
+    "6hourly": 6 * 60,
+    "12hourly": 12 * 60,
+    "daily": 24 * 60,
+    "weekly": 7 * 24 * 60,
+    "monthly": 24 * 60,  # NOTE: missing the time stamp input
+    "annually": 365 * 24 * 60
+}
 
 def convert_time(time_word = "daily", time_stamp_input = None):
     """Function to convert input saving frequency into correct number of minutes.
@@ -10,20 +25,6 @@ def convert_time(time_word = "daily", time_stamp_input = None):
 
     if time_word == "monthly" and time_stamp_input is None:
         raise ValueError(f"You must provide a time_stamp_input for monthly saving frequency")
-
-    # A mapping between time words and number of minutes,
-    # to avoid having multiple if statements.
-    times = {
-        "hourly": 60,
-        "3hourly": 3 * 60,
-        "6hourly": 6 * 60,
-        "12hourly": 12 * 60,
-        "daily": 24 * 60,
-        "weekly": 7 * 24 * 60,
-        "monthly": time_stamp_input.days_in_month * 24 * 60,
-        "annually": 365 * 24 * 60
-    }
-
     # NOTE: For monthly;
     #
     # CAN YOU USE FREQSTR HERE? PANDAS DATETIME ATTRIBUTE
@@ -48,4 +49,8 @@ def convert_time(time_word = "daily", time_stamp_input = None):
         valid_values = ", ".join(times.keys())
         raise ValueError(f"The input saving frequency '{time_word}' is not supported, valid values are: {valid_values}")
 
-    return times.get(time_word)
+    time_min = times.get(time_word)
+    if time_word == "monthly":
+        time_min = time_stamp_input.days_in_month * time_min
+
+    return time_min
