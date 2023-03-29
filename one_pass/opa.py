@@ -1,19 +1,12 @@
 import numpy as np
-from numpy import where
-import xarray as xr 
+import xarray as xr
 import pandas as pd
-import glob
-from datetime import datetime, timedelta
-import yaml
-import sys
-import dask
 import dask.array as da
-import os
-import importlib
-from convertTime import convertTime
-from util import load_yaml
 
-class opa: # individual clusters 
+from one_pass.convert_time import convert_time
+from one_pass.util import load_yaml
+
+class Opa: # individual clusters
 
     # initalising the function from the ymal config file 
     def __init__(self, statistic = "mean", statFreq = "daily", outputFreq = "daily",
@@ -110,8 +103,8 @@ class opa: # individual clusters
         timeStamp = timeStampPandas[0] # converting to a pandas datetime to calculate if it's the first 
         self.timeStamp = timeStamp
         
-        # converting statistic freq into a number 'other code -  convertTime' 
-        self.statFreqMin = convertTime(timeWord = self.statFreq, timeStampInput = timeStamp)
+        # converting statistic freq into a number 'other code -  convert_time'
+        self.statFreqMin = convert_time(timeWord = self.statFreq, timeStampInput = timeStamp)
 
         # statFreq < timeStep
         if(self.statFreqMin < self.timeStep):
@@ -575,10 +568,10 @@ class opa: # individual clusters
             if (howMuchLeft < weight):
                 # need to run the function again 
                 ds = ds.isel(time=slice(howMuchLeft, weight))
-                opa.compute(self, ds) # calling recursive function 
+                Opa.compute(self, ds) # calling recursive function
             
             # converting output freq into a number
-            outputFreqMin = convertTime(timeWord = self.outputFreq, timeStampInput = self.timeStamp)
+            outputFreqMin = convert_time(timeWord = self.outputFreq, timeStampInput = self.timeStamp)
             # eg. how many days requested 7 days of saving with daily data
             timeAppend = outputFreqMin / self.statFreqMin # how many do you need to append 
             self.timeAppend = timeAppend

@@ -1,3 +1,3 @@
 """ OPA module"""
 
-from opa import opa
+from one_pass import Opa
