@@ -1,4 +1,7 @@
+import sys
+
 import yaml
+
 
 def load_yaml(infile):
     """Load generic yaml file"""

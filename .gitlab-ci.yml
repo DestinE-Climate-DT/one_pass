@@ -1,0 +1,36 @@
+stages:
+  - prepare
+  - test
+  - clean
+
+cache:
+  paths:
+    - coverage/coverage.xml
+
+prepare:
+  stage: prepare
+  script:
+    - python3 -m pip install -U pip
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install -e .[all]
+
+test:
+  stage: test
+  script:
+    - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  # These artifacts are saved with every build in GitLab and can be reviewed later. If
+  # we have a folder with HTML files, as in this example, users can navigate with their
+  # browser.
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+clean:
+  stage: clean
+  script:
+    - deactivate
+    - rm -rf venv/
