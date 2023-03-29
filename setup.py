@@ -7,6 +7,7 @@ from setuptools import setup
 tests = [
     'coverage==7.2.*',
     'pytest==7.2.*',
+    'pytest-cov==4.*',
     'pytest-mock==3.10.*'
 ]
 
