@@ -1,6 +1,11 @@
-# One_Pass
+# One pass algorithms
 
-Development and implementation of intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations, taking the needs of the use cases into account. (WP9)
+This repository holds the code for the development and implementation of the one pass algorithms. These algorithms are intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations, taking the needs of the use cases into account. (WP9)
+
+### Disclaimer: 
+The `one_pass` package is in a preliminary developement phase. Some features are still not implemented and you may encounter bugs. For feedback and issue reporting, feel free to open an issue in: https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/-/issues
+
+The current released version can be found at tag: `v0.1.0`
 
 ## Getting started
 
