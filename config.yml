@@ -2,7 +2,7 @@
 # input file for OPA 
 
 ##### GENERAL INPUTS 
-time_step: 30 # TIMESTEP INPUT OF DATA FROM THE GSV (KNOWN IN THE REQUEST TO THE GSV)
+time_step: 60 # TIMESTEP INPUT OF DATA FROM THE GSV (KNOWN IN THE REQUEST TO THE GSV)
 
 #### DATA INPUTS #### 
 # data loaded into memory from the GSV eventually this will be from the GSV interface 
