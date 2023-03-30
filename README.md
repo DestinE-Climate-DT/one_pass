@@ -10,11 +10,13 @@ The current released version can be found at tag: `v0.1.0`
 
 ## Core idea 
 
-The one_pass algorithms will eventually work with data from the GSV interface. They will take as input any xarray like object, either a DataSet or a DataArray. A jupyter workbook called `run_opa.ipynb` (configured to work on Levante with data from the AQUA re-gridder) is provided. **Please refer to this workbook for exact examples.** When using the package, there are two main steps: 
+The one_pass algorithms will eventually work with data from the GSV interface. They will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. A jupyter workbook called `run_opa.ipynb` (configured to work on Levante with data from the AQUA re-gridder) is provided. **Please refer to this workbook for exact examples.** For details of hte algorithms used, please refer to the `README.ipynb`. 
+
+When using the package, there are two main steps: 
 
 1. Initalise the algorithm. Here you initalise the algorithm you wish to compute. You provide the tpye of statistic (mean, std, var etc.), the frequency over which to compute (hourly, daily etc.), do you want to save etc. 
 
-2. Compute the algorithm. This is done but calling `.compute` and providing the algorithm with your data.
+2. Compute the algorithm. This is done but calling `.compute` and providing the algorithm with your data. Refer to the workbook for examples. 
 
 ## Getting the source 
 
