@@ -12,7 +12,7 @@ tests = [
 ]
 
 setup(name='one_pass',
-      version='0.0.1',
+      version='0.1.0',
       description='One Pass Algorithms',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
