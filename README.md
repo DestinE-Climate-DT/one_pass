@@ -10,13 +10,21 @@ The current released version can be found at tag: `v0.1.0`
 
 ## Core idea 
 
-The one_pass algorithms will eventually work with data from the GSV interface. They will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. A jupyter workbook called `run_opa.ipynb` (configured to work on Levante with data from the AQUA re-gridder) is provided. **Please refer to this workbook for exact examples.** For details of hte algorithms used, please refer to the `README.ipynb`. 
+The one_pass algorithms will eventually work with data from the GSV interface. The algorithms will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. A jupyter workbook called `run_opa.ipynb` (configured to work on Levante with data from the AQUA re-gridder) is provided. **Please refer to this workbook for exact examples.** For details of the algorithms used, please refer to the `README.ipynb`. 
 
-When using the package, there are two main steps: 
+When using the package, there are three main steps: 
 
-1. Initalise the algorithm. Here you initalise the algorithm you wish to compute. You provide the tpye of statistic (mean, std, var etc.), the frequency over which to compute (hourly, daily etc.), do you want to save etc. 
+1. Set the timestep of your data in minutes the configuration file `config.yml`. This should be known from your call to the GSV interface or by looking at the time step of your data. 
 
-2. Compute the algorithm. This is done but calling `.compute` and providing the algorithm with your data. Refer to the workbook for examples. 
+2. Initalise the algorithm. Here you initalise the algorithm you wish to compute. You provide the tpye of statistic (mean, std, var etc.), the frequency over which to compute (hourly, daily etc.), do you want to save etc. Example below for a daily mean: 
+
+`daily_mean = Opa(statistic = "mean", stat_freq = "daily", output_freq = "daily", save = False, variable = "tas", config_path = file_path)`
+
+3. Compute the algorithm. This is done but calling `.compute` and providing the algorithm with your data, in the example below this is `ds`. 
+
+`dm = daily_mean.compute(ds)`
+
+**Refer to the workbook `run_opa.ipynb` for examples**
 
 ## Getting the source 
 
