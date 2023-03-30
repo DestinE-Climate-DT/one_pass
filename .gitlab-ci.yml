@@ -10,7 +10,6 @@ cache:
 prepare:
   stage: prepare
   script:
-    - python3 -m pip install -U pip
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install -e .[all]
