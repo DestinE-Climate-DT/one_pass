@@ -1,0 +1,13 @@
+---
+# input file for OPA 
+
+##### GENERAL INPUTS 
+time_step: 30 # TIMESTEP INPUT OF DATA FROM THE GSV (KNOWN IN THE REQUEST TO THE GSV)
+
+#### DATA INPUTS #### 
+# data loaded into memory from the GSV eventually this will be from the GSV interface 
+
+### DATA OUTPUTS ### - where you want to the files to go (if you wave them saved anywhere)
+file_path_save: '/home/b/b382291/git/data/'
+
+
