@@ -67,13 +67,18 @@ class Opa:
 
         if(self.statistic != "hist" or self.statistic != "percentile"):
         # potentially don't want zeros for threshold exceedance as well?
-            if ds.chunks is None:
-                value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
-            else:
+            if(np.size(ds.dims) <=3):
+                if ds.chunks is None:
+                    value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
+                else:
 
-                value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
-                #, coords = ds.coords, dims= ds.dims
-            self.__setattr__(str(self.statistic+"Cum"), value)
+                    value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+                    #, coords = ds.coords, dims= ds.dims
+            else:
+                ds_size = ds.tail(time = 1)
+                value = np.zeros_like(ds_size)
+
+            self.__setattr__(str(self.statistic+"_cum"), value)
 
             if(self.statistic == "var"):
                 # then also need to calculate the mean
@@ -252,7 +257,7 @@ class Opa:
 
     def _two_pass_mean(self, ds): # computes normal mean using two pass
         # TODO: where is ds_np coming from?
-        ax_num = ds_np.get_axis_num('time')
+        ax_num = ds.get_axis_num('time')
         temp = np.mean(ds, axis = ax_num, dtype = np.float64, keepdims=True)  # updating the mean with np.mean over the timesteps available
         #temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
 
@@ -261,7 +266,7 @@ class Opa:
     def _two_pass_var(self, ds): # computes sample (ddof = 1) variance using two pass
         #temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
         # TODO: where is ds_np coming from?
-        ax_num = ds_np.get_axis_num('time')
+        ax_num = ds.get_axis_num('time')
         temp = np.var(ds, axis = ax_num, dtype = np.float64, keepdims=True, ddof = 1)  # updating the mean with np.mean over the timesteps available
 
 
@@ -271,7 +276,6 @@ class Opa:
     # actual mean function
     def _update_mean(self, ds_np, weight):# where x is the new value and weight is the new weight
         self.count += weight
-
         if (weight == 1):
             mean_cum = self.mean_cum + weight*(ds_np - self.mean_cum) / (self.count) # updating mean with one-pass algorithm
         else:
@@ -432,19 +436,37 @@ class Opa:
 
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
-        # converting the mean into a new data_array
-        dm = xr.Dataset(
-        data_vars = dict(
-                [(ds.name, (["time","lat","lon"], final_stat, ds.attrs))],    # need to add variable attributes
+        if(np.size(np.shape(final_stat)) == 3):
+
+            dm = xr.Dataset(
+            data_vars = dict(
+                    [(ds.name, (["time","lat","lon"], final_stat, ds.attrs))],    # need to add variable attributes
+                ),
+            coords = dict(
+                #time = (["time"], [pd.to_datetime(final_time_stamp)]),
+                time = (["time"], [final_time_stamp], ds.time.attrs),
+                lon = (["lon"], ds.lon.data, ds.lon.attrs),
+                lat = (["lat"], ds.lat.data, ds.lat.attrs),
             ),
-        coords = dict(
-            #time = (["time"], [pd.to_datetime(final_time_stamp)]),
-            time = (["time"], [final_time_stamp], ds.time.attrs),
-            lon = (["lon"], ds.lon.data, ds.lon.attrs),
-            lat = (["lat"], ds.lat.data, ds.lat.attrs),
-        ),
-        attrs = self.data_set_attr
-        )
+            attrs = self.data_set_attr
+            )
+        
+        else:
+
+            ds = ds.tail(time = 1)
+            ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
+
+            dm = xr.Dataset(
+            data_vars = dict(
+                    [(ds.name, (ds.dims, final_stat, ds.attrs))],    # need to add variable attributes
+                ),
+            coords = dict(
+                ds.coords
+            ),
+            attrs = self.data_set_attr
+            )
+
+            #dm.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
 
         if(hasattr(self, 'timings')):
             timing_attrs = {'OPA':'time stamp of ' + str(self.stat_freq + " " + self.statistic)}
@@ -553,10 +575,9 @@ class Opa:
 
 
     def compute(self, ds):
+        ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
         self._check_time_stamp(ds) # check the time stamp and if the data needs to be reset
-
-        ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
         how_much_left = (self.n_data - self.count) # how much is let of your statistic to fill
