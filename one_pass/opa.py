@@ -46,6 +46,7 @@ class Opa:
     def _initialise(self, ds, time_stamp_tot):
         # only initialise cumulative mean if you know this is the first input
         self.count = 0
+        self.final_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
         # calculated by MIN freq of stat / timestep min of data
         if ((self.stat_freq_min/self.time_step).is_integer()):
 
@@ -513,8 +514,8 @@ class Opa:
         final_time_stamp = None
         time_stamp_string = None
         if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-            final_time_stamp = self.time_stamp #.to_datetime64().astype('datetime64[h]')
-            self.final_time_stamp = final_time_stamp
+            final_time_stamp = self.final_time_stamp #.to_datetime64().astype('datetime64[h]')
+            #self.final_time_stamp = final_time_stamp
             time_stamp_string = self.time_stamp.strftime("%Y_%m_%d_T%H")
 
         elif (self.stat_freq == "daily"):
@@ -551,7 +552,7 @@ class Opa:
 
     def _data_output_append(self, dm, ds, time_append):
 
-        self.dm_output = xr.concat([dm, self.dm_output], "time")
+        self.dm_output = xr.concat([self.dm_output, dm], "time") # which way around should this be! 
         self.count_append += 1 # updating count
 
         if(self.count_append == time_append and self.save == True):
