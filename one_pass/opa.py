@@ -453,7 +453,7 @@ class Opa:
         
         else:
 
-            ds = ds.tail(time = 1)
+            ds = ds.tail(time = 1) # I DON'T THINK THIS WORKS FOR GIVING 1 AT A TIME 
             ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
 
             dm = xr.Dataset(
@@ -513,7 +513,8 @@ class Opa:
         final_time_stamp = None
         time_stamp_string = None
         if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-            final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[h]')
+            final_time_stamp = self.time_stamp #.to_datetime64().astype('datetime64[h]')
+            self.final_time_stamp = final_time_stamp
             time_stamp_string = self.time_stamp.strftime("%Y_%m_%d_T%H")
 
         elif (self.stat_freq == "daily"):
@@ -550,7 +551,7 @@ class Opa:
 
     def _data_output_append(self, dm, ds, time_append):
 
-        self.dm_output = xr.concat([self.dm_output, dm], "time")
+        self.dm_output = xr.concat([dm, self.dm_output], "time")
         self.count_append += 1 # updating count
 
         if(self.count_append == time_append and self.save == True):
