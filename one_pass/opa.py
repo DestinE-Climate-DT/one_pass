@@ -3,8 +3,8 @@ import xarray as xr
 import pandas as pd
 import dask.array as da
 
-from one_pass.convert_time import convert_time
-from one_pass.util import load_yaml
+from .convert_time import convert_time
+from .util import load_yaml
 
 class Opa:
     """Individual clusters."""
@@ -238,7 +238,7 @@ class Opa:
             getattr(ds, "data_vars") # this means it a data_set
             self.data_set_attr = ds.attrs #keeping the attributes of the full data_set to append to the final data_set
             try:
-                ds = getattr(ds, self.variable)
+                ds = getattr(ds, self.variable) # converts to a dataArray
             except AttributeError:
                 raise Exception('If passing data_set need to provide variable, opa can only use one variable at the moment')
         except AttributeError:
@@ -454,7 +454,7 @@ class Opa:
         else:
 
             ds = ds.tail(time = 1)
-            ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
+            ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
 
             dm = xr.Dataset(
             data_vars = dict(
@@ -518,6 +518,7 @@ class Opa:
 
         elif (self.stat_freq == "daily"):
             final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[D]')
+            self.final_time_stamp = final_time_stamp
             time_stamp_string = self.time_stamp.strftime("%Y_%m_%d")
 
         elif (self.stat_freq == "weekly"):
