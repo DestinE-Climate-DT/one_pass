@@ -49,16 +49,16 @@ class Opa:
         # calculated by MIN freq of stat / timestep min of data
         if ((self.stat_freq_min/self.time_step).is_integer()):
 
-            if(time_stamp_tot == 0):
+            if(time_stamp_tot == 0): # perfectly at the start of a new statistic 
                 self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
             else:
-                if((self.time_step/time_stamp_tot).is_integer()):# THIS SHOULD BE GREATER THAN 1
-                    self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
-                else:
-                    raise Exception('Timings of input data span over new statistic')
+                if((self.time_step/time_stamp_tot).is_integer()):# THIS SHOULD BE GREATER THAN 1 - still divisable by 
+                    self.n_data = int(self.stat_freq_min/self.time_step) 
+                else: # time stamps not divisable 
+                    #raise Exception('Timings of input data span over new statistic')
                     # POTENTIALLY SHOULD ALSO RAISE EXCEPTION HERE
-                    #print('WARNING: timings of input data span over new statistic')
-                    #self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
+                    print('WARNING: timings of input data span over new statistic')
+                    self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
 
         else:
             # we have a problem
@@ -454,7 +454,8 @@ class Opa:
         else:
 
             ds = ds.tail(time = 1)
-            ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
+            ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
+
 
             dm = xr.Dataset(
             data_vars = dict(
