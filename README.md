@@ -7,6 +7,7 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 
 The current released version can be found at tag: `v0.1.1`
 
+If you're a user of the one-pass, please only ever clone from the `main` branch or tagged versions. Other branches are in development and may not be stable. 
 
 ## Core idea 
 
