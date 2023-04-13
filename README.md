@@ -5,7 +5,7 @@ This repository holds the code for the development and implementation of the one
 ### Disclaimer: 
 The `one_pass` package is in a preliminary developement phase. Some features are still not implemented and you may encounter bugs. For feedback and issue reporting, feel free to open an issue in: https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/-/issues
 
-The current released version can be found at tag: `v0.1.0`
+The current released version can be found at tag: `v0.1.1`
 
 
 ## Core idea 
