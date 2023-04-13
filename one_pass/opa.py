@@ -1,46 +1,78 @@
+from typing import Dict
+import os 
+import pickle 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask.array as da
 
-from .convert_time import convert_time
-from .util import load_yaml
+from one_pass.convert_time import convert_time
+from one_pass import util
 
 class Opa:
     """Individual clusters."""
 
-    # initialising the function from the yaml config file
-    def __init__(self, statistic = "mean", stat_freq = "daily", output_freq = "daily",
-                save = "false", variable = None, threshold = None, config_path =  None): # should this be **kwargs?
+    def __init__(self, user_request: Dict): 
 
-        #save_freq = None,
-        self.statistic = statistic 
-        self.stat_freq = stat_freq
-        self.output_freq = output_freq
-        self.save = save
-        self.config_path = config_path
+        # Check and process request
+        request = util.parse_request(user_request)
+        self.request = request
+        self._process_request(request)
 
-        #self.save_freq = save_freq
-        self.threshold = threshold # this will only be set for looking at threshold exceedance
+        if(self.checkpoint): # have the option of not using checkpointing files and keeping everything in memory
+            self._check_checkpoint(request)
 
-        self.mean_cum = None
-        self.min_cum = None
-        self.max_cum = None
-        self.var_cum = None
-        self.thresh_exceed_cum = None
+    def _process_request(self, request):
+        self.statistic = request.get("stat")
+        self.stat_freq = request.get("stat_freq")
+        self.output_freq = request.get("output_freq")
+        self.save = request.get("save")
+        self.time_step = request.get("time_step") # this is int value in minutes
+        self.checkpoint_in_file = request.get("checkpoint_in_file")
+        self.checkpoint_out_file = request.get("checkpoint_out_file")
+        self.file_path_save = request.get("out_file")
+        self.checkpoint = request.get("checkpoint")
 
-        if(self.statistic == "thresh_exceed" and threshold is None):
-            raise Exception('need to provide threshold of exceedance value')
+        if(self.statistic == "thresh_exceed"):
+            try:
+                self.threshold = request.get("threshold")
+            except:
+                raise Exception('need to provide threshold of exceedance value')
 
-        if (variable is not None):
-            self.variable = variable
+        if (request.get("variable") is not None):
+            self.variable = request.get("variable")
 
-        config = load_yaml(self.config_path)
+    def _check_checkpoint(self, request):
+        """
+        Takes user user request and checks if a checkpoint file exists from which to initalise the statistic from
 
-        self.time_step = config["time_step"] # this is int value in minutes
-        self.file_path_save = config["file_path_save"]
+        Arguments:
+        ----------
+        user_request : python dictionary containing the file path for the checkpoint file
 
-        self.count_append = 0
+        Returns:
+        --------
+        if checkpoint file is present: 
+            xarray object containing summary statistics
+        """
+        if (request.get("checkpoint_in_file")): 
+            path = request.get("checkpoint_in_file")
+            if os.path.exists(path): 
+                
+                file_name = self.checkpoint_in_file
+                
+                with open(file_name, 'rb') as file: 
+                    self = pickle.load(file)
+
+            else: 
+                self.mean_cum = None
+                self.min_cum = None
+                self.max_cum = None
+                self.var_cum = None
+                self.thresh_exceed_cum = None
+                self.count_append = 0 
+        else:
+            raise KeyError("need to pass a file path for the checkpoint file")
 
 
     def _initialise(self, ds, time_stamp_tot):
@@ -56,10 +88,9 @@ class Opa:
                 if((self.time_step/time_stamp_tot).is_integer()):# THIS SHOULD BE GREATER THAN 1
                     self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
                 else:
-                    raise Exception('Timings of input data span over new statistic')
-                    # POTENTIALLY SHOULD ALSO RAISE EXCEPTION HERE
-                    #print('WARNING: timings of input data span over new statistic')
-                    #self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
+
+                    print('WARNING: timings of input data span over new statistic')
+                    self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
 
         else:
             # we have a problem
@@ -257,11 +288,9 @@ class Opa:
 
 
     def _two_pass_mean(self, ds): # computes normal mean using two pass
-        # TODO: where is ds_np coming from?
         ax_num = ds.get_axis_num('time')
         temp = np.mean(ds, axis = ax_num, dtype = np.float64, keepdims=True)  # updating the mean with np.mean over the timesteps available
         #temp = ds.resample(time ='1D').mean() # keeps the format (1, lat, lon)
-
         return temp
 
     def _two_pass_var(self, ds): # computes sample (ddof = 1) variance using two pass
@@ -269,7 +298,6 @@ class Opa:
         # TODO: where is ds_np coming from?
         ax_num = ds.get_axis_num('time')
         temp = np.var(ds, axis = ax_num, dtype = np.float64, keepdims=True, ddof = 1)  # updating the mean with np.mean over the timesteps available
-
 
         return temp
 
@@ -434,6 +462,13 @@ class Opa:
         #elif(self.statistic == "percentile"):
         # run tdigest
 
+    def _write_update(self):
+        """write checkpoint file 
+        """
+        file_name = self.checkpoint_in_file
+        with open(file_name, 'wb') as file: 
+            pickle.dump(self, file)
+
 
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
@@ -549,7 +584,6 @@ class Opa:
         return dm, time_stamp_string, final_time_stamp
 
 
-
     def _data_output_append(self, dm, ds, time_append):
 
         self.dm_output = xr.concat([self.dm_output, dm], "time") # which way around should this be! 
@@ -578,22 +612,27 @@ class Opa:
 
 
     def compute(self, ds):
+    
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
         self._check_time_stamp(ds) # check the time stamp and if the data needs to be reset
 
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
+        
         how_much_left = (self.n_data - self.count) # how much is let of your statistic to fill
 
-        if (weight == 1 or how_much_left >= weight): # will not span over new statistic
+        if (how_much_left >= weight): # will not span over new statistic
 
             self._update(ds, weight)  # update rolling statistic with weight
 
-        elif(how_much_left < weight): # will this span over a new statistic?
+            if(self.checkpoint == True and self.count < self.n_data):
+                self._write_checkpoint()
 
-            ds_left = ds.isel(time=slice(0,how_much_left)) # extracting time until the end of the statistic
+        elif(how_much_left < weight): # this will span over the new statistic 
 
-            # update rolling statistic with weight of the last few days
+            ds_left = ds.isel(time=slice(0, how_much_left)) # extracting time until the end of the statistic
+
+            # update rolling statistic with weight of the last few days  -this will finish the statistic 
             self._update(ds_left, how_much_left)
             # still need to finish the statistic (see below)
 
@@ -602,18 +641,16 @@ class Opa:
         # how to output the data as a data_set
             dm, time_stamp_string, final_time_stamp = self._data_output(ds)
 
-            # if there's more to compute?
+            # if there's more to compute
             if (how_much_left < weight):
-                # need to run the function again
                 ds = ds.isel(time=slice(how_much_left, weight))
                 Opa.compute(self, ds) # calling recursive function
 
             # converting output freq into a number
             output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)
-            # eg. how many days requested 7 days of saving with daily data
+            # eg. how many days requested: 7 days of saving with daily data
             time_append = output_freq_min / self.stat_freq_min # how many do you need to append
             self.time_append = time_append
-            #if(self.save == True): # only save if requested
 
             if(time_append < 1): #output_freq_min < self.stat_freq_min
                 print('Output frequency can not be less than frequency of statistic!')

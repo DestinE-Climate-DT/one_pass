@@ -1,13 +1,17 @@
----
-# input file for OPA 
+levtype: "sfc"
+date: ["20050401"]
+time: ["0000", "0600", "1200", "1800"]
+step: "0"
+param: ["165", "166", "167"]
 
-##### GENERAL INPUTS 
-time_step: 30 # TIMESTEP INPUT OF DATA FROM THE GSV (KNOWN IN THE REQUEST TO THE GSV)
-
-#### DATA INPUTS #### 
-# data loaded into memory from the GSV eventually this will be from the GSV interface 
-
-### DATA OUTPUTS ### - where you want to the files to go (if you wave them saved anywhere)
-file_path_save: '/home/b/b382291/git/data/'
-
-
+# then loop over this list 
+stat: "mean"
+stat_freq: "daily"
+output_freq: "daily"
+time_step: 60 
+variable: "tas"
+save: True
+checkpoint: True
+checkpoint_in_file: "/home/bsc32/bsc32263/git/data/checkpoint_in_mean_daily_tas.nc"
+checkpoint_out_file: "/home/bsc32/bsc32263/git/data/checkpoint_in_mean_daily_tas.nc"
+out_file: "/home/bsc32/bsc32263/git/data"
