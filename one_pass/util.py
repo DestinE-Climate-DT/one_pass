@@ -1,9 +1,8 @@
-import os 
 import sys
 import yaml
 from typing import Dict
 from pathlib import Path
-import xarray as xr 
+
 
 
 def load_yaml(infile):
