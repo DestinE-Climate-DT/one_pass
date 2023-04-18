@@ -12,8 +12,7 @@ time_step: 60
 variable: "tas"
 save: True
 checkpoint: False
-checkpoint_in_file: "/home/bsc32/bsc32263/git/data/checkpoint_in_mean_daily_tas.nc"
-checkpoint_out_file: "/home/bsc32/bsc32263/git/data/checkpoint_out_mean_daily_tas.nc"
+checkpoint_file: "/home/bsc32/bsc32263/git/data/checkpoint_in_mean_daily_tas.nc"
 out_file: "/home/bsc32/bsc32263/git/data"
 
 # if you change the config file MUST DELETE CHECKPOINT FILES 

@@ -38,9 +38,10 @@ class Opa:
             self object is returned with old attributes
         """
 
-        if (request.get("checkpoint_in_file")): 
+        if (request.get("checkpoint_file")): 
 
-            file_path = request.get("checkpoint_in_file")
+            file_path = request.get("checkpoint_file")
+
             if os.path.exists(file_path): 
                 f = open(file_path, 'rb')
                 temp_self = pickle.load(f)
@@ -50,6 +51,8 @@ class Opa:
                     self.__setattr__(key, vars(temp_self)[key])
 
                 del(temp_self)
+
+                self._compare_request()
                 self._check_thresh()
             else: 
                 # using checkpoints but no file is there
@@ -64,58 +67,59 @@ class Opa:
             self.__setattr__(key, request[key])
     
         self._check_thresh()
-        self._reset_cum_attrs() # do you want this?
+        #self._reset_cum_attrs() # do you want this?
 
     def _check_thresh(self):
         if(self.stat == "thresh_exceed"):
             if (hasattr(self, "threshold") == False):
                 raise Exception('need to provide threshold of exceedance value')
             
-    def _reset_cum_attrs(self):
+    #def _reset_cum_attrs(self):
         # how can we make this better? 
-        self.count_append = 0
-        self.mean_cum = None
-        self.min_cum = None
-        self.max_cum = None
-        self.var_cum = None
-        self.thresh_exceed_cum = None
+        #self.count_append = 0
+        #self.mean_cum = None
+        #self.min_cum = None
+        #self.max_cum = None
+        #self.var_cum = None
+        #self.thresh_exceed_cum = None
 
-    ############### end if __init__ ####################333#
+    def _compare_request(self):
+        """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
+        pass # TODO: do you want this function? It shouldn't be needed if the checkpoint file path is changed but 
+             # it's a good check
 
-    def _initialise(self, ds, time_stamp_tot):
-        # only initialise cumulative mean if you know this is the first input
-        self.count = 0
+    ############### end if __init__ #####################
+
+    def _initialise_time(self, time_stamp_tot):
+
+        # TODO: decide how the time stamps should look for 3hourly and 6 hourly (begininng or end)
         self.final_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
+
         # calculated by MIN freq of stat / timestep min of data
         if ((self.stat_freq_min/self.time_step).is_integer()):
 
-            if(time_stamp_tot == 0):
+            if(time_stamp_tot == 0 or (self.time_step/time_stamp_tot).is_integer()): # this should be greater than 1?
                 self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
             else:
-                if((self.time_step/time_stamp_tot).is_integer()):# THIS SHOULD BE GREATER THAN 1
-                    self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
-                else:
-
-                    print('WARNING: timings of input data span over new statistic')
-                    self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
+                print('WARNING: timings of input data span over new statistic')
+                self.n_data = int(self.stat_freq_min/self.time_step) # number of elements of data that need to be added to the cumulative mean
 
         else:
             # we have a problem
             raise Exception('Frequency of the requested statistic (e.g. daily) must be wholly divisible by the timestep (dt) of the input data')
 
 
-        if(self.stat != "hist" or self.stat != "percentile"):
-        # potentially don't want zeros for threshold exceedance as well?
-            if(np.size(ds.dims) <=3):
-                if ds.chunks is None:
-                    value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
-                else:
+    def _initialise_attrs(self, ds):
 
-                    value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
-                    #, coords = ds.coords, dims= ds.dims
-            else:
-                ds_size = ds.tail(time = 1)
-                value = np.zeros_like(ds_size)
+        if(self.stat != "hist" or self.stat != "percentile"):
+            
+            ds_size = ds.tail(time = 1)
+            value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+
+            # if ds.chunks == None:
+            #     value = np.zeros_like(ds_size)
+            # else: 
+            #     value = np.zeros_like(ds_size)
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -138,27 +142,30 @@ class Opa:
             else:
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
-    def _check_n_data(self, time_stamp_tot):
+
+    def _initialise(self, ds, time_stamp_tot):
+        self.count = 0
+
+        self._initialise_time(time_stamp_tot)
+
+        self._initialise_attrs(ds)
+
+
+    def _check_n_data(self):
         try:
             getattr(self, "n_data")
         except AttributeError:
             raise Exception('cannot start required statistic without the initial data')
-        else:
-            if((time_stamp_tot/self.time_step) < self.count):
-                print("I broke")
-                exit()
-
-                #sys.exit("already seen this data")
-
+        
     def _compare_time(self, ds, time_stamp_tot):
-        self.time_stamp_tot = time_stamp_tot
         # stat_freq >= time_step
         if(time_stamp_tot <= self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
             # initialise cumulative statistic array
             self._initialise(ds, time_stamp_tot)
         else:
             # check were we are in the sequence 
-            self._check_n_data(time_stamp_tot)
+            self.time_stamp_tot = time_stamp_tot
+            self._check_n_data()
 
 
     def _check_time_stamp(self, ds):
@@ -230,9 +237,8 @@ class Opa:
 
             time_stamp_min = time_stamp.minute
             time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_day = (time_stamp.day-1)*24*60
-            time_stamp_month = time_stamp.month * time_stamp.days_in_month
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day + time_stamp_month
+            time_stamp_day = (time_stamp.day-1)*24*60 # .day corresponds to day of the month
+            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day 
 
             self._compare_time(ds, time_stamp_tot)
 
@@ -241,9 +247,24 @@ class Opa:
             time_stamp_min = time_stamp.minute
             time_stamp_hour = time_stamp.hour*60 # converting to minutes -
             time_stamp_day = (time_stamp.day-1)*24*60
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day
+            time_stamp_month = time_stamp.month * time_stamp.days_in_month
+            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day + time_stamp_month
 
             self._compare_time(ds, time_stamp_tot)
+
+        if(self.stat_freq == "continuous"):
+
+            time_stamp_min = time_stamp.minute
+            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
+            time_stamp_day = (time_stamp.day-1)*24*60
+            time_stamp_month = time_stamp.month * time_stamp.days_in_month
+            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day + time_stamp_month
+
+            self._compare_time(ds, time_stamp_tot)
+
+        return time_stamp_tot 
+    
+
 
     def _check_variable(self, ds):
 
@@ -252,6 +273,7 @@ class Opa:
             self.data_set_attr = ds.attrs #keeping the attributes of the full data_set to append to the final data_set
             try:
                 ds = getattr(ds, self.variable) # converts to a dataArray
+
             except AttributeError:
                 raise Exception('If passing data_set need to provide variable, opa can only use one variable at the moment')
         except AttributeError:
@@ -276,7 +298,7 @@ class Opa:
 
     def _two_pass_var(self, ds): # computes sample (ddof = 1) variance using two pass
         #temp = ds.resample(time ='1D').var(ddof = 1) # keeps the format (1, lat, lon)
-        # TODO: where is ds_np coming from?
+
         ax_num = ds.get_axis_num('time')
         temp = np.var(ds, axis = ax_num, dtype = np.float64, keepdims=True, ddof = 1)  # updating the mean with np.mean over the timesteps available
 
@@ -284,30 +306,34 @@ class Opa:
 
 
     # actual mean function
-    def _update_mean(self, ds_np, weight):# where x is the new value and weight is the new weight
+    def _update_mean(self, ds, weight):# where x is the new value and weight is the new weight
         self.count += weight
         if (weight == 1):
-            mean_cum = self.mean_cum + weight*(ds_np - self.mean_cum) / (self.count) # updating mean with one-pass algorithm
+            mean_cum = self.mean_cum + weight*(ds - self.mean_cum) / (self.count) # updating mean with one-pass algorithm
         else:
-            temp_mean = self._two_pass_mean(ds_np) # compute two pass mean first
+            temp_mean = self._two_pass_mean(ds) # compute two pass mean first
             mean_cum = self.mean_cum + weight*(temp_mean - self.mean_cum) / (self.count) # updating mean with one-pass algorithm
 
+        #self.mean_cum = mean_cum 
+        #print(type(mean_cum))
+        
         self.mean_cum = mean_cum.data
+        #sys.exit()
 
 
     # variance one-pass
-    def _update_var(self, ds_np, weight):
+    def _update_var(self, ds, weight):
 
         # storing 'old' mean temporarily
         old_mean = self.mean_cum
 
         if(weight == 1):
-            self._update_mean(ds_np, weight)
-            var_cum = self.var_cum + weight*(ds_np - old_mean)*(ds_np - self.mean_cum)
+            self._update_mean(ds, weight)
+            var_cum = self.var_cum + weight*(ds - old_mean)*(ds - self.mean_cum)
         else:
-            temp_mean = self._two_pass_mean(ds_np) # two-pass mean
+            temp_mean = self._two_pass_mean(ds) # two-pass mean
             self._update_mean(temp_mean, weight) # update self.mean_cum
-            temp_var = self._two_pass_var(ds_np) # two pass variance
+            temp_var = self._two_pass_var(ds) # two pass variance
             # see paper Mastelini. S
             var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*((self.count - weight)*weight/self.count)
 
@@ -318,104 +344,107 @@ class Opa:
 
 
 
-    def _update_std(self, ds_np, weight):
+    def _update_std(self, ds, weight):
         # can reduce storage here if you choose not to have specific var_cum and std_cum names
-        self._update_var(ds_np, weight)
+        self._update_var(ds, weight)
         if (self.count == self.n_data):
             self.std_cum = np.sqrt(self.var_cum)
 
 
-    def _update_min(self, ds_np, weight):
+    def _update_min(self, ds, weight):
         # creating array of timestamps that corresponds to the min value
         if(weight == 1):
-            timestamp = np.datetime_as_string((ds_np.time.values[0]))
-            ds_time = xr.zeros_like(ds_np)
+            timestamp = np.datetime_as_string((ds.time.values[0]))
+            ds_time = xr.zeros_like(ds)
             ds_time = ds_time.where(ds_time != 0, timestamp)
 
         else:
-            ax_num = ds_np.get_axis_num('time')
-            timings = ds_np.time
-            min_index = ds_np.argmin(axis = ax_num, keep_attrs = False)
+            ax_num = ds.get_axis_num('time')
+            timings = ds.time
+            min_index = ds.argmin(axis = ax_num, keep_attrs = False)
             #self.min_index = min_index
-            ds_np = np.amin(ds_np, axis = ax_num, keepdims = True)
-            ds_time = xr.zeros_like(ds_np) # now this will have dimensions 1,lat,lon
+            ds = np.amin(ds, axis = ax_num, keepdims = True)
+            ds_time = xr.zeros_like(ds) # now this will have dimensions 1,lat,lon
 
             for i in range(0, weight):
                 #self.i = i
-                #self.timestamp = ds_np.time.values[i]
+                #self.timestamp = ds.time.values[i]
                 timestamp = np.datetime_as_string((timings.values[i]))
                 ds_time = ds_time.where(min_index != i, timestamp)
 
         if(self.count > 0):
-            self.min_cum['time'] = ds_np.time
-            self.timings['time'] = ds_np.time
-            ds_time = ds_time.where(ds_np < self.min_cum, self.timings)
+            self.min_cum['time'] = ds.time
+            self.timings['time'] = ds.time
+            ds_time = ds_time.where(ds < self.min_cum, self.timings)
             # this gives the new self.min_cum number when the  condition is FALSE (location at which to preserve the objects values)
-            ds_np = ds_np.where(ds_np < self.min_cum, self.min_cum)
+            ds = ds.where(ds < self.min_cum, self.min_cum)
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
-        #self.ds_np = ds_np
+        #self.ds = ds
         self.count += weight
-        self.min_cum = ds_np #running this way around as Array type does not have the function .where, this only works for data_array
+        # check if this works 
+        self.min_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
         self.timings = ds_time
 
         return
 
 
-    def _update_max(self, ds_np,weight):
+    def _update_max(self, ds, weight):
 
         if(weight == 1):
-            timestamp = np.datetime_as_string((ds_np.time.values[0]))
-            ds_time = xr.zeros_like(ds_np)
+            timestamp = np.datetime_as_string((ds.time.values[0]))
+            ds_time = xr.zeros_like(ds)
             ds_time = ds_time.where(ds_time != 0, timestamp)
         else:
-            ax_num = ds_np.get_axis_num('time')
-            timings = ds_np.time
-            max_index = ds_np.argmax(axis = ax_num, keep_attrs = False)
+            ax_num = ds.get_axis_num('time')
+            timings = ds.time
+            max_index = ds.argmax(axis = ax_num, keep_attrs = False)
             self.max_index = max_index
-            ds_np = np.amax(ds_np, axis = ax_num, keepdims = True)
-            ds_time = xr.zeros_like(ds_np) # now this will have dimensions 1,lat,lon
+            ds = np.amax(ds, axis = ax_num, keepdims = True)
+            ds_time = xr.zeros_like(ds) # now this will have dimensions 1,lat,lon
 
             for i in range(0, weight):
                 timestamp = np.datetime_as_string((timings.values[i]))
                 ds_time = ds_time.where(max_index != i, timestamp)
 
         if(self.count > 0):
-            self.max_cum['time'] = ds_np.time
-            self.timings['time'] = ds_np.time
-            ds_time = ds_time.where(ds_np > self.max_cum, self.timings)
+            self.max_cum['time'] = ds.time
+            self.timings['time'] = ds.time
+            ds_time = ds_time.where(ds > self.max_cum, self.timings)
             # this gives the new self.max_cum number when the  condition is FALSE (location at which to preserve the objects values)
-            ds_np = ds_np.where(ds_np > self.max_cum, self.max_cum)
+            ds = ds.where(ds > self.max_cum, self.max_cum)
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
         self.count += weight
-        self.max_cum = ds_np #running this way around as Array type does not have the function .where, this only works for data_array
+        # TODO: check if this works 
+        self.max_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
         self.timings = ds_time
 
         return
 
 
-    def _update_threshold(self, ds_np, weight):
+    def _update_threshold(self, ds, weight):
 
         if(weight > 1):
 
-            ds_np = ds_np.where(ds_np < self.threshold, 1)
-            ds_np = ds_np.where(ds_np >= self.threshold, 0)
-            #ds_np = ds_np.sum(dim = "time")
-            ds_np = np.sum(ds_np, axis = 0, keepdims = True) #try slower np version that preserves dimensions
-            ds_np = self.thresh_exceed_cum + ds_np
+            ds = ds.where(ds < self.threshold, 1)
+            ds = ds.where(ds >= self.threshold, 0)
+            #ds = ds.sum(dim = "time")
+            ds = np.sum(ds, axis = 0, keepdims = True) #try slower np version that preserves dimensions
+            ds = self.thresh_exceed_cum + ds
 
         else:
             if(self.count > 0):
-                self.thresh_exceed_cum['time'] = ds_np.time
+                self.thresh_exceed_cum['time'] = ds.time
 
-            ds_np = ds_np.where(ds_np < self.threshold, self.thresh_exceed_cum + 1)
-            ds_np = ds_np.where(ds_np >= self.threshold, self.thresh_exceed_cum)
+            ds = ds.where(ds < self.threshold, self.thresh_exceed_cum + 1)
+            ds = ds.where(ds >= self.threshold, self.thresh_exceed_cum)
 
         self.count += weight
-        self.thresh_exceed_cum = ds_np #running this way around as Array type does not have the function .where, this only works for data_array
+        # TODO: check if this works 
+        self.thresh_exceed_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
 
         return
 
@@ -440,122 +469,48 @@ class Opa:
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
 
-        #elif(self.statistic == "percentile"):
-        # run tdigest
 
     def _write_checkpoint(self):
+
         """write checkpoint file 
         """
-        file_name = self.checkpoint_in_file
-
-        
-        with open(file_name, 'wb') as file: 
+        with open(self.checkpoint_file, 'wb') as file: 
             pickle.dump(self, file)
-
-        #f = open(file_name, 'wb')
-        #pickle.dump(self.__dict__, f, 2)
-        #f.close() 
 
 
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
-        if(np.size(np.shape(final_stat)) == 3):
+        ds = ds.tail(time = 1) # compress the dataset down to 1 dimension in time 
+        ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs)) # re-label the time coordinate 
 
-            dm = xr.Dataset(
-            data_vars = dict(
-                    [(ds.name, (["time","lat","lon"], final_stat, ds.attrs))],    # need to add variable attributes
-                ),
-            coords = dict(
-                #time = (["time"], [pd.to_datetime(final_time_stamp)]),
-                time = (["time"], [final_time_stamp], ds.time.attrs),
-                lon = (["lon"], ds.lon.data, ds.lon.attrs),
-                lat = (["lat"], ds.lat.data, ds.lat.attrs),
+        self.ds = ds
+        self.final_stat = final_stat
+
+        dm = xr.Dataset(
+        data_vars = dict(
+                [(ds.name, (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
             ),
-            attrs = self.data_set_attr
-            )
-        
-        else:
-
-            ds = ds.tail(time = 1) # I DON'T THINK THIS WORKS FOR GIVING 1 AT A TIME 
-            ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
-
-            dm = xr.Dataset(
-            data_vars = dict(
-                    [(ds.name, (ds.dims, final_stat, ds.attrs))],    # need to add variable attributes
-                ),
-            coords = dict(
-                ds.coords
-            ),
-            attrs = self.data_set_attr
-            )
-
-            #dm.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs))
+        coords = dict(
+            ds.coords
+        ),
+        attrs = self.data_set_attr
+        )
 
         if(hasattr(self, 'timings')):
             timing_attrs = {'OPA':'time stamp of ' + str(self.stat_freq + " " + self.stat)}
-            dm = dm.assign(timings = (["time","lat","lon"], self.timings.data, timing_attrs))
+            dm = dm.assign(timings = (ds.dims, self.timings.data, timing_attrs))
 
         return dm
 
-
-    def _save_output(self, dm, ds, time_stamp_string):
-
-        if (hasattr(self, 'var')): # if there are multiple variables in the file
-            file_name = self.out_filesss + time_stamp_string + "_" + self.var + "_" + self.stat_freq + "_" + self.stat + ".nc"
-        else:
-            file_name = self.out_filesss + time_stamp_string + "_" + ds.name + "_" + self.stat_freq  + "_" + self.stat + ".nc"
-
-        dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
-        dm.close()
-        print('finished saving')
 
 
     def _data_output(self, ds):
 
         final_stat = None
-        if (self.stat == "mean"):
-            final_stat = self.mean_cum
+        
+        final_stat = self.__getattribute__(str(self.stat + "_cum"))
 
-        elif(self.stat == "var"):
-            final_stat = self.var_cum
-
-        elif(self.stat == "std"):
-            final_stat = self.std_cum
-
-        elif(self.stat == "min"):
-            final_stat = self.min_cum.data
-
-        elif(self.stat == "max"):
-            final_stat = self.max_cum.data
-
-        elif(self.stat == "thresh_exceed"):
-            final_stat = self.thresh_exceed_cum.data
-            ds.name = 'exceedance_freq'
-
-        final_time_stamp = None
-        time_stamp_string = None
-        if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-            final_time_stamp = self.final_time_stamp #.to_datetime64().astype('datetime64[h]')
-            #self.final_time_stamp = final_time_stamp
-            time_stamp_string = self.time_stamp.strftime("%Y_%m_%d_T%H")
-
-        elif (self.stat_freq == "daily"):
-            final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[D]')
-            self.final_time_stamp = final_time_stamp
-            time_stamp_string = self.time_stamp.strftime("%Y_%m_%d")
-
-        elif (self.stat_freq == "weekly"):
-            final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[W]')
-            time_stamp_string = self.time_stamp.strftime("%Y_%m_%d")
-
-        elif (self.stat_freq == "monthly"):
-            final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[M]')
-            time_stamp_string = self.time_stamp.strftime("%Y_%m")
-
-        elif (self.stat_freq == "annual"):
-            final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[Y]')
-            time_stamp_string = self.time_stamp.strftime("%Y")
-
+        final_file_name_str, final_time_stamp = self._create_file_name()
 
         try:
             getattr(self, "data_set_attr") # if it was originally a data set
@@ -567,42 +522,81 @@ class Opa:
 
         dm = self._create_data_set(final_stat, final_time_stamp, ds)
 
-        return dm, time_stamp_string, final_time_stamp
+        return dm, final_file_name_str, final_time_stamp
 
-
-    def _data_output_append(self, dm, ds, time_append):
+    def _data_output_append(self, dm):
 
         self.dm_output = xr.concat([self.dm_output, dm], "time") # which way around should this be! 
         self.count_append += 1 # updating count
 
-        if(self.count_append == time_append and self.save == True):
+    def _create_file_name(self, append = False):
+
+        final_time_stamp = None
+        final_file_name_str = None
+
+        if (append):
 
             if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-                self.time_stamp_string = self.time_stamp_string + "_to_" + self.time_stamp.strftime("%Y_%m_%d_T%H")
+                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d_T%H")
 
-            elif (self.stat_freq == "daily"):
-                self.time_stamp_string = self.time_stamp_string + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
-
-            elif (self.stat_freq == "weekly"):
-                self.time_stamp_string = self.time_stamp_string + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
+            elif (self.stat_freq == "daily" or self.stat_freq == "weekly"):
+                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
 
             elif (self.stat_freq == "monthly"):
-                self.time_stamp_string = self.time_stamp_string + "_to_" + self.time_stamp.strftime("%Y_%m")
+                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m")
 
             elif (self.stat_freq == "annually"):
-                self.time_stamp_string = self.time_stamp_string + "_to_" + self.time_stamp.strftime("%Y")
+                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y")
 
-            self._save_output(self.dm_output, ds, self.time_stamp_string)
+        else:
 
-        return self.dm_output
+            if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
+                final_time_stamp = self.final_time_stamp.to_datetime64().astype('datetime64[h]') # see initalise for final_time_stamp
+                final_file_name_str = self.final_time_stamp.strftime("%Y_%m_%d_T%H")
+
+            elif (self.stat_freq == "daily"):
+                final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[D]')
+                final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
+
+            elif (self.stat_freq == "weekly"):
+                final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[W]')
+                final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
+
+            elif (self.stat_freq == "monthly"):
+                final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[M]')
+                final_file_name_str = self.time_stamp.strftime("%Y_%m")
+
+            elif (self.stat_freq == "annually"):
+                final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[Y]')
+                final_file_name_str = self.time_stamp.strftime("%Y")
+
+
+        return final_file_name_str, final_time_stamp 
+
+
+    def _save_output(self, dm, ds, final_file_name_str):
+
+        if (hasattr(self, 'var')): # if there are multiple variables in the file
+            file_name = self.out_file + final_file_name_str + "_" + self.var + "_" + self.stat_freq + "_" + self.stat + ".nc"
+        else:
+            file_name = self.out_file + final_file_name_str + "_" + ds.name + "_" + self.stat_freq  + "_" + self.stat + ".nc"
+
+        print("starting_save")
+        dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
+        dm.close()
+        print('finished saving')
 
 
     def compute(self, ds):
     
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
-        self._check_time_stamp(ds) # check the time stamp and if the data needs to be reset
+        time_stamp_tot = self._check_time_stamp(ds) # check the time stamp and if the data needs to be reset
 
+        if((time_stamp_tot/self.time_step) < self.count):
+            print("already seen this data")
+            return 
+             
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
         
         how_much_left = (self.n_data - self.count) # how much is let of your statistic to fill
@@ -612,7 +606,7 @@ class Opa:
             self._update(ds, weight)  # update rolling statistic with weight
 
             if(self.checkpoint == True and self.count < self.n_data):
-                self._write_checkpoint()
+                self._write_checkpoint() # this will not be written when count == ndata 
 
         elif(how_much_left < weight): # this will span over the new statistic 
 
@@ -624,8 +618,7 @@ class Opa:
 
         if (self.count == self.n_data):  # when the statistic is full
 
-        # how to output the data as a data_set
-            dm, time_stamp_string, final_time_stamp = self._data_output(ds)
+            dm, final_file_name_str, final_time_stamp = self._data_output(ds) # output as a dataset 
 
             # if there's more to compute
             if (how_much_left < weight):
@@ -634,6 +627,7 @@ class Opa:
 
             # converting output freq into a number
             output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)
+            
             # eg. how many days requested: 7 days of saving with daily data
             time_append = output_freq_min / self.stat_freq_min # how many do you need to append
             self.time_append = time_append
@@ -643,7 +637,11 @@ class Opa:
 
             elif(time_append == 1): #output_freq_min == self.stat_freq_min
                 if(self.save == True):
-                    self._save_output(dm, ds, time_stamp_string)
+                    self._save_output(dm, ds, final_file_name_str)
+
+                if(self.checkpoint):# delete checkpoint file 
+                    os.remove(self.checkpoint_file)
+                
                 return dm
 
             elif(time_append > 1): #output_freq_min > self.stat_freq_min
@@ -652,14 +650,32 @@ class Opa:
                     self.count_append = 1
                     self.dm_output = dm # storing the data_set ready for appending
                     self.final_time_stamp = final_time_stamp
-                    self.time_stamp_string = time_stamp_string
-                else:
-                    # append data array with new time outputs
-                    dm = self._data_output_append(dm, ds, time_append)
+                    self.final_file_name_str = final_file_name_str
+                    self._write_checkpoint()
 
+                    return self.dm_output
+                
+                elif(self.count_append < time_append):
+                    
+                    # append data array with new time outputs
+                    self._data_output_append(dm)
+                    self._write_checkpoint()
+
+                    return self.dm_output 
 
             if(self.count_append == time_append):
+
+                if(self.save): # change file name 
+                    self._create_file_name(append = True)
+                    self._save_output(self.dm_output, ds, self.final_file_name_str)
+
+                if(self.checkpoint):# delete checkpoint file 
+                    os.remove(self.checkpoint_file)
+
                 self.count_append = 0
                 delattr(self, "final_time_stamp")
-                delattr(self, "time_stamp_string")
-                return dm
+                delattr(self, "final_file_name_str")
+
+                return self.dm_output
+
+   
