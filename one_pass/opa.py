@@ -74,14 +74,6 @@ class Opa:
             if (hasattr(self, "threshold") == False):
                 raise Exception('need to provide threshold of exceedance value')
             
-    #def _reset_cum_attrs(self):
-        # how can we make this better? 
-        #self.count_append = 0
-        #self.mean_cum = None
-        #self.min_cum = None
-        #self.max_cum = None
-        #self.var_cum = None
-        #self.thresh_exceed_cum = None
 
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
@@ -91,6 +83,8 @@ class Opa:
     ############### end if __init__ #####################
 
     def _initialise_time(self, time_stamp_tot):
+
+        #print("initalising time")
 
         # TODO: decide how the time stamps should look for 3hourly and 6 hourly (begininng or end)
         self.final_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
@@ -144,6 +138,7 @@ class Opa:
 
 
     def _initialise(self, ds, time_stamp_tot):
+
         self.count = 0
 
         self._initialise_time(time_stamp_tot)
@@ -159,7 +154,7 @@ class Opa:
         
     def _compare_time(self, ds, time_stamp_tot):
         # stat_freq >= time_step
-        if(time_stamp_tot <= self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
+        if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
             # initialise cumulative statistic array
             self._initialise(ds, time_stamp_tot)
         else:
@@ -275,7 +270,7 @@ class Opa:
                 ds = getattr(ds, self.variable) # converts to a dataArray
 
             except AttributeError:
-                raise Exception('If passing data_set need to provide variable, opa can only use one variable at the moment')
+                raise Exception('If passing dataSet need to provide the correct variable, opa can only use one variable at the moment')
         except AttributeError:
             pass # data already at data_array
 
@@ -383,8 +378,7 @@ class Opa:
 
         #self.ds = ds
         self.count += weight
-        # check if this works 
-        self.min_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
+        self.min_cum = ds #running this way around as Array type does not have the function .where, this only works for data_array
         self.timings = ds_time
 
         return
@@ -418,8 +412,7 @@ class Opa:
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
         self.count += weight
-        # TODO: check if this works 
-        self.max_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
+        self.max_cum = ds #running this way around as Array type does not have the function .where, this only works for data_array
         self.timings = ds_time
 
         return
@@ -444,7 +437,7 @@ class Opa:
 
         self.count += weight
         # TODO: check if this works 
-        self.thresh_exceed_cum = ds.data #running this way around as Array type does not have the function .where, this only works for data_array
+        self.thresh_exceed_cum = ds #running this way around as Array type does not have the function .where, this only works for data_array
 
         return
 
@@ -483,9 +476,6 @@ class Opa:
         ds = ds.tail(time = 1) # compress the dataset down to 1 dimension in time 
         ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs)) # re-label the time coordinate 
 
-        self.ds = ds
-        self.final_stat = final_stat
-
         dm = xr.Dataset(
         data_vars = dict(
                 [(ds.name, (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
@@ -509,6 +499,9 @@ class Opa:
         final_stat = None
         
         final_stat = self.__getattribute__(str(self.stat + "_cum"))
+
+        if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
+            final_stat = final_stat.data
 
         final_file_name_str, final_time_stamp = self._create_file_name()
 
@@ -640,7 +633,10 @@ class Opa:
                     self._save_output(dm, ds, final_file_name_str)
 
                 if(self.checkpoint):# delete checkpoint file 
-                    os.remove(self.checkpoint_file)
+                    if os.path.isfile(self.checkpoint_file):
+                        os.remove(self.checkpoint_file)
+                    else:
+                        print("Error: %s file not found" % self.checkpoint_file)
                 
                 return dm
 
@@ -661,21 +657,26 @@ class Opa:
                     self._data_output_append(dm)
                     self._write_checkpoint()
 
-                    return self.dm_output 
+                    if(self.count_append < time_append):
+                        
+                        return self.dm_output 
 
-            if(self.count_append == time_append):
+                    elif(self.count_append == time_append):
 
-                if(self.save): # change file name 
-                    self._create_file_name(append = True)
-                    self._save_output(self.dm_output, ds, self.final_file_name_str)
+                        if(self.save): # change file name 
+                            self._create_file_name(append = True)
+                            self._save_output(self.dm_output, ds, self.final_file_name_str)
 
-                if(self.checkpoint):# delete checkpoint file 
-                    os.remove(self.checkpoint_file)
+                        if(self.checkpoint):# delete checkpoint file 
+                            if os.path.isfile(self.checkpoint_file):
+                                os.remove(self.checkpoint_file)
+                            else:
+                                print("Error: %s file not found" % self.checkpoint_file)
 
-                self.count_append = 0
-                delattr(self, "final_time_stamp")
-                delattr(self, "final_file_name_str")
+                        self.count_append = 0
+                        delattr(self, "final_time_stamp")
+                        delattr(self, "final_file_name_str")
 
-                return self.dm_output
+                        return self.dm_output
 
    
