@@ -9,6 +9,7 @@ import pandas as pd
 import dask.array as da
 
 from one_pass.convert_time import convert_time
+from one_pass.check_stat import check_stat
 from one_pass import util
 
 class Opa:
@@ -72,7 +73,7 @@ class Opa:
     def _check_thresh(self):
         if(self.stat == "thresh_exceed"):
             if (hasattr(self, "threshold") == False):
-                raise Exception('need to provide threshold of exceedance value')
+                raise AttributeError('need to provide threshold of exceedance value')
             
 
     def _compare_request(self):
@@ -83,8 +84,6 @@ class Opa:
     ############### end if __init__ #####################
 
     def _initialise_time(self, time_stamp_tot):
-
-        #print("initalising time")
 
         # TODO: decide how the time stamps should look for 3hourly and 6 hourly (begininng or end)
         self.final_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
@@ -140,9 +139,7 @@ class Opa:
     def _initialise(self, ds, time_stamp_tot):
 
         self.count = 0
-
         self._initialise_time(time_stamp_tot)
-
         self._initialise_attrs(ds)
 
 
@@ -150,8 +147,9 @@ class Opa:
         try:
             getattr(self, "n_data")
         except AttributeError:
-            raise Exception('cannot start required statistic without the initial data')
+            raise AttributeError('cannot start required statistic without the initial data')
         
+
     def _compare_time(self, ds, time_stamp_tot):
         # stat_freq >= time_step
         if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
@@ -176,92 +174,31 @@ class Opa:
         self.time_stamp = time_stamp
 
         # converting statistic freq into a number 'other code -  convert_time'
-        self.stat_freq_min = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp)
+        self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp)
+        self._compare_time(ds, time_stamp_tot)
+
+        # converting output freq into a number
+        output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp)[0]
+        self.output_freq_min = output_freq_min
+
+        # eg. how many days requested: 7 days of saving with daily data
+        time_append = output_freq_min / self.stat_freq_min # how many do you need to append
+        self.time_append = time_append
+
+        if(time_append < 1): #output_freq_min < self.stat_freq_min
+            raise ValueError('Output frequency can not be less than frequency of statistic')
 
         # stat_freq < time_step
         if(self.stat_freq_min < self.time_step):
             # we have a problem
-            raise Exception('time_step too large for requested statistic')
-
-
-        if(self.stat_freq == "hourly"):
-            # first thing to check is if this is the first in the series, time stamp must be less than 60
-            time_stamp_tot = self.time_stamp.minute
-
-            self._compare_time(ds, time_stamp_tot)
+            raise ValueError('time_step too large for requested statistic')
         
-        if(self.stat_freq == "3hourly"):
-            # first thing to check is if this is the first in the series, time stamp must be less than 3*60
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour # converting to minutes -
-            if(np.mod(time_stamp_hour, 3) != 0):
-                time_stamp_tot = time_stamp_min + time_stamp_hour*60
-            else:
-                time_stamp_tot = time_stamp_min
-
-            self._compare_time(ds, time_stamp_tot)
-
-        if(self.stat_freq == "6hourly"):
-            # first thing to check is if this is the first in the series, time stamp must be less than 6*60
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour # converting to minutes -
-            if(np.mod(time_stamp_hour, 6) != 0):
-                time_stamp_tot = time_stamp_min + time_stamp_hour*60
-            else:
-                time_stamp_tot = time_stamp_min
-
-            self._compare_time(ds, time_stamp_tot)
-
-        if(self.stat_freq == "daily"):
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_tot = time_stamp_min + time_stamp_hour
-
-            self._compare_time(ds, time_stamp_tot)
-
-        elif(self.stat_freq == "weekly"):
-
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_day = (time_stamp.day_of_week)*24*60
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day
-
-            self._compare_time(ds, time_stamp_tot)
-
-        if(self.stat_freq == "monthly"):
-
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_day = (time_stamp.day-1)*24*60 # .day corresponds to day of the month
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day 
-
-            self._compare_time(ds, time_stamp_tot)
-
-        if(self.stat_freq == "annually"):
-
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_day = (time_stamp.day-1)*24*60
-            time_stamp_month = time_stamp.month * time_stamp.days_in_month
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day + time_stamp_month
-
-            self._compare_time(ds, time_stamp_tot)
-
-        if(self.stat_freq == "continuous"):
-
-            time_stamp_min = time_stamp.minute
-            time_stamp_hour = time_stamp.hour*60 # converting to minutes -
-            time_stamp_day = (time_stamp.day-1)*24*60
-            time_stamp_month = time_stamp.month * time_stamp.days_in_month
-            time_stamp_tot = time_stamp_min + time_stamp_hour + time_stamp_day + time_stamp_month
-
-            self._compare_time(ds, time_stamp_tot)
-
         return time_stamp_tot 
     
 
-
     def _check_variable(self, ds):
+
+        check_stat(statistic = self.stat) # first check it's a valid statistic 
 
         try:
             getattr(ds, "data_vars") # this means it a data_set
@@ -271,6 +208,7 @@ class Opa:
 
             except AttributeError:
                 raise Exception('If passing dataSet need to provide the correct variable, opa can only use one variable at the moment')
+        
         except AttributeError:
             pass # data already at data_array
 
@@ -535,7 +473,7 @@ class Opa:
             elif (self.stat_freq == "daily" or self.stat_freq == "weekly"):
                 self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
 
-            elif (self.stat_freq == "monthly"):
+            elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly"):
                 self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m")
 
             elif (self.stat_freq == "annually"):
@@ -555,7 +493,7 @@ class Opa:
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[W]')
                 final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
 
-            elif (self.stat_freq == "monthly"):
+            elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[M]')
                 final_file_name_str = self.time_stamp.strftime("%Y_%m")
 
@@ -569,8 +507,8 @@ class Opa:
 
     def _save_output(self, dm, ds, final_file_name_str):
 
-        if (hasattr(self, 'var')): # if there are multiple variables in the file
-            file_name = self.out_file + final_file_name_str + "_" + self.var + "_" + self.stat_freq + "_" + self.stat + ".nc"
+        if (hasattr(self, 'variable')): # if there are multiple variables in the file
+            file_name = self.out_file + final_file_name_str + "_" + self.variable + "_" + self.stat_freq + "_" + self.stat + ".nc"
         else:
             file_name = self.out_file + final_file_name_str + "_" + ds.name + "_" + self.stat_freq  + "_" + self.stat + ".nc"
 
@@ -618,17 +556,8 @@ class Opa:
                 ds = ds.isel(time=slice(how_much_left, weight))
                 Opa.compute(self, ds) # calling recursive function
 
-            # converting output freq into a number
-            output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)
-            
-            # eg. how many days requested: 7 days of saving with daily data
-            time_append = output_freq_min / self.stat_freq_min # how many do you need to append
-            self.time_append = time_append
 
-            if(time_append < 1): #output_freq_min < self.stat_freq_min
-                print('Output frequency can not be less than frequency of statistic!')
-
-            elif(time_append == 1): #output_freq_min == self.stat_freq_min
+            if(self.time_append == 1): #output_freq_min == self.stat_freq_min
                 if(self.save == True):
                     self._save_output(dm, ds, final_file_name_str)
 
@@ -640,7 +569,7 @@ class Opa:
                 
                 return dm
 
-            elif(time_append > 1): #output_freq_min > self.stat_freq_min
+            elif(self.time_append > 1): #output_freq_min > self.stat_freq_min
 
                 if (hasattr(self, 'count_append') == False or self.count_append == 0):
                     self.count_append = 1
@@ -651,17 +580,17 @@ class Opa:
 
                     return self.dm_output
                 
-                elif(self.count_append < time_append):
+                elif(self.count_append < self.time_append):
                     
                     # append data array with new time outputs
                     self._data_output_append(dm)
                     self._write_checkpoint()
 
-                    if(self.count_append < time_append):
+                    if(self.count_append < self.time_append):
                         
                         return self.dm_output 
 
-                    elif(self.count_append == time_append):
+                    elif(self.count_append == self.time_append):
 
                         if(self.save): # change file name 
                             self._create_file_name(append = True)
