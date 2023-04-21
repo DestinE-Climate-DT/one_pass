@@ -24,7 +24,7 @@ setup(name='one_pass',
           'all': tests  # later, here we can do tests + docs + something...
       },
       install_requires=[
-	'numpy==1.24.2',
+	'numpy==1.23',
 	'xarray==2023.3.0',	
 	'dask==2023.3.2',
       ]

@@ -56,7 +56,7 @@ class Opa:
                 self._compare_request()
                 self._check_thresh()
             else: 
-                # using checkpoints but no file is there
+                # using checkpoints but there is no file 
                 self._process_request(request) # passing the attrs from the config request 
         else:
             raise KeyError("need to pass a file path for the checkpoint file")
@@ -75,7 +75,6 @@ class Opa:
             if (hasattr(self, "threshold") == False):
                 raise AttributeError('need to provide threshold of exceedance value')
             
-
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
         pass # TODO: do you want this function? It shouldn't be needed if the checkpoint file path is changed but 
@@ -155,31 +154,53 @@ class Opa:
         if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
             # initialise cumulative statistic array
             self._initialise(ds, time_stamp_tot)
+        
+        elif(self.stat_freq == "continuous"):
+            
+            if(hasattr(self, 'n_data')):
+                if(time_stamp_tot > self.time_stamp_tot): # is new one greater than old one? 
+                    pass 
+                else: 
+                    self._initialise(ds, time_stamp_tot) # re-initalise 
+            else: 
+                self._initialise(ds, time_stamp_tot)
+
+            self.time_stamp_tot = time_stamp_tot
         else:
             # check were we are in the sequence 
-            self.time_stamp_tot = time_stamp_tot
             self._check_n_data()
 
 
     def _check_time_stamp(self, ds):
-    # function to calculate:
-    # - n_data (number of pieces of information (GRIB messages) required to make up the required statistic)
-    # - count (how far through the statistic you are, i.e. count = 5 if you've read 5 of the required GRIB messages)
-    # - initialises empty array for the statistic
-    # all based on time_stamp and time_step
 
+        """
+        Function to check the incoming timestamp of the data and check if it is the first one of the required statistic.
+        If so, initalise the function with the required variables 
+
+        Args:
+        ds: Incoming xarray dataArray with associated timestamp 
+
+        Output:
+        If function is initalised it will assign the attributes: 
+        n_data: number of pieces of information required to make up the requested statistic 
+        count: how far through the statistic you are, when initalised, this will be set to 1
+        stat_cum: will set an empty array of the correct dimensions, ready to be filled with the statistic 
+
+        Checks:
+        If it is not the first timestamp of the statistic, it will check: 
+        - that the attribute n_data has already been assigned, otherwise will through an error 
+        """
         time_stamp_list = sorted(ds.time.data) # assuming that incoming data has a time dimension
         time_stamp_pandas = [pd.to_datetime(x) for x in time_stamp_list]
         time_stamp = time_stamp_pandas[0] # converting to a pandas datetime to calculate if it's the first
         self.time_stamp = time_stamp
 
-        # converting statistic freq into a number 'other code -  convert_time'
-        self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp)
+        # converting statistic freq into minutes 'other code -  convert_time'
+        self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
         self._compare_time(ds, time_stamp_tot)
 
         # converting output freq into a number
-        output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp)[0]
-        self.output_freq_min = output_freq_min
+        output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)[0]
 
         # eg. how many days requested: 7 days of saving with daily data
         time_append = output_freq_min / self.stat_freq_min # how many do you need to append
@@ -432,7 +453,7 @@ class Opa:
 
 
 
-    def _data_output(self, ds):
+    def _data_output(self, ds, time_word = None):
 
         final_stat = None
         
@@ -441,7 +462,7 @@ class Opa:
         if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
             final_stat = final_stat.data
 
-        final_file_name_str, final_time_stamp = self._create_file_name()
+        final_file_name_str, final_time_stamp = self._create_file_name(time_word = time_word)
 
         try:
             getattr(self, "data_set_attr") # if it was originally a data set
@@ -460,7 +481,7 @@ class Opa:
         self.dm_output = xr.concat([self.dm_output, dm], "time") # which way around should this be! 
         self.count_append += 1 # updating count
 
-    def _create_file_name(self, append = False):
+    def _create_file_name(self, append = False, time_word = None):
 
         final_time_stamp = None
         final_file_name_str = None
@@ -493,7 +514,7 @@ class Opa:
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[W]')
                 final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
 
-            elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly"):
+            elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly" or time_word == "monthly"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[M]')
                 final_file_name_str = self.time_stamp.strftime("%Y_%m")
 
@@ -543,9 +564,19 @@ class Opa:
 
             ds_left = ds.isel(time=slice(0, how_much_left)) # extracting time until the end of the statistic
 
-            # update rolling statistic with weight of the last few days  -this will finish the statistic 
+            # update rolling statistic with weight of the last few days  - # still need to finish the statistic (see below)
             self._update(ds_left, how_much_left)
-            # still need to finish the statistic (see below)
+
+        if (self.stat_freq == "continuous"):
+            
+            # check if first of month 
+            mon_freq_min = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0]
+            self.mon_freq_min = mon_freq_min
+            
+            if(self.count == int(mon_freq_min/self.time_step)):
+                dm, final_file_name_str, final_time_stamp = self._data_output(ds, time_word = "monthly")
+                self._save_output(dm, ds, final_file_name_str)
+                self.count = 0 
 
         if (self.count == self.n_data):  # when the statistic is full
 
