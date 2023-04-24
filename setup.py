@@ -12,7 +12,7 @@ tests = [
 ]
 
 setup(name='one_pass',
-      version='0.1.0',
+      version='0.2.0',
       description='One Pass Algorithms',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
@@ -24,7 +24,7 @@ setup(name='one_pass',
           'all': tests  # later, here we can do tests + docs + something...
       },
       install_requires=[
-	'numpy==1.24.2',
+	'numpy==1.22',
 	'xarray==2023.3.0',	
 	'dask==2023.3.2',
       ]
