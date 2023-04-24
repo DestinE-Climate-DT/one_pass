@@ -8,8 +8,10 @@ import glob
 import os 
 import sys 
 
-#os.chdir("/home/bsc32/bsc32263/git/one_pass")
-sys.path.insert(0, "/home/bsc32/bsc32263/git/one_pass")
+path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(path)
+os.chdir(path)
+
 from one_pass.opa import *
 from one_pass.opa import Opa
 
@@ -27,7 +29,8 @@ from one_pass.opa import Opa
 # data = data.es 
 
 #### reading some data from disk on nord3 #### 
-file_path_data = "/home/bsc32/bsc32263/git/one_pass/uas_10_months.nc"
+file_path_data = os.path.realpath(os.path.join(os.path.dirname(__file__), 'uas_10_months.nc'))
+
 fileList = glob.glob(file_path_data) 
 fileList.sort() 
 data = xr.open_dataset(fileList[0])  # , chunks = 'auto') # open dataset
@@ -87,8 +90,8 @@ class test_opa(unittest.TestCase):
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_mean_daily.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_mean_uas_3monthly.nc",
+        "out_file": "tests/"}
 
         for i in range(n_start, n_data, 1): 
             ds = data.isel(time=slice(i,i+1)) # extract moving window
@@ -122,8 +125,8 @@ class test_opa(unittest.TestCase):
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_std_monthly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_std_uas_3monthly.nc",
+        "out_file": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 
@@ -158,8 +161,8 @@ class test_opa(unittest.TestCase):
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_min_monthly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_min_uas_3monthly.nc",
+        "out_file": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 
@@ -192,8 +195,8 @@ class test_opa(unittest.TestCase):
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_max_monthly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_max_uas_monthly.nc",
+        "out_file": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 

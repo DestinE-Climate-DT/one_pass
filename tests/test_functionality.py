@@ -8,8 +8,10 @@ import glob
 import os 
 import sys 
 
-#os.chdir("/home/bsc32/bsc32263/git/one_pass")
-sys.path.insert(0, "/home/bsc32/bsc32263/git/one_pass")
+path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(path)
+os.chdir(path)
+
 from one_pass.opa import *
 from one_pass.opa import Opa
 
@@ -27,7 +29,8 @@ from one_pass.opa import Opa
 # data = data.es 
 
 #### reading some data from disk on nord3 #### 
-file_path_data = "/home/bsc32/bsc32263/git/one_pass/uas_10_months.nc"
+file_path_data = os.path.realpath(os.path.join(os.path.dirname(__file__), 'uas_10_months.nc'))
+
 fileList = glob.glob(file_path_data) 
 fileList.sort() 
 data = xr.open_dataset(fileList[0])  # , chunks = 'auto') # open dataset
@@ -60,11 +63,11 @@ def incorrect_stat(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_in_std_3hourly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_wrong_name_uas_daily.pickle",
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 # only need to give it one data point as should throw error on initalisation 
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
@@ -81,15 +84,16 @@ def incorrect_freq(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_in_std_3hourly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_mean_uas_wrong_freq.pickle",
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 
+
+    daily_mean = Opa(pass_dic)
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds)
 
 
@@ -102,15 +106,16 @@ def lower_output(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_in_std_3hourly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_mean_uas_daily.pickle",
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 
+
+    daily_mean = Opa(pass_dic)
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds)
 
 
@@ -123,15 +128,16 @@ def bad_timestep(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_in_std_3hourly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_mean_uas_daily.pickle",
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 
+
+    daily_mean = Opa(pass_dic)
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds)
 
 def wrong_checkpointfile(data):
@@ -144,14 +150,15 @@ def wrong_checkpointfile(data):
         "save": True,
         "checkpoint": True,
         "checkpoint_file": "",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 
+
+    daily_mean = Opa(pass_dic)
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds)
 
 def check_attributes(data):
@@ -163,15 +170,16 @@ def check_attributes(data):
         "variable": "es",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "/home/bsc32/bsc323/git/data/checkpoint_in_std_3hourly.nc",
-        "out_file": "/home/bsc32/bsc32263/git/data/"}
+        "checkpoint_file": "tests/checkpoint_mean_es_daily.pickle",
+        "out_file": "tests/"}
     
     n_start = 0 
-    n_data = 1 # n_start + 3*30*24 + 2*24
+    n_data = 1 
+    
+    daily_mean = Opa(pass_dic)
 
     for i in range(n_start, n_data, 1): 
         ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds)
 
 ####################### py tests ##############################
