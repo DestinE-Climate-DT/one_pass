@@ -8,11 +8,11 @@ param: ["165", "166", "167"]
 stat: "mean"
 stat_freq: "daily"
 output_freq: "daily"
-time_step: 60
-variable: "tas"
+time_step: 60 # timestep of data in minutes
+variable: "uas"
 save: True
-checkpoint: False
-checkpoint_file: "/home/bsc32/bsc32263/git/data/checkpoint_in_mean_daily_tas.pickle"
-out_file: "/home/bsc32/bsc32263/git/data"
+checkpoint: True
+checkpoint_file: "/home/bsc32/bsc32263/git/data/checkpoint_mean_uas_daily.pickle"
+out_filepath: "/home/bsc32/bsc32263/git/data"
 
 # if you change the config file MUST DELETE CHECKPOINT FILES 
