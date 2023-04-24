@@ -75,7 +75,9 @@ cd one_pass
 git checkout v0.2.0`
 ```
 
-In MareNostrum4 there is no outwards internet connection, so the code must be first cloned locally and then uploaded to the HPC.
+In MareNostrum4 there is no outwards internet connection, so the code must be first cloned locally and then uploaded to the HPC. To load the correct modules run: 
+
+`source load_modules_mn4.sh`
 
 ## Dependencies 
 
