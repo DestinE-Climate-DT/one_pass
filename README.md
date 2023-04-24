@@ -9,7 +9,7 @@ The one_pass algorithms will eventually work with climate data streamted from th
 
 ## Version 
 The current released version can be found at tag: `v0.2.0`. 
-**This version requires different intialisation comapred to `v0.1.1`, see below for details.** 
+**This version requires different initialisation comapred to `v0.1.1`, see below for details.** 
 
 ## How to configure
 The one pass algorithms are contained in the python script `opa.py` and need to be passed configuration information (data requests) in order from them to work. These requests can either be given as a python dictionary (see `wrapper.py`) or from the configuration file `config.yml`. The following need to be defined: 
@@ -94,9 +94,6 @@ For all feedback, comments and issues, feel free to open an issue or email me at
 
 ## Roadmap
 By the summer of 2023 we will have integrated into the one_pass, the possibility to compute percentiles and historgrams on the fly. 
-
-## Authors and acknowledgment
-Thanks Bruno! 
 
 ## License
 ??
