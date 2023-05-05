@@ -572,9 +572,10 @@ class Opa:
         """  saves final dataSet """
 
         if (hasattr(self, 'variable')): # if there are multiple variables in the file
-            file_name = self.out_filepath + final_file_name_str + "_" + self.variable + "_" + self.stat_freq + "_" + self.stat + ".nc"
+
+            file_name = os.path.join(self.out_filepath, f'{final_file_name_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
         else:
-            file_name = self.out_filepath + final_file_name_str + "_" + ds.name + "_" + self.stat_freq  + "_" + self.stat + ".nc"
+            file_name = os.path.join(self.out_filepath, f'{final_file_name_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
 
         dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
         dm.close()
