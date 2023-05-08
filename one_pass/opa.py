@@ -53,9 +53,9 @@ class Opa:
             file_path = request.get("checkpoint_filepath")
 
             if (hasattr(self, 'variable')): # if there are multiple variables in the file
-                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.stat}.pkl')
+                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
             else:
-                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.stat}.pkl')
+                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
 
             if os.path.exists(self.checkpoint_file): # see if the checkpoint file exists
 
@@ -134,6 +134,19 @@ class Opa:
                 self.n_data = int(self.stat_freq_min/self.time_step) 
         else:
             raise Exception('Frequency of the requested statistic (e.g. daily) must be wholly divisible by the timestep (dt) of the input data')
+
+   
+        try:
+            getattr(self, "time_append")
+        except AttributeError:
+            ## looking at output freq - how many cum stats you want to save in one netcdf ##
+            # converting output freq into a number
+            output_freq_min, time_stamp_output_tot = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            # eg. how many days requested: 7 days of saving with daily data
+            self.time_append = (output_freq_min - time_stamp_output_tot)/ self.stat_freq_min # how many do you need to append
+
+            if(self.time_append < 1): #output_freq_min < self.stat_freq_min
+                raise ValueError('Output frequency can not be less than frequency of statistic')
 
 
     def _initialise_attrs(self, ds):
@@ -249,16 +262,6 @@ class Opa:
         # converting statistic freq into minutes 'other code -  convert_time'
         self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
         error = self._compare_time(ds, time_stamp_tot)
-
-        # converting output freq into a number
-        output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)[0]
-
-        # eg. how many days requested: 7 days of saving with daily data
-        time_append = output_freq_min / self.stat_freq_min # how many do you need to append
-        self.time_append = time_append
-
-        if(time_append < 1): #output_freq_min < self.stat_freq_min
-            raise ValueError('Output frequency can not be less than frequency of statistic')
 
         # stat_freq < time_step
         if(self.stat_freq_min < self.time_step):
@@ -520,7 +523,7 @@ class Opa:
         if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
             final_stat = final_stat.data
 
-        final_file_name_str, final_time_stamp = self._create_file_name(time_word = time_word)
+        final_time_file_str, final_time_stamp = self._create_file_name(time_word = time_word)
 
         try:
             getattr(self, "data_set_attr") # if it was originally a data set
@@ -532,7 +535,7 @@ class Opa:
 
         dm = self._create_data_set(final_stat, final_time_stamp, ds)
 
-        return dm, final_file_name_str, final_time_stamp
+        return dm, final_time_file_str, final_time_stamp
 
     def _data_output_append(self, dm):
 
@@ -544,55 +547,55 @@ class Opa:
     def _create_file_name(self, append = False, time_word = None):
 
         final_time_stamp = None
-        final_file_name_str = None
+        final_time_file_str = None
 
         if (append):
 
             if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d_T%H")
+                self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d_T%H")
 
             elif (self.stat_freq == "daily" or self.stat_freq == "weekly"):
-                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
+                self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d")
 
             elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly"):
-                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y_%m")
+                self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y_%m")
 
             elif (self.stat_freq == "annually"):
-                self.final_file_name_str = self.final_file_name_str + "_to_" + self.time_stamp.strftime("%Y")
+                self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y")
 
         else:
 
             if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
                 final_time_stamp = self.final_time_stamp.to_datetime64().astype('datetime64[h]') # see initalise for final_time_stamp
-                final_file_name_str = self.final_time_stamp.strftime("%Y_%m_%d_T%H")
+                final_time_file_str = self.final_time_stamp.strftime("%Y_%m_%d_T%H")
 
             elif (self.stat_freq == "daily"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[D]')
-                final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
+                final_time_file_str = self.time_stamp.strftime("%Y_%m_%d")
 
             elif (self.stat_freq == "weekly"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[W]')
-                final_file_name_str = self.time_stamp.strftime("%Y_%m_%d")
+                final_time_file_str = self.time_stamp.strftime("%Y_%m_%d")
 
             elif (self.stat_freq == "monthly" or self.stat_freq == "3monthly" or time_word == "monthly"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[M]')
-                final_file_name_str = self.time_stamp.strftime("%Y_%m")
+                final_time_file_str = self.time_stamp.strftime("%Y_%m")
 
             elif (self.stat_freq == "annually"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[Y]')
-                final_file_name_str = self.time_stamp.strftime("%Y")
+                final_time_file_str = self.time_stamp.strftime("%Y")
 
-        return final_file_name_str, final_time_stamp 
+        return final_time_file_str, final_time_stamp 
 
-    def _save_output(self, dm, ds, final_file_name_str):
+    def _save_output(self, dm, ds, final_time_file_str):
 
         """  saves final dataSet """
 
         if (hasattr(self, 'variable')): # if there are multiple variables in the file
 
-            file_name = os.path.join(self.out_filepath, f'{final_file_name_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
+            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
         else:
-            file_name = os.path.join(self.out_filepath, f'{final_file_name_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
+            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
 
         dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
         dm.close()
@@ -638,13 +641,13 @@ class Opa:
             self.mon_freq_min = mon_freq_min
             
             if(self.count == int(mon_freq_min/self.time_step)):
-                dm, final_file_name_str, final_time_stamp = self._data_output(ds, time_word = "monthly")
-                self._save_output(dm, ds, final_file_name_str)
+                dm, final_time_file_str, final_time_stamp = self._data_output(ds, time_word = "monthly")
+                self._save_output(dm, ds, final_time_file_str)
                 self.count = 0 
 
         if (self.count == self.n_data):  # when the statistic is full
 
-            dm, final_file_name_str, final_time_stamp = self._data_output(ds) # output as a dataset 
+            dm, final_time_file_str, final_time_stamp = self._data_output(ds) # output as a dataset 
 
             if (how_much_left < weight): # if there's more to compute
                 ds = ds.isel(time=slice(how_much_left, weight))
@@ -652,7 +655,7 @@ class Opa:
 
             if(self.time_append == 1): #output_freq_min == self.stat_freq_min
                 if(self.save == True):
-                    self._save_output(dm, ds, final_file_name_str)
+                    self._save_output(dm, ds, final_time_file_str)
 
                 if(self.checkpoint):# delete checkpoint file 
                     if os.path.isfile(self.checkpoint_file):
@@ -668,7 +671,7 @@ class Opa:
                     self.count_append = 1
                     self.dm_output = dm # storing the data_set ready for appending
                     self.final_time_stamp = final_time_stamp
-                    self.final_file_name_str = final_file_name_str
+                    self.final_time_file_str = final_time_file_str
                     self._write_checkpoint()
 
                     return self.dm_output
@@ -687,7 +690,7 @@ class Opa:
 
                         if(self.save): # change file name 
                             self._create_file_name(append = True)
-                            self._save_output(self.dm_output, ds, self.final_file_name_str)
+                            self._save_output(self.dm_output, ds, self.final_time_file_str)
 
                         if(self.checkpoint):# delete checkpoint file 
                             if os.path.isfile(self.checkpoint_file):
@@ -697,7 +700,7 @@ class Opa:
 
                         self.count_append = 0
                         delattr(self, "final_time_stamp")
-                        delattr(self, "final_file_name_str")
+                        delattr(self, "final_time_file_str")
 
                         return self.dm_output
 
