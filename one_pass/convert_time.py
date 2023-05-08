@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 
 """Functions to convert time for the one pass algorithms."""
+"""A mapping between time words and number of minutes,
+# to avoid having multiple if statements. Converts to minutes expect for monthly, 
+where you need to check the number of days in a month. This is done below. """
 
-# A mapping between time words and number of minutes,
-# to avoid having multiple if statements.
 times = {
     "hourly": 60,
     "3hourly": 3 * 60,
@@ -32,8 +33,8 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
         valid_values = ", ".join(times.keys())
         raise ValueError(f"The input saving frequency '{time_word}' is not supported, valid values are: {valid_values}")
 
-    if time_word == "monthly" and time_stamp_input is None:
-        raise ValueError(f"You must provide a time_stamp_input for monthly saving frequency")
+    if time_stamp_input is None:
+        raise ValueError(f"You must provide a time_stamp_input for saving frequency")
     # NOTE: For monthly;
 
     stat_freq_min = times.get(time_word)

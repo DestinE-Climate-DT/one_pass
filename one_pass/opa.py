@@ -26,10 +26,12 @@ class Opa:
 
         request = util.parse_request(user_request)
 
+        self._process_request(request)
+
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
-        else:
-            self._process_request(request)
+        #else:
+        #    self._process_request(request)
 
 
     def _check_checkpoint(self, request):
@@ -46,12 +48,18 @@ class Opa:
             self object is returned with old attributes
         """
 
-        if (request.get("checkpoint_file")): 
+        if (request.get("checkpoint_filepath")): 
 
-            file_path = request.get("checkpoint_file")
+            file_path = request.get("checkpoint_filepath")
 
-            if os.path.exists(file_path): 
-                f = open(file_path, 'rb')
+            if (hasattr(self, 'variable')): # if there are multiple variables in the file
+                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.stat}.pkl')
+            else:
+                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.stat}.pkl')
+
+            if os.path.exists(self.checkpoint_file): # see if the checkpoint file exists
+
+                f = open(self.checkpoint_file, 'rb')
                 temp_self = pickle.load(f)
                 f.close()
 
@@ -63,8 +71,8 @@ class Opa:
                 self._compare_request()
                 self._check_thresh()
             else: 
-                # using checkpoints but there is no file 
-                self._process_request(request) 
+                # using checkpoints but theres is no file 
+                pass
         else:
             raise KeyError("need to pass a file path for the checkpoint file")
 
@@ -171,11 +179,15 @@ class Opa:
         self._initialise_attrs(ds)
 
 
-    def _check_n_data(self):
+    def _check_n_data(self, error):
         try:
             getattr(self, "n_data")
         except AttributeError:
-            raise AttributeError('cannot start required statistic without the initial data')
+            error = True
+            #raise AttributeError('cannot start required statistic without the initial data')
+        
+        return error
+            
         
 
     def _compare_time(self, ds, time_stamp_tot):
@@ -184,6 +196,8 @@ class Opa:
         Checks to see if in the timestamp of the data is the 'first' in the requested statistic. If so, 
         will initalise the class using above functions. Will also check if statistic has previously been initalised  
         """
+
+        error = False
 
         if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
             
@@ -202,7 +216,9 @@ class Opa:
             self.time_stamp_tot = time_stamp_tot
         else:
             # check were we are in the sequence 
-            self._check_n_data()
+            error = self._check_n_data(error)
+            
+        return error
 
 
     def _check_time_stamp(self, ds):
@@ -224,6 +240,7 @@ class Opa:
         If it is not the first timestamp of the statistic, it will check: 
         - that the attribute n_data has already been assigned, otherwise will through an error 
         """
+
         time_stamp_list = sorted(ds.time.data) # assuming that incoming data has a time dimension
         time_stamp_pandas = [pd.to_datetime(x) for x in time_stamp_list]
         time_stamp = time_stamp_pandas[0] # converting to a pandas datetime to calculate if it's the first
@@ -231,7 +248,7 @@ class Opa:
 
         # converting statistic freq into minutes 'other code -  convert_time'
         self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
-        self._compare_time(ds, time_stamp_tot)
+        error = self._compare_time(ds, time_stamp_tot)
 
         # converting output freq into a number
         output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)[0]
@@ -248,7 +265,7 @@ class Opa:
             # we have a problem
             raise ValueError('time_step too large for requested statistic')
         
-        return time_stamp_tot 
+        return time_stamp_tot, error
     
 
     def _check_variable(self, ds):
@@ -587,10 +604,13 @@ class Opa:
 
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
-        time_stamp_tot = self._check_time_stamp(ds) # check the time stamp and if the data needs to be initalised 
+        time_stamp_tot, error = self._check_time_stamp(ds) # check the time stamp and if the data needs to be initalised 
+        if error:
+            print('passing on this data as its not the initial data for the requested statistic')
+            return
 
         if((time_stamp_tot/self.time_step) < self.count): # check if data has been 'seen', will only skip if data doesn't get re-initalised
-            print("already seen this data")
+            print('already seen this data')
             return 
              
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic

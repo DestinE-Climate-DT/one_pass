@@ -20,13 +20,8 @@ def main():
     "variable": "uas",
     "save": True,
     "checkpoint": True,
-    "checkpoint_file": "/home/bsc32/bsc32263/git/data/checkpoint_mean_uas_daily.pickle",
+    "checkpoint_file": "/home/bsc32/bsc32263/git/data/",
     "out_filepath": "/home/bsc32/bsc32263/git/data/"}
-
-    # can pass either a dictionary as above or data from the config file 
-
-    #daily_mean = Opa("config.yml")
-    daily_mean = Opa(pass_dic)
 
     ########### GSV Interface ################  
 
@@ -44,6 +39,9 @@ def main():
     for i in range(0, 24, 1): 
 
         ds = data.isel(time=slice(i,i+1)) # extract moving window 'simulating streaming'
+        # can pass either a dictionary as above or data from the config file 
+        #daily_mean = Opa("config.yml")
+        daily_mean = Opa(pass_dic)
         dm = daily_mean.compute(ds) # computing algorithm with new data 
 
 
