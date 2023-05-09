@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import dask.array as da
+#from dask.distributed import client, LocalCluster
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
@@ -23,15 +24,12 @@ class Opa:
         : pass either a config file or dictionary 
         
         """
-
         request = util.parse_request(user_request)
 
         self._process_request(request)
 
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
-        #else:
-        #    self._process_request(request)
 
 
     def _check_checkpoint(self, request):
@@ -123,7 +121,7 @@ class Opa:
         """
 
         # TODO: decide how the time stamps should look for 3hourly and 6 hourly (begininng or end)
-        self.final_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
+        self.init_time_stamp = self.time_stamp # this will be re-written for larger frequencies 
 
         # calculated by MIN freq of stat / timestep min of data
         if ((self.stat_freq_min/self.time_step).is_integer()):
@@ -161,7 +159,9 @@ class Opa:
         if(self.stat != "hist" or self.stat != "percentile"):
             
             ds_size = ds.tail(time = 1)
-            value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+            #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+            
+            value = da.zeros_like(ds_size, dtype=np.float64, chunks=[1,450,600]) # forcing computation in float64
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -289,6 +289,7 @@ class Opa:
         except AttributeError:
             pass # data already at data_array
 
+        da.rechunk(ds, chunks=[1,450,600])
         return ds
 
 
@@ -333,6 +334,7 @@ class Opa:
             mean_cum = self.mean_cum + weight*(temp_mean - self.mean_cum) / (self.count) 
 
         self.mean_cum = mean_cum.data
+        print('update mean')
 
     def _update_var(self, ds, weight):
 
@@ -566,8 +568,8 @@ class Opa:
         else:
 
             if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
-                final_time_stamp = self.final_time_stamp.to_datetime64().astype('datetime64[h]') # see initalise for final_time_stamp
-                final_time_file_str = self.final_time_stamp.strftime("%Y_%m_%d_T%H")
+                final_time_stamp = self.init_time_stamp.to_datetime64().astype('datetime64[h]') # see initalise for final_time_stamp
+                final_time_file_str = self.init_time_stamp.strftime("%Y_%m_%d_T%H")
 
             elif (self.stat_freq == "daily"):
                 final_time_stamp = self.time_stamp.to_datetime64().astype('datetime64[D]')
@@ -646,7 +648,10 @@ class Opa:
                 self.count = 0 
 
         if (self.count == self.n_data):  # when the statistic is full
-
+            
+            self.mean_cum.compute() 
+            print('finished compute')
+            
             dm, final_time_file_str, final_time_stamp = self._data_output(ds) # output as a dataset 
 
             if (how_much_left < weight): # if there's more to compute
@@ -670,7 +675,7 @@ class Opa:
                 if (hasattr(self, 'count_append') == False or self.count_append == 0):
                     self.count_append = 1
                     self.dm_output = dm # storing the data_set ready for appending
-                    self.final_time_stamp = final_time_stamp
+                    self.init_time_stamp = final_time_stamp
                     self.final_time_file_str = final_time_file_str
                     self._write_checkpoint()
 
