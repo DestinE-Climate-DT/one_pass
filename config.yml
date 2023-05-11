@@ -5,7 +5,5 @@ time_step: 60 # timestep of data in minutes
 variable: "uas"
 save: True
 checkpoint: True
-checkpoint_file: "/home/bsc32/bsc32263/git/data/checkpoint_mean_uas_daily.pickle"
-out_filepath: "/home/bsc32/bsc32263/git/data"
-
-# if you change the config file MUST DELETE CHECKPOINT FILES 
+checkpoint_file: "/home/bsc32/bsc32263/git/data/"
+out_filepath: "/home/bsc32/bsc32263/git/data/"
