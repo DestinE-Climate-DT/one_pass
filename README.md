@@ -8,7 +8,7 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. For details of the algorithms used, please refer to the `README.ipynb`. 
 
 ## Version 
-The current released version can be found at tag: `v0.2.0`. 
+The current released version can be found at tag: `v0.2.1`. 
 **This version requires different initialisation comapred to `v0.1.1`, see below for details.** 
 
 ## How to configure
@@ -18,7 +18,7 @@ The one pass algorithms are contained in the python script `opa.py` and need to 
 
 - `stat_freq:` This defines the frequency of the requested statistic. The current options are `"hourly", "3hourly", "6hourly", "12hourly", "daily", "weekly", "monthly", "3monthly", "annually", "continuous"`. Be careful about spelling, it matters. Note: for the frequencies `"weekly", "monthly", "annually`, the statistic will work with the calendar, e.g. `"annually"` will only work if you the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for monthly and weekly, where weekly runs from Monday - Sunday. The option of `"continuous`, will also output running outputs every month. 
 
-- `output_freq:` This defines the frequency you want to save your final dataSet containing your statistic. Options are the same as `stat_freq`. Normally, set the same as `stat_freq`, however if you have requested `stat_freq: "hourly"` but you don't want an output file for every hour, set `output_freq: "daily"` and you will have a dataSet with a time dimension = 24 hourly statistics in one file. 
+- `output_freq:` This defines the frequency you want to save your final dataSet containing your statistic. Options are the same as `stat_freq`. Normally, set the same as `stat_freq`, however if you have requested `stat_freq: "hourly"` but you don't want an output file for every hour, set `output_freq: "daily"` and you will have a dataSet with a time dimension = 24 hourly statistics in one file. Note if you set `stat_freq = continuous` you have to set `output_freq = continuous` as well. This will always save a netCDF of the running statistic every month. 
 
 - `time_step:` This is the the step of your incoming data in **minutes**. This is repeated data from the GSV call and will eventually be combined with the GSV request however for now, it needs to be set seperately. 
 
