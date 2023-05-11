@@ -139,12 +139,17 @@ class Opa:
         except AttributeError:
             ## looking at output freq - how many cum stats you want to save in one netcdf ##
             # converting output freq into a number
-            output_freq_min, time_stamp_output_tot = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            output_freq_min, time_stamp_min_tot = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
             # eg. how many days requested: 7 days of saving with daily data
-            self.time_append = (output_freq_min - time_stamp_output_tot)/ self.stat_freq_min # how many do you need to append
+            self.time_append = (output_freq_min - time_stamp_min_tot)/ self.stat_freq_min # how many do you need to append
 
             if(self.time_append < 1 and self.stat_freq != "continuous"): #output_freq_min < self.stat_freq_min
                 raise ValueError('Output frequency can not be less than frequency of statistic')
+
+        # for continous setting these values 
+        if (self.stat_freq == "continuous"):
+            self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+
 
 
     def _initialise_attrs(self, ds):
@@ -219,14 +224,16 @@ class Opa:
         elif(self.stat_freq == "continuous"):
             
             if(hasattr(self, 'n_data')):
-                if(time_stamp_tot > self.time_stamp_tot): # is new one greater than old one? 
-                    pass # yes? carry on 
-                else: 
-                    self._initialise(ds, time_stamp_tot) # re-initalise 
+                pass
+                # if(time_stamp_tot > self.time_stamp_tot): # is new one greater than old one? 
+                #     pass # yes? carry on 
+                # else: 
+                #     self._initialise(ds, time_stamp_tot) # re-initalise 
             else: 
                 self._initialise(ds, time_stamp_tot)
 
-            self.time_stamp_tot = time_stamp_tot
+            #self.time_stamp_tot = time_stamp_tot
+
         else:
             # check were we are in the sequence 
             error_flag = self._check_n_data(error_flag)
@@ -673,17 +680,14 @@ class Opa:
             self._update(ds_left, how_much_left)
 
         if (self.stat_freq == "continuous"):
-            
-            'TODO: this is not working'
-            # check if first of month 
-            mon_freq_min, time_stamp_output_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)
-            self.mon_freq_min = mon_freq_min
-            self.time_stamp_output_tot_test = time_stamp_output_tot
 
-            if(self.count == int(mon_freq_min - time_stamp_output_tot/self.time_step)):
+            if(self.count == int((self.mon_freq_min - self.time_stamp_min_tot)/self.time_step)):
                 dm, final_time_file_str = self._data_output(ds, time_word = "monthly")
                 self._save_output(dm, ds, final_time_file_str)
                 self.count = 0 
+            
+            if (self.count == 1):
+                self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)
 
         if (self.count == self.n_data):   # when the statistic is full
             
