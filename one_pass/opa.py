@@ -141,6 +141,8 @@ class Opa:
             # converting output freq into a number
             output_freq_min, time_stamp_min_tot = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
             # eg. how many days requested: 7 days of saving with daily data
+            
+            
             self.time_append = (output_freq_min - time_stamp_min_tot)/ self.stat_freq_min # how many do you need to append
 
             if(self.time_append < 1 and self.stat_freq != "continuous"): #output_freq_min < self.stat_freq_min
@@ -241,7 +243,7 @@ class Opa:
         return error_flag
 
 
-    def _check_time_stamp(self, ds):
+    def _check_time_stamp(self, ds, weight):
 
         """
         Function to check the incoming timestamp of the data and check if it is the first one of the required statistic.
@@ -249,6 +251,7 @@ class Opa:
 
         Args:
         ds: Incoming xarray dataArray with associated timestamp 
+        weight: the length along the time-dimension of the incoming array 
 
         Output:
         If function is initalised it will assign the attributes: 
@@ -258,25 +261,38 @@ class Opa:
 
         Checks:
         If it is not the first timestamp of the statistic, it will check: 
-        - that the attribute n_data has already been assigned, otherwise will through an error 
+        - that the attribute n_data has already been assigned, otherwise will realise that this data doesn't correspond to this statistic
+        If the first piece of incoming data doesn't correspond to the initial data, and weight is greater than 1, 
+        it will check the other incoming pieces of data to see if they correspond to the initial statistic
         """
 
         time_stamp_list = sorted(ds.time.data) # assuming that incoming data has a time dimension
         time_stamp_pandas = [pd.to_datetime(x) for x in time_stamp_list]
-        time_stamp = time_stamp_pandas[0] # converting to a pandas datetime to calculate if it's the first
-        self.time_stamp = time_stamp
-
+        index = 0 
+        self.time_stamp = time_stamp_pandas[index] # converting to a pandas datetime to calculate if it's the first
         # converting statistic freq into minutes 'other code -  convert_time'
-        self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
-        error_flag = self._compare_time(ds, time_stamp_tot)
+        self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+        error_flag = self._compare_time(ds, time_stamp_tot) # if has n_data att (either from init or not new) error_flag = False
 
         # stat_freq < time_step
         if(self.stat_freq_min < self.time_step):
             # we have a problem
             raise ValueError('time_step too large for requested statistic')
         
-        return time_stamp_tot, error_flag
-    
+        # if it passes on the initial data piece because it's not part of the requested statistic, checks the other ones
+        while (error_flag) and (index < weight-1):
+            print('passing on this data as its not the initial data for the requested statistic')
+            index += 1
+            self.time_stamp = time_stamp_pandas[index] # take the next time stamp in the series 
+            self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            error_flag = self._compare_time(ds, time_stamp_tot) # if has n_data att (either from init or not new) error_flag = False
+
+        if (index > 0):
+            ds = ds.isel(time=slice(index, weight))
+            weight = weight - index 
+
+        return time_stamp_tot, error_flag, ds, weight 
+
 
     def _check_variable(self, ds):
 
@@ -652,7 +668,10 @@ class Opa:
 
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
-        time_stamp_tot, error_flag = self._check_time_stamp(ds) # check the time stamp and if the data needs to be initalised 
+        weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
+
+        time_stamp_tot, error_flag, ds, weight = self._check_time_stamp(ds, weight) # check the time stamp and if the data needs to be initalised 
+        
         if error_flag:
             print('passing on this data as its not the initial data for the requested statistic')
             return
@@ -660,9 +679,7 @@ class Opa:
         if((time_stamp_tot/self.time_step) < self.count): # check if data has been 'seen', will only skip if data doesn't get re-initalised
             print('already seen this data')
             return 
-             
-        weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
-        
+                    
         how_much_left = (self.n_data - self.count) # how much is let of your statistic to fill
 
         if (how_much_left >= weight): # will not span over new statistic
@@ -756,7 +773,7 @@ class Opa:
                         self.count_append = 0
                         delattr(self, "init_time_stamp")
                         delattr(self, "final_time_file_str")
-
+                        delattr(self, "time_append")
                         if (how_much_left < weight): # if there's more to compute - call before return 
                             self._call_recursive(how_much_left, weight, ds)
 
