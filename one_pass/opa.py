@@ -105,7 +105,7 @@ class Opa:
 
     ############### end if __init__ #####################
 
-    def _initialise_time(self, time_stamp_tot):
+    def _initialise_time(self, time_stamp_tot, time_stamp_tot_append):
 
         """
         Called when total time in minutes of the incoming time stamp is less than the timestep of the data. 
@@ -139,18 +139,18 @@ class Opa:
         except AttributeError:
             ## looking at output freq - how many cum stats you want to save in one netcdf ##
             # converting output freq into a number
-            output_freq_min, time_stamp_min_tot = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0]
             # eg. how many days requested: 7 days of saving with daily data
             
             
-            self.time_append = (output_freq_min - time_stamp_min_tot)/ self.stat_freq_min # how many do you need to append
+            self.time_append = ((output_freq_min - time_stamp_tot_append)/ self.stat_freq_min) # how many do you need to append
 
             if(self.time_append < 1 and self.stat_freq != "continuous"): #output_freq_min < self.stat_freq_min
                 raise ValueError('Output frequency can not be less than frequency of statistic')
 
         # for continous setting these values 
         if (self.stat_freq == "continuous"):
-            self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
 
 
 
@@ -192,10 +192,10 @@ class Opa:
                 value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
 
-    def _initialise(self, ds, time_stamp_tot):
+    def _initialise(self, ds, time_stamp_tot, time_stamp_tot_append):
 
         self.count = 0
-        self._initialise_time(time_stamp_tot)
+        self._initialise_time(time_stamp_tot, time_stamp_tot_append)
         self._initialise_attrs(ds)
 
 
@@ -211,7 +211,7 @@ class Opa:
             
         
 
-    def _compare_time(self, ds, time_stamp_tot):
+    def _compare_time(self, ds, time_stamp_tot, time_stamp_tot_append):
 
         """
         Checks to see if in the timestamp of the data is the 'first' in the requested statistic. If so, 
@@ -219,7 +219,7 @@ class Opa:
         """
 
         if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
-            self._initialise(ds, time_stamp_tot)
+            self._initialise(ds, time_stamp_tot, time_stamp_tot_append)
         
         elif(self.stat_freq == "continuous"):
             
@@ -230,7 +230,7 @@ class Opa:
                 # else: 
                 #     self._initialise(ds, time_stamp_tot) # re-initalise 
             else: 
-                self._initialise(ds, time_stamp_tot)
+                self._initialise(ds, time_stamp_tot, time_stamp_tot_append)
 
             #self.time_stamp_tot = time_stamp_tot
 
@@ -244,39 +244,57 @@ class Opa:
         taken from the data is correct or if we should ignore the checkpoint file """
 
         n_data_att_exist = self._check_n_data()
-        self.stat_freq_min, time_stamp_tot_new = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
+        self.stat_freq_min, time_stamp_tot_new, time_stamp_tot_append = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
+        
+        self.time_stamp_tot_new = time_stamp_tot_new
 
-        if(n_data_att_exist):
-
-            time_stamp_tot_old = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[1]
+        if(n_data_att_exist): 
             
-            if (time_stamp_tot_new - time_stamp_tot_old == self.time_step): # option 1, it's the time step directly before, carry on 
+            min_diff = time_stamp - self.time_stamp
+            min_diff = min_diff.total_seconds() / 60
+            
+            if (min_diff == self.time_step): # option 1, it's the time step directly before, carry on 
                 self.time_stamp = time_stamp
 
             elif(time_stamp > self.time_stamp): # option 2, it's a time step into the future - data mising 
-                ValueError('There seems to be data missing ...')
+                raise ValueError('Time gap too large, there seems to be data missing ...')
             
-            elif(time_stamp == self.time_stamp):
-                ValueError('New timestamp is the same as the old time stamp, can not repeat data')
+            #elif(time_stamp == self.time_stamp):
+            #    raise ValueError('New timestamp is the same as the old time stamp, can not repeat data')
+                # shouldn't this just skip the new one? 
             
             else: # option 3, it's a time stamp from way before, back 
                 delattr(self, "n_data")
                 
-                if(hasattr(self, 'time_append')): # TODO: finish this 
+                if(hasattr(self, 'time_append')): 
                     if(self.time_append == 1):
                         pass # this doesn't matter as this will simply get re-set 
+                    
                     elif(self.time_append > 1): 
-                        pass 
-                        ## pusudo code 
-                        # how much do you roll back count_append by: 
-                        # gap = (time_stamp - self.time_stamp)/self.time_step 
-                        # count_append -= int(gap/self.n_data) - 1  
-                        #           
+                        # rolling back the time append calculation 
+                        roll_back = abs((time_stamp_tot_append / self.stat_freq_min) - np.size(self.dm_append.time)) # how many do you need to append
+                        
+                        try:
+                            getattr(self, "count_append")
+                            self.count_append -= int(roll_back) 
+                        except AttributeError: 
+                            pass
+
+                        try:
+                            getattr("dm_append")
+                            if(roll_back == np.size(self.dm_append.time)):
+                                delattr(self, "dm_append") 
+                            else:
+                                self.dm_append.isel(time=slice(0,roll_back))
+                        except AttributeError: 
+                            pass 
+        
+
                 # maybe delete checkpoint file? depends on time append? 
         else: 
             self.time_stamp = time_stamp
 
-        return n_data_att_exist, time_stamp_tot_new
+        return n_data_att_exist, time_stamp_tot_new, time_stamp_tot_append
 
 
     def _check_time_stamp(self, ds, weight):
@@ -308,23 +326,20 @@ class Opa:
         time_stamp = time_stamp_list[index]
         
         # before we re-set the timestamp, lets compare against what's already there
-        n_data_att_exist, time_stamp_tot = self._compare_old_timestamp(time_stamp)
+        n_data_att_exist, time_stamp_tot, time_stamp_tot_append = self._compare_old_timestamp(time_stamp)
 
         if(self.stat_freq_min < self.time_step):
             raise ValueError('time_step too large for requested statistic')
         
-        #self.time_stamp = time_stamp_list[index] # converting to a pandas datetime to calculate if it's the first
         # converting statistic freq into minutes 'other code -  convert_time'
-        #self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
-        n_data_att_exist = self._compare_time(ds, time_stamp_tot) # if has n_data att (either from init or not new) n_data = False
-                # compare time makes the call to initialise 
+        n_data_att_exist = self._compare_time(ds, time_stamp_tot, time_stamp_tot_append) # if has n_data att (either from init or not new) n_data = False
 
         # if it passes on the initial data piece because it's not part of the requested statistic, checks the other ones
         while (n_data_att_exist == False) and (index < weight-1):
             print('passing on this data as its not the initial data for the requested statistic')
             index += 1
             self.time_stamp = time_stamp_list[index] # take the next time stamp in the series 
-            self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
             n_data_att_exist = self._compare_time(ds, time_stamp_tot) # if has n_data att (either from init or not new) n_data = False
 
         if (index > 0):
@@ -334,11 +349,13 @@ class Opa:
         # if data comes in chunks, and you've seen the first piece, make sure you haven't seen any of the other pieces either
         if(time_stamp_tot/self.time_step) < self.count:
             already_seen = True
+        else:
+            already_seen = False
 
         while (already_seen == True) and (index < weight - 1):
             index += 1
             self.time_stamp = time_stamp_list[index] # take the next time stamp in the series 
-            self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+            self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
             
             if(time_stamp_tot/self.time_step) < self.count:
                 already_seen = True
@@ -764,7 +781,7 @@ class Opa:
                 self.count = 0 
             
             if (self.count == 1):
-                self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)
+                self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:1]
 
         if (self.count == self.n_data):   # when the statistic is full
             

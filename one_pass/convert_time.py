@@ -60,6 +60,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     if(time_word == "hourly"):
         
         time_stamp_input_tot = time_stamp_input_min
+        time_stamp_tot_append = time_stamp_input_hour
 
     elif(time_word == "3hourly"):
         
@@ -78,6 +79,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     elif(time_word == "daily"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
+        time_stamp_tot_append = time_stamp_input_day
 
     elif(time_word == "weekly"):
 
@@ -86,6 +88,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     elif(time_word == "monthly"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day 
+        time_stamp_tot_append = time_stamp_input_month
 
     if(time_word == "3monthly"):
 
@@ -97,9 +100,10 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     if(time_word == "annually"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day + time_stamp_input_month
-
+        #TODO: finish time_stamp_tot_append 
+        
     if(time_word == "continuous"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day + time_stamp_input_month + time_stamp_input_year
 
-    return stat_freq_min, time_stamp_input_tot
+    return stat_freq_min, time_stamp_input_tot, time_stamp_tot_append
