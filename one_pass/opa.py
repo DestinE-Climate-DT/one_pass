@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import xarray as xr
 import pandas as pd
+import dask 
 import dask.array as da
 import time 
 #from dask.distributed import client, LocalCluster
@@ -18,6 +19,8 @@ class Opa:
 
     def __init__(self, user_request: Dict): 
 
+        start_time = time.time() 
+
         """ Initalisation
         
         Arguments 
@@ -30,10 +33,10 @@ class Opa:
         self._process_request(request)
 
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
-            self._check_checkpoint(request)
+            self._check_checkpoint(request, start_time)
 
 
-    def _check_checkpoint(self, request):
+    def _check_checkpoint(self, request, start_time):
         """
         Takes user user request and checks if a checkpoint file exists from which to initalise the statistic from
 
@@ -162,7 +165,7 @@ class Opa:
 
 
 
-    def _initialise_attrs(self, ds):
+    def _initialise_attrs(self, ds, start_time):
         """
         Initialises data structure for cumulative stats 
 
@@ -175,8 +178,12 @@ class Opa:
             
             ds_size = ds.tail(time = 1)
 
-            value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
-            #value = da.zeros_like(ds_size, dtype=np.float64, chunks=[1,450,600]) # forcing computation in float64
+            print("--- %s seconds before value ---" % (time.time() - start_time))
+
+            #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+            value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+
+            print("--- %s seconds after value ---" % (time.time() - start_time))
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -202,11 +209,11 @@ class Opa:
                 # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
 
-    def _initialise(self, ds, time_stamp_tot, time_stamp_tot_append):
+    def _initialise(self, ds, time_stamp_tot, time_stamp_tot_append, start_time):
 
         self.count = 0
         self._initialise_time(time_stamp_tot, time_stamp_tot_append)
-        self._initialise_attrs(ds)
+        self._initialise_attrs(ds, start_time)
 
 
     def _check_n_data(self):
@@ -221,7 +228,7 @@ class Opa:
             
         
 
-    def _compare_time(self, ds, time_stamp_tot, time_stamp_tot_append):
+    def _compare_time(self, ds, time_stamp_tot, time_stamp_tot_append, start_time):
 
         """
         Checks to see if in the timestamp of the data is the 'first' in the requested statistic. If so, 
@@ -229,7 +236,7 @@ class Opa:
         """
 
         if(time_stamp_tot < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
-            self._initialise(ds, time_stamp_tot, time_stamp_tot_append)
+            self._initialise(ds, time_stamp_tot, time_stamp_tot_append, start_time)
         
         elif(self.stat_freq == "continuous"):
             
@@ -244,9 +251,7 @@ class Opa:
 
             #self.time_stamp_tot = time_stamp_tot
 
-        n_data_att_exist = self._check_n_data() # this will change from False to True if it's just been initalised 
-            
-        return n_data_att_exist
+        return
 
     def _compare_old_timestamp(self, time_stamp): 
 
@@ -345,7 +350,6 @@ class Opa:
         If the first piece of incoming data doesn't correspond to the initial data, and weight is greater than 1, 
         it will check the other incoming pieces of data to see if they correspond to the initial statistic
         """
-        print("--- %s seconds start check timestamps ---" % (time.time() - start_time))
 
         time_stamp_sorted = sorted(ds.time.data) # assuming that incoming data has a time dimension
         time_stamp_list = [pd.to_datetime(x) for x in time_stamp_sorted]
@@ -353,24 +357,19 @@ class Opa:
         time_stamp = time_stamp_list[index]
         
         # before we re-set the timestamp, lets compare against what's already there
-        print("--- %s seconds before compare old timestamp ---" % (time.time() - start_time))
-
         n_data_att_exist, time_stamp_tot, time_stamp_tot_append = self._compare_old_timestamp(time_stamp)
 
         if(self.stat_freq_min < self.time_step):
             raise ValueError('time_step too large for requested statistic')
         
-        print("--- %s seconds before compare time ---" % (time.time() - start_time))
-
-        # converting statistic freq into minutes 'other code -  convert_time'
-        n_data_att_exist = self._compare_time(ds, time_stamp_tot, time_stamp_tot_append) # if has n_data att (either from init or not new) n_data = False
-
-        print("--- %s seconds before while loops ---" % (time.time() - start_time))
+        self._compare_time(ds, time_stamp_tot, time_stamp_tot_append, start_time) # if has n_data att (either from init or not new) n_data = False
+        
+        n_data_att_exist = self._check_n_data() # this will change from False to True if it's just been initalised 
 
         # if it passes on the initial data piece because it's not part of the requested statistic, checks the other ones
         while (n_data_att_exist == False) and (index < weight-1):
             print('passing on this data as its not the initial data for the requested statistic')
-            index += 1
+            index = index + 1 # removing += as recommended by dask 
             self.time_stamp = time_stamp_list[index] # take the next time stamp in the series 
             self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
             n_data_att_exist = self._compare_time(ds, time_stamp_tot) # if has n_data att (either from init or not new) n_data = False
@@ -379,14 +378,14 @@ class Opa:
             ds = ds.isel(time=slice(index, weight))
             weight = weight - index 
 
-        # if data comes in chunks, and you've seen the first piece, make sure you haven't seen any of the other pieces either
+        # if data comes in time blocks, and you've seen the first piece, make sure you haven't seen any of the other pieces either
         if(time_stamp_tot/self.time_step) < self.count:
             already_seen = True
         else:
             already_seen = False
 
         while (already_seen == True) and (index < weight - 1):
-            index += 1
+            index = index + 1
             self.time_stamp = time_stamp_list[index] # take the next time stamp in the series 
             self.stat_freq_min, time_stamp_tot = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
             
@@ -457,7 +456,7 @@ class Opa:
 
         """ computes one pass mean with weight corresponding to the number of timesteps being added  """ 
 
-        self.count += weight
+        self.count = self.count + weight
         if (weight == 1):
             mean_cum = self.mean_cum + weight*(ds - self.mean_cum) / (self.count) 
         else:
@@ -527,7 +526,7 @@ class Opa:
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
-        self.count += weight
+        self.count = self.count + weight
         self.min_cum = ds #running this way around as Array type does not have the function .where, this only works for data_array
         self.timings = ds_time
 
@@ -563,7 +562,7 @@ class Opa:
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
-        self.count += weight
+        self.count = self.count + weight
         self.max_cum = ds 
         self.timings = ds_time
 
@@ -587,7 +586,7 @@ class Opa:
             ds = ds.where(ds < self.threshold, self.thresh_exceed_cum + 1)
             ds = ds.where(ds >= self.threshold, self.thresh_exceed_cum)
 
-        self.count += weight
+        self.count = self.count + weight
         self.thresh_exceed_cum = ds 
 
         return
@@ -600,9 +599,7 @@ class Opa:
 
         if (self.stat == "mean"):
 
-            print("--- %s seconds before mean ---" % (time.time() - start_time))
             self._update_mean(ds, weight) 
-            print("--- %s seconds after mean ---" % (time.time() - start_time))
 
         elif(self.stat == "var"):
             self._update_var(ds, weight)
@@ -618,7 +615,7 @@ class Opa:
 
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
-
+    
     def _write_checkpoint(self):
 
         """write checkpoint file """
@@ -684,7 +681,7 @@ class Opa:
 
         dm_append = xr.concat([self.dm_append, dm], "time") 
         self.dm_append = dm_append.sortby("time")
-        self.count_append += 1 
+        self.count_append = self.count_append + 1 
 
 
     def _create_final_timestamp(self, time_word = None):
@@ -752,7 +749,7 @@ class Opa:
 
         return final_time_file_str
 
-    def _save_output(self, dm, ds, final_time_file_str):
+    def _save_output(self, dm, ds, final_time_file_str, start_time):
 
         """  Creates final file name and path and saves final dataSet """
 
@@ -761,6 +758,9 @@ class Opa:
             file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
         else:
             file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
+
+        print("--- %s seconds start save ---" % (time.time() - start_time))
+        #dm.load()
 
         dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
         dm.close()
@@ -777,6 +777,7 @@ class Opa:
 
 
     ############## defining class methods ####################
+    
     def compute(self, ds):
     
         """  Actual function call  """
@@ -787,9 +788,7 @@ class Opa:
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
 
         time_stamp_tot, n_data_att_exist, ds, weight, already_seen = self._check_time_stamp(ds, weight, start_time) # check the time stamp and if the data needs to be initalised 
-        
-        print("--- %s seconds finished check time ---" % (time.time() - start_time))
-        
+                
         if (n_data_att_exist == False):
             print('passing on this data as its not the initial data for the requested statistic')
             return
@@ -805,6 +804,7 @@ class Opa:
             self._update(ds, start_time, weight)  # update rolling statistic with weight
 
             if(self.checkpoint == True and self.count < self.n_data):
+                
                 self._write_checkpoint() # this will not be written when count == ndata 
 
         elif(how_much_left < weight): # this will span over the new statistic 
@@ -828,13 +828,12 @@ class Opa:
             
             #self.mean_cum.compute() 
             #print('finished compute')
-            print("--- %s seconds create dataset ---" % (time.time() - start_time))
 
             dm, final_time_file_str = self._data_output(ds) # output as a dataset 
 
             if(self.time_append == 1): #output_freq_min == self.stat_freq_min
                 if(self.save == True):
-                    self._save_output(dm, ds, final_time_file_str)
+                    self._save_output(dm, ds, final_time_file_str, start_time)
 
                 if(self.checkpoint):# delete checkpoint file 
                     if os.path.isfile(self.checkpoint_file):
@@ -871,6 +870,7 @@ class Opa:
                     if(self.count_append < self.time_append): # if this is still true 
 
                         if(self.checkpoint):
+
                             self._write_checkpoint()
 
                         if (how_much_left < weight): # if there's more to compute - call before return 
@@ -881,8 +881,11 @@ class Opa:
                     elif(self.count_append == self.time_append):
 
                         if(self.save): # change file name 
+                            print("--- %s seconds before start_save ---" % (time.time() - start_time))
+
                             self._create_file_name(append = True)
                             self._save_output(self.dm_append, ds, self.final_time_file_str)
+                            print("--- %s seconds after ds_size ---" % (time.time() - start_time))
 
                         if(self.checkpoint):# delete checkpoint file 
                             if os.path.isfile(self.checkpoint_file):
