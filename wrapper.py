@@ -20,7 +20,7 @@ def main():
     "variable": "uas",
     "save": True,
     "checkpoint": True,
-    "checkpoint_file": "/home/bsc32/bsc32263/git/data/",
+    "checkpoint_filepath": "/home/bsc32/bsc32263/git/data/",
     "out_filepath": "/home/bsc32/bsc32263/git/data/"}
 
     ########### GSV Interface ################  
