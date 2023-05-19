@@ -75,6 +75,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
             time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_input_tot = time_stamp_input_min
+        
 
     elif(time_word == "daily"):
 
@@ -84,6 +85,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     elif(time_word == "weekly"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day_of_week
+        time_stamp_tot_append = time_stamp_input.week*24*60 # this gives you the week of the year? 
 
     elif(time_word == "monthly"):
 
@@ -105,5 +107,6 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     if(time_word == "continuous"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day + time_stamp_input_month + time_stamp_input_year
+        time_stamp_tot_append = 100000
 
     return stat_freq_min, time_stamp_input_tot, time_stamp_tot_append
