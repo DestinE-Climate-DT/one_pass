@@ -161,10 +161,6 @@ class Opa:
                 if(self.time_append < 1 and self.stat_freq != "continuous"): #output_freq_min < self.stat_freq_min
                     raise ValueError('Output frequency can not be less than frequency of statistic')
 
-            # for continous setting these values 
-            #if (self.stat_freq == "continuous"):
-            #    self.mon_freq_min, self.time_stamp_min_tot = convert_time(time_word = "monthly", time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0:2]
-
     def _initialise_attrs(self, ds):
         """
         Initialises data structure for cumulative stats 
@@ -351,7 +347,7 @@ class Opa:
                                 # now you want to check if it's gone back an exact amount 
                                 # i.e. it's gone back to the beginning of a new stat or mid way through 
                                 
-                                should_init = self._should_initalise(time_stamp_min, time_stamp, proceed)[1]
+                                should_init = self._should_initalise(time_stamp_min, proceed)[1]
 
                                 if(should_init): # if it's initalising it's fine, roll back
                                     
@@ -447,7 +443,7 @@ class Opa:
                 raise ValueError('time_step too large for requested statistic')
             
             if(self.stat_freq != "continuous"):
-                proceed, should_init = self._should_initalise(time_stamp_min, time_stamp, proceed) 
+                proceed, should_init = self._should_initalise(time_stamp_min, proceed) 
                 if(should_init):
                     self._initialise(ds, time_stamp, time_stamp_min, time_stamp_tot_append)
             else: 
