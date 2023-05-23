@@ -2,9 +2,20 @@ import pandas as pd
 import numpy as np
 
 """Functions to convert time for the one pass algorithms."""
-"""A mapping between time words and number of minutes,
+"""A mapping between time words (and time stamps) and number of minutes,
 # to avoid having multiple if statements. Converts to minutes expect for monthly, 
-where you need to check the number of days in a month. This is done below. """
+where you need to check the number of days in a month. This is done below.
+
+Inputs: 
+time_word - a word specifiying a frequency  
+time_stamp_input - a pandas timestamp of the current data 
+time_step_input - the time step of the model in minutes
+
+Outputs: 
+stat_freq_min - the total number of minutes corresponding to the given 'time_word' (for montly, this will depend on the incoming timestamp)
+time_stamp_input_tot - the total number of minutes of the incoming timestamp since the start of the given time word frequency 
+time_stamp_tot_append - the number of units (given by time word) of the current time stamp - used for appending data in time_append
+"""
 
 times = {
     "hourly": 60,
@@ -13,10 +24,9 @@ times = {
     "12hourly": 12 * 60,
     "daily": 24 * 60,
     "weekly": 7 * 24 * 60,
-    "monthly": 24 * 60,  # NOTE: missing the time stamp input
+    "monthly": 24 * 60,  # NOTE: see below for minutes with month
     "3monthly": 24 * 60,
     "annually": 365 * 24 * 60,
-    "continuous": 10e10, # NOTE: missing the time step input 
 }
 
 def convert_time(time_word = "daily", time_stamp_input = None, time_step_input = None):
@@ -32,6 +42,9 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     if time_word not in times:
         valid_values = ", ".join(times.keys())
         raise ValueError(f"The input saving frequency '{time_word}' is not supported, valid values are: {valid_values}")
+    
+    if time_word == "continuous":
+        raise ValueError(f"Can not put continuous as the output frequency, must specifcy frequency (e.g. monthly) for on-going netCDF files")
 
     if time_stamp_input is None:
         raise ValueError(f"You must provide a time_stamp_input for saving frequency")
@@ -45,8 +58,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
         stat_freq_min = stat_freq_min * (time_stamp_input.days_in_month + 
                                pd.Timestamp(year = time_stamp_input.year, month = time_stamp_input.month + 1, day = 1).days_in_month + 
                                pd.Timestamp(year = time_stamp_input.year, month = time_stamp_input.month + 2, day = 1).days_in_month)
-    elif time_word == "continuous": 
-        stat_freq_min = stat_freq_min * time_step_input # this is to make sure n_data is fully divisable by the timestep
+
 
     #### now looking at given time stamp #### 
     # converting everything into minutes 
@@ -68,6 +80,8 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
             time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_input_tot = time_stamp_input_min
+        
+        time_stamp_tot_append = time_stamp_input_hour
 
     elif(time_word == "6hourly"):
         
@@ -75,6 +89,8 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
             time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_input_tot = time_stamp_input_min
+        
+        time_stamp_tot_append = time_stamp_input_hour
         
 
     elif(time_word == "daily"):
@@ -99,14 +115,12 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
         else:
             time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day
 
+        time_stamp_tot_append = time_stamp_input_month
+
     if(time_word == "annually"):
 
         time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day + time_stamp_input_month
+        time_stamp_tot_append = time_stamp_input_year
         #TODO: finish time_stamp_tot_append 
-        
-    if(time_word == "continuous"):
-
-        time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day + time_stamp_input_month + time_stamp_input_year
-        time_stamp_tot_append = 100000
 
     return stat_freq_min, time_stamp_input_tot, time_stamp_tot_append
