@@ -8,6 +8,8 @@ import pandas as pd
 import dask 
 import dask.array as da
 import time 
+from crick import TDigest as TDigestCrick
+
 #from dask.distributed import client, LocalCluster
 
 from one_pass.convert_time import convert_time
@@ -61,9 +63,12 @@ class Opa:
 
             if os.path.exists(self.checkpoint_file): # see if the checkpoint file exists
 
+
                 f = open(self.checkpoint_file, 'rb')
                 temp_self = pickle.load(f)
                 f.close()
+
+
 
                 for key in vars(temp_self):
                     self.__setattr__(key, vars(temp_self)[key])
@@ -169,14 +174,13 @@ class Opa:
         --------
         self.stat_cum : zero filled data array with the shape of the data compressed in the time dimension 
         """
+        ds_size = ds.tail(time = 1)
 
         if(self.stat_freq == "continuous"):
             self.count_continuous = 0
 
         if(self.stat != "hist" or self.stat != "percentile"):
             
-            ds_size = ds.tail(time = 1)
-
             #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
             value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
@@ -195,14 +199,25 @@ class Opa:
                 self.__setattr__("timings", value)
 
             # else loop for histograms of percentile calculations that may require a different initial grid
-        else: # TODO: complete for hist and percetiles 
-            if ds.chunks is None:
-                pass 
-                #value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
-            else:
-                pass 
-                # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+        elif(self.stat == "percentile"): 
 
+            # do you even need to check dimensions here? 
+            if np.size(ds.dims) > 3: 
+                # TODO: # panic, what other dimensions do you have? 
+                raise ValueError("dimensions greater than 3, need to fix this")
+            elif np.size(ds.dims) == 1: 
+                raise ValueError("well you have a massive problem if you only have 1 dimension")  
+
+            self.array_length = np.size(ds_size)
+            digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
+            percen_list = [dict() for x in range(self.array_length)]
+
+            for j in range(self.array_length):
+                digest = TDigestCrick() # initalising digests and adding to list
+                digest_list[j] = digest
+
+            self.__setattr__("digest_cum", digest_list)
+            self.__setattr__(str(self.stat + "_cum"), percen_list)
 
     def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
 
@@ -494,7 +509,6 @@ class Opa:
         except AttributeError:
             pass # data already at data_array
 
-        #da.rechunk(ds, chunks=[1,450,600])
         return ds
 
 
@@ -665,6 +679,33 @@ class Opa:
 
         return
 
+    def _update_percentile(self, ds, weight=1):
+        
+        if(weight == 1):
+            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
+        else: 
+            pass 
+
+        for j in range(self.array_length):
+            digest = self.digest_cum[j]
+            digest.update(ds_values[j])
+            self.digest_cum[j] = digest
+
+        return 
+
+    def get_percentile(self, ds):
+        
+        if(np.size(self.percentiles) == 1):
+            
+            for j in range(self.array_length):
+                digest = self.digest_cum[j] # extract digest 
+                self.percentile_cum[j] = digest.quantile(self.percentiles)
+
+        ds_size = ds.tail(time = 1)
+        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(ds_size))
+
+        return 
+
     def _update(self, ds, weight=1):
 
         """ depending on the requested statistic will send data to the correct function """ 
@@ -672,7 +713,6 @@ class Opa:
         #TODO: can probably make this cleaner / auto? 
 
         if (self.stat == "mean"):
-
             self._update_mean(ds, weight) 
 
         elif(self.stat == "var"):
@@ -689,11 +729,24 @@ class Opa:
 
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
+
+        elif(self.stat == "percentile"):
+            self._update_percentile(ds, weight)
     
+    def _load_dask(self):
+
+        """Function to load the dask array and call it into memory """
+        
+        print('computing dask')
+        self.__getattribute__(str(self.stat + "_cum")).compute() # maybe check if it's dask to begin with 
+        print('finished computing dask')
+
     def _write_checkpoint(self):
 
         """write checkpoint file """
         
+        self._load_dask()
+
         with open(self.checkpoint_file, 'wb') as file: 
             pickle.dump(self, file)
 
@@ -823,7 +876,7 @@ class Opa:
         else:
             file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
 
-        dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
+        dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
         dm.close()
         print('finished saving')
 
@@ -886,6 +939,9 @@ class Opa:
             return dm 
 
         if (self.count == self.n_data and self.stat_freq != "continuous"):   # when the statistic is full
+
+            if(self.stat == "percentile"): 
+                self._get_percentile()
 
             dm, final_time_file_str = self._data_output(ds) # output as a dataset 
 
