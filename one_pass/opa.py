@@ -736,10 +736,10 @@ class Opa:
     def _load_dask(self):
 
         """Function to load the dask array and call it into memory """
-        
-        print('computing dask')
+
+        #print('computing dask')
         self.__getattribute__(str(self.stat + "_cum")).compute() # maybe check if it's dask to begin with 
-        print('finished computing dask')
+        #print('finished computing dask')
 
     def _write_checkpoint(self):
 
