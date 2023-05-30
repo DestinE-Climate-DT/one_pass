@@ -690,10 +690,19 @@ class Opa:
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
     
+
+    def _load_dask(self):
+
+        """ computing dask lazy operations and calling data into memory """
+
+        self.__getattribute__(str(self.stat + "_cum")).compute() 
+
     def _write_checkpoint(self):
 
         """write checkpoint file """
         
+        self._load_dask() # first load data into memory 
+
         with open(self.checkpoint_file, 'wb') as file: 
             pickle.dump(self, file)
 
