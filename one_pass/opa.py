@@ -695,7 +695,7 @@ class Opa:
 
         """ computing dask lazy operations and calling data into memory """
 
-        self.__getattribute__(str(self.stat + "_cum")).compute() 
+        self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute()) 
 
     def _write_checkpoint(self):
 
