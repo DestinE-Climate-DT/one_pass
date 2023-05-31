@@ -10,6 +10,7 @@ cache:
 prepare:
   stage: prepare
   script:
+    - echo running on $HOST as $USER
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install -e .[all]
