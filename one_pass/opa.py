@@ -1,7 +1,7 @@
 from typing import Dict
 import os 
 from sys import exit
-import pickle 
+import dill as pickle 
 import numpy as np
 import xarray as xr
 import pandas as pd
