@@ -16,7 +16,7 @@ prepare:
     - python3.9 -m venv venv
     - source venv/bin/activate
     - pip3.9 install -e .[all]
-    - echo pip3.9 install netcdf4
+    - pip3.9 install pylint
 
 test:
   tags:
