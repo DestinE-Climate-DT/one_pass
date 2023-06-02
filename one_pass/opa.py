@@ -1,18 +1,30 @@
 from typing import Dict
 import os 
 from sys import exit
-import dill as pickle 
+import pickle 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask 
 import dask.array as da
+from numcodecs import Blosc
+import zarr 
 import time 
 #from dask.distributed import client, LocalCluster
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
 from one_pass import util
+
+class OpaMeta:
+
+    def __init__(self, Opa): 
+        
+        blacklist = str(Opa.stat + "_cum")
+        for key, value in Opa.__dict__.items():
+            if key not in blacklist:
+                self.__setattr__(key, value)
+
 
 class Opa:
     """ One pass algorithm class that will contain the rolling statistic """
@@ -54,6 +66,13 @@ class Opa:
 
             file_path = request.get("checkpoint_filepath")
 
+            if (hasattr(self, 'use_zarr')):
+                if(hasattr(self, 'variable')):
+                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+                else: 
+                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+
+
             if (hasattr(self, 'variable')): # if there are multiple variables in the file
                 self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
             else:
@@ -72,6 +91,11 @@ class Opa:
 
                 self._compare_request()
                 self._check_thresh()
+                
+                if (hasattr(self, 'use_zarr')):
+                    if os.path.exists(self.checkpoint_file_zarr): # if using a zarr file 
+
+                        self.__setattr__(str(self.stat + "_cum"), zarr.load(store=self.checkpoint_file_zarr)) 
             else: 
                 # using checkpoints but theres is no file 
                 pass
@@ -695,6 +719,7 @@ class Opa:
 
         """ computing dask lazy operations and calling data into memory """
 
+        print('loading dask')
         self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute()) 
 
     def _write_checkpoint(self):
@@ -703,8 +728,35 @@ class Opa:
         
         self._load_dask() # first load data into memory 
 
-        with open(self.checkpoint_file, 'wb') as file: 
-            pickle.dump(self, file)
+        item_size = self.__getattribute__(str(self.stat + "_cum")).size
+        memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
+        total_size = (item_size*memory_size)/(10**9)
+
+        if(total_size < 1.6): # limit on a pickle file is 2GB 
+
+            with open(self.checkpoint_file, 'wb') as file: 
+                pickle.dump(self, file)
+
+        else: 
+            self.use_zarr = True
+            compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.BITSHUFFLE)
+
+            if(hasattr(self, 'checkpoint_file_zarr')):
+                zarr.array(self.__getattribute__(str(self.stat + "_cum")), store = self.checkpoint_file_zarr, compressor=compressor, overwrite = True)
+            else: 
+                if(hasattr(self, 'variable')):
+                    self.checkpoint_file_zarr = os.path.join(self.checkpoint_filepath, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+                else: 
+                    self.checkpoint_file_zarr = os.path.join(self.checkpoint_filepath, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+
+                zarr.array(self.__getattribute__(str(self.stat + "_cum")), store = self.checkpoint_file_zarr, compressor=compressor, overwrite = True)
+            
+
+            # now just pickle the rest of the meta data 
+            opa_meta = OpaMeta(self)
+            
+            with open(self.checkpoint_file, 'wb') as file: 
+                pickle.dump(opa_meta, file)
 
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
