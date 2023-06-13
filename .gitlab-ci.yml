@@ -1,14 +1,8 @@
-job:
-  cache: []
 
 stages:
   - prepare
   - test
   - clean
-
-cache:
-  paths:
-    - coverage/coverage.xml
 
 prepare:
   tags:
