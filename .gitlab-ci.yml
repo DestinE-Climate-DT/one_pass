@@ -24,6 +24,7 @@ test:
     - docker
   stage: test
   script:
+    - yum -y install python39 python39-pip
     - source venv/bin/activate
     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
