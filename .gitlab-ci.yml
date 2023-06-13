@@ -13,7 +13,7 @@ prepare:
   artifacts:
     paths:
       - venv
-  expire_in: 1 hour
+    expire_in: 20 minutes
   stage: prepare
   script:
     - yum -y install python39 python39-pip
