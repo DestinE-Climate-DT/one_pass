@@ -15,6 +15,7 @@ prepare:
       - venv
   stage: prepare
   script:
+    - yum install python39 python39-pip
     - echo running on $HOST as $USER
     - python3 -m venv venv
     - source venv/bin/activate
