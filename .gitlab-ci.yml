@@ -13,10 +13,10 @@ prepare:
   stage: prepare
   script:
     - echo running on $HOST as $USER
-    - python3 -m venv venv
+    - python3.9 -m venv venv
     - source venv/bin/activate
-    - pip3 install -e .[all]
-    - pip3 install netcdf4
+    - pip3.9 install -e .[all]
+    - pip3.9 install netcdf4
 
 test:
   tags:
