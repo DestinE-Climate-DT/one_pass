@@ -12,7 +12,7 @@ prepare:
     expire_in: 20 minutes
   stage: prepare
   script:
-    - yum install python39 python39-pip
+    - yum -y install python39 python39-pip
     - echo running on $HOST as $USER
     - python3.9 -m venv venv
     - source venv/bin/activate
