@@ -20,6 +20,7 @@ prepare:
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install -e .[all]
+    - pip install netcdf netCDF4 
 
 test:
   tags:
