@@ -1,5 +1,3 @@
-job:
-  cache: []
 
 stages:
   - prepare
