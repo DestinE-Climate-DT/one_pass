@@ -20,8 +20,8 @@ prepare:
     - echo running on $HOST as $USER
     - python3 -m venv venv
     - source venv/bin/activate
-    - pip install -e .[all]
-    - pip install netcdf netCDF4 
+    - pip3 install netCDF4 
+    - pip3 install -e .[all]
 
 test:
   tags:
@@ -46,5 +46,6 @@ clean:
     - docker
   stage: clean
   script:
+    - echo Cleaning up
     - deactivate
     - rm -rf venv/
