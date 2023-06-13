@@ -37,14 +37,3 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
-<<<<<<< HEAD
-=======
-clean:
-  tags:
-    - docker
-  stage: clean
-  script:
-    - echo Cleaning up
-    - deactivate
-    - rm -rf venv/
->>>>>>> e2bfcca (changes for docker #8)
