@@ -29,5 +29,6 @@ setup(name='one_pass',
 	'dask',
         'zarr',
         'pytdigest',
+        'netcdf4',
       ]
     )

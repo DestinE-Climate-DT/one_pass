@@ -8,3 +8,4 @@ dependencies:
   - dask
   - zarr
   - pytdigest
+  - netcdf4
