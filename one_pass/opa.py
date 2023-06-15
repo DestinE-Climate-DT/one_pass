@@ -199,7 +199,7 @@ class Opa:
                 self.__setattr__("timings", value)
 
             # else loop for histograms of percentile calculations that may require a different initial grid
-        elif(self.stat == "percentile"): 
+        if(self.stat == "percentile"): 
 
             # do you even need to check dimensions here? 
             if np.size(ds.dims) > 3: 
