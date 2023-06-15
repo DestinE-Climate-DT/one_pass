@@ -45,8 +45,8 @@ def convert_time(time_word = "daily", time_stamp_input = None):
     if time_word == "continuous":
         raise ValueError(f"Can not put continuous as the output frequency, must specifcy frequency (e.g. monthly) for on-going netCDF files")
 
-    if time_stamp_input is None:
-        raise ValueError(f"You must provide a time_stamp_input for saving frequency")
+    #if time_stamp_input is None:
+    #    raise ValueError(f"You must provide a time_stamp_input for saving frequency")
     # NOTE: For monthly;
 
     stat_freq_min = times.get(time_word)
