@@ -35,11 +35,3 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
-clean:
-  tags:
-    - docker
-  stage: clean
-  script:
-    - echo Cleaning up
-    - deactivate
-    - rm -rf venv/
