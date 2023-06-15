@@ -9,7 +9,6 @@ where you need to check the number of days in a month. This is done below.
 Inputs: 
 time_word - a word specifiying a frequency  
 time_stamp_input - a pandas timestamp of the current data 
-time_step_input - the time step of the model in minutes
 
 Outputs: 
 stat_freq_min - the total number of minutes corresponding to the given 'time_word' (for montly, this will depend on the incoming timestamp)
@@ -29,7 +28,7 @@ times = {
     "annually": 365 * 24 * 60,
 }
 
-def convert_time(time_word = "daily", time_stamp_input = None, time_step_input = None):
+def convert_time(time_word = "daily", time_stamp_input = None):
 
     """Function to convert input saving frequency into correct number of minutes.
 
