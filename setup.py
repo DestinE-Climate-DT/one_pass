@@ -17,7 +17,7 @@ setup(name='one_pass',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
       url='https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass',
-      python_requires='>=3.9, <3.11',
+      python_requires='>=3.9',
       packages=['one_pass'],
       extras_require={
           'tests': tests,
