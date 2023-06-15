@@ -27,5 +27,6 @@ setup(name='one_pass',
 	'numpy',
 	'xarray',	
 	'dask',
+        'netcdf4',
       ]
     )
