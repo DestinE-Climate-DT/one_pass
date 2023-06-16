@@ -9,7 +9,6 @@ where you need to check the number of days in a month. This is done below.
 Inputs: 
 time_word - a word specifiying a frequency  
 time_stamp_input - a pandas timestamp of the current data 
-time_step_input - the time step of the model in minutes
 
 Outputs: 
 stat_freq_min - the total number of minutes corresponding to the given 'time_word' (for montly, this will depend on the incoming timestamp)
@@ -29,7 +28,7 @@ times = {
     "annually": 365 * 24 * 60,
 }
 
-def convert_time(time_word = "daily", time_stamp_input = None, time_step_input = None):
+def convert_time(time_word = "daily", time_stamp_input = None):
 
     """Function to convert input saving frequency into correct number of minutes.
 
@@ -48,7 +47,7 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
 
     if time_stamp_input is None:
         raise ValueError(f"You must provide a time_stamp_input for saving frequency")
-    # NOTE: For monthly;
+    # For monthly;
 
     stat_freq_min = times.get(time_word)
 
@@ -86,6 +85,16 @@ def convert_time(time_word = "daily", time_stamp_input = None, time_step_input =
     elif(time_word == "6hourly"):
         
         if(np.mod(time_stamp_input.hour, 6) != 0):
+            time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
+        else:
+            time_stamp_input_tot = time_stamp_input_min
+        
+        time_stamp_tot_append = time_stamp_input_hour
+        
+
+    elif(time_word == "12hourly"):
+        
+        if(np.mod(time_stamp_input.hour, 12) != 0):
             time_stamp_input_tot = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_input_tot = time_stamp_input_min

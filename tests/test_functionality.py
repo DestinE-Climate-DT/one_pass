@@ -63,8 +63,8 @@ def incorrect_stat(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_wrong_name_uas_daily.pickle",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/checkpoint_wrong_name_uas_daily.pickle",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 # only need to give it one data point as should throw error on initalisation 
@@ -84,8 +84,8 @@ def incorrect_freq(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_mean_uas_wrong_freq.pickle",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/checkpoint_mean_uas_wrong_freq.pickle",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 
@@ -106,8 +106,8 @@ def lower_output(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_mean_uas_daily.pickle",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/checkpoint_mean_uas_daily.pickle",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 
@@ -128,8 +128,8 @@ def bad_timestep(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_mean_uas_daily.pickle",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/checkpoint_mean_uas_daily.pickle",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 
@@ -149,8 +149,8 @@ def wrong_checkpointfile(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 
@@ -170,8 +170,8 @@ def check_attributes(data):
         "variable": "es",
         "save": True,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_mean_es_daily.pickle",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/checkpoint_mean_es_daily.pickle",
+        "out_filepath": "tests/"}
     
     n_start = 0 
     n_data = 1 
