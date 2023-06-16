@@ -1,25 +1,37 @@
 from typing import Dict
 import os 
-from sys import exit
 import pickle 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask 
 import dask.array as da
+from numcodecs import Blosc
+import zarr 
 import time 
-#from dask.distributed import client, LocalCluster
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
 from one_pass import util
 
+class OpaMeta:
+
+    """Meta data class. This class will only be used if checkpointing files larger than 2GB. 
+    In this case, the numpy data will be checkpointed as zarr while only this metadata class will be pickled"""
+
+    def __init__(self, Opa): 
+        
+        blacklist = str(Opa.stat + "_cum")
+        for key, value in Opa.__dict__.items():
+            if key not in blacklist:
+                self.__setattr__(key, value)
+
+
 class Opa:
+
     """ One pass algorithm class that will contain the rolling statistic """
 
     def __init__(self, user_request: Dict): 
-
-        #start_time = time.time() 
 
         """ Initalisation
         
@@ -32,9 +44,10 @@ class Opa:
 
         self._process_request(request)
 
-        if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
-            self._check_checkpoint(request)
+        self._check_thresh()
 
+        if(request.get("checkpoint")): # if using checkpointing  
+            self._check_checkpoint(request)
 
     def _check_checkpoint(self, request):
         """
@@ -54,6 +67,12 @@ class Opa:
 
             file_path = request.get("checkpoint_filepath")
 
+            if (hasattr(self, 'use_zarr')): # if it doesn't have zarr, all data in the pickle 
+                if(hasattr(self, 'variable')):
+                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+                else: 
+                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+
             if (hasattr(self, 'variable')): # if there are multiple variables in the file
                 self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
             else:
@@ -70,8 +89,12 @@ class Opa:
 
                 del(temp_self)
 
-                self._compare_request()
-                self._check_thresh()
+                #self._compare_request()
+                
+                if (hasattr(self, 'use_zarr')):
+                    if os.path.exists(self.checkpoint_file_zarr): # if using a zarr file 
+
+                        self.__setattr__(str(self.stat + "_cum"), zarr.load(store=self.checkpoint_file_zarr)) 
             else: 
                 # using checkpoints but theres is no file 
                 pass
@@ -80,8 +103,9 @@ class Opa:
 
 
     def _process_request(self, request):
+
         """
-        If no checkpoint file exists or checkpoint = False, will assign attributes of self from the given dict 
+        Assigns all self attributes from given dictionary or config request 
 
         Arguments:
         ----------
@@ -95,9 +119,11 @@ class Opa:
         for key in request: 
             self.__setattr__(key, request[key])
     
-        self._check_thresh()
 
     def _check_thresh(self):
+
+        """ check for threshold """
+
         if(self.stat == "thresh_exceed"):
             if (hasattr(self, "threshold") == False):
                 raise AttributeError('need to provide threshold of exceedance value')
@@ -162,6 +188,7 @@ class Opa:
                     raise ValueError('Output frequency can not be less than frequency of statistic')
 
     def _initialise_attrs(self, ds):
+
         """
         Initialises data structure for cumulative stats 
 
@@ -207,6 +234,7 @@ class Opa:
     def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
 
         """ initalises both time attributes and attributes relating to the statistic """
+
         self.count = 0
         self.time_stamp = time_stamp
 
@@ -225,8 +253,6 @@ class Opa:
         
         return n_data_att_exist
             
-        
-
     def _should_initalise(self, time_stamp_min, proceed):
 
         """
@@ -240,7 +266,6 @@ class Opa:
             proceed = True 
 
         return proceed, should_init
-
 
     def _should_initalise_contin(self, time_stamp_min, proceed):
             
@@ -369,7 +394,6 @@ class Opa:
 
         return proceed
     
-
     def _check_have_seen(self, time_stamp_min):
 
         """check if the OPA has already 'seen' the data 
@@ -496,7 +520,6 @@ class Opa:
 
         #da.rechunk(ds, chunks=[1,450,600])
         return ds
-
 
     def _check_num_time_stamps(self, ds):
 
@@ -690,12 +713,50 @@ class Opa:
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
     
+
+    def _load_dask(self):
+
+        """ computing dask lazy operations and calling data into memory """
+
+        # print('loading dask')
+        self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute()) 
+
     def _write_checkpoint(self):
 
-        """write checkpoint file """
+        """write checkpoint file. First checks the size of the class and if it can fit in memory. 
+        If it's larger than 1.6 GB (pickle limit is 2GB) it will save the main climate data to zarr
+        with only meta data stored as pickle """
         
-        with open(self.checkpoint_file, 'wb') as file: 
-            pickle.dump(self, file)
+        self._load_dask() # first load data into memory 
+
+        item_size = self.__getattribute__(str(self.stat + "_cum")).size
+        memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
+        total_size = (item_size*memory_size)/(10**9) # total size in GB 
+
+        if(total_size < 1.6): # limit on a pickle file is 2GB 
+
+            with open(self.checkpoint_file, 'wb') as file: 
+                pickle.dump(self, file)
+
+        else: 
+            self.use_zarr = True
+            compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.BITSHUFFLE)
+
+            if(hasattr(self, 'checkpoint_file_zarr')):
+                zarr.array(self.__getattribute__(str(self.stat + "_cum")), store = self.checkpoint_file_zarr, compressor=compressor, overwrite = True)
+            else: 
+                if(hasattr(self, 'variable')):
+                    self.checkpoint_file_zarr = os.path.join(self.checkpoint_filepath, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+                else: 
+                    self.checkpoint_file_zarr = os.path.join(self.checkpoint_filepath, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+
+                zarr.array(self.__getattribute__(str(self.stat + "_cum")), store = self.checkpoint_file_zarr, compressor=compressor, overwrite = True)
+            
+            # now just pickle the rest of the meta data 
+            opa_meta = OpaMeta(self) # creates seperate class for the meta data 
+            
+            with open(self.checkpoint_file, 'wb') as file: 
+                pickle.dump(opa_meta, file)
 
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
@@ -764,7 +825,6 @@ class Opa:
         final_time_stamp = self.init_time_stamp
 
         return final_time_stamp 
-
 
     def _create_file_name(self, append = False, time_word = None):
 

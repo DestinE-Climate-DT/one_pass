@@ -12,7 +12,7 @@ tests = [
 ]
 
 setup(name='one_pass',
-      version='0.2.2',
+      version='0.2.3',
       description='One Pass Algorithms',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
@@ -27,5 +27,6 @@ setup(name='one_pass',
 	'numpy',
 	'xarray',	
 	'dask',
+        'zarr',
       ]
     )
