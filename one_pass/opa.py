@@ -178,7 +178,7 @@ class Opa:
 
             elif(self.stat_freq != self.output_freq and self.stat_freq != "continuous"):
                 # converting output freq into a number
-                output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0]
+                output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)[0]
                 # eg. how many days requested: 7 days of saving with daily data
                 
                 self.time_append = ((output_freq_min - time_stamp_tot_append)/ self.stat_freq_min) # how many do you need to append
@@ -334,7 +334,7 @@ class Opa:
             elif(time_stamp < self.time_stamp): # option 4, it's a time stamp from way before, back 
                 
                 if(self.stat_freq != "continuous"):
-                    time_stamp_min_old = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[1]
+                    time_stamp_min_old = convert_time(time_word = self.stat_freq, time_stamp_input = self.time_stamp)[1]
 
                     if(abs(min_diff) > time_stamp_min_old):
                         # here it's gone back to before the stat it was previously calculating so delete attributes 
@@ -357,7 +357,7 @@ class Opa:
                             self._remove_time_append()
 
                         else: # you've got back sometime within the time_append window
-                            output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp, time_step_input = self.time_step)[0]
+                            output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)[0]
                             
                             full_append = (output_freq_min/self.stat_freq_min) # time (units of stat_append) for how long time_append should be
                             start_int = full_append - self.time_append # if starting mid way through a output_freq, gives you the start of where you are
@@ -457,9 +457,9 @@ class Opa:
             time_stamp_tot_append = the number of 'stat_freq' in minutes of the time stamp already completed (only used for appending data)
             """
             if(self.stat_freq != "continuous"):
-                self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
+                self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp)
             else: 
-                self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp, time_step_input = self.time_step)
+                self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp)
             
             proceed = self._compare_old_timestamp(time_stamp, time_stamp_min, time_stamp_tot_append, proceed)
 
