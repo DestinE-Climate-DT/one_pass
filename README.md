@@ -8,7 +8,7 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. For details of the algorithms used, please refer to the `README.ipynb`. 
 
 ## Version 
-The current released version can be found at tag: `v0.2.2`. 
+The current released version can be found at tag: `v0.2.3`. 
 **This version requires different initialisation comapred to `v0.1.1`, see below for details.** 
 
 ## How to configure
