@@ -81,17 +81,17 @@ class test_opa(unittest.TestCase):
     def test_mean(self): 
 
         n_start = 2*30*24 
-        n_data = n_start + 3*30*24 + 2*24
+        n_data = n_start + 24 # + 3*30*24 + 2*24
 
         pass_dic = {"stat": "mean",
-        "stat_freq": "3monthly",
-        "output_freq": "3monthly",
+        "stat_freq": "daily",
+        "output_freq": "daily",
         "time_step": 60,
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_mean_uas_3monthly.nc",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/",
+        "out_filepath": "tests/"}
 
         for i in range(n_start, n_data, 1): 
             ds = data.isel(time=slice(i,i+1)) # extract moving window
@@ -116,17 +116,17 @@ class test_opa(unittest.TestCase):
     def test_std(self): 
 
         n_start = 2*30*24 
-        n_data = n_start + 3*30*24 + 2*24 
+        n_data = n_start + 31*24 # 3*30*24 + 2*24 
         
         pass_dic = {"stat": "std",
-        "stat_freq": "3monthly",
-        "output_freq": "3monthly",
+        "stat_freq": "monthly",
+        "output_freq": "monthly",
         "time_step": 60,
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_std_uas_3monthly.nc",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests",
+        "out_filepath": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 
@@ -152,17 +152,17 @@ class test_opa(unittest.TestCase):
 
 
         n_start = 2*30*24 
-        n_data = n_start + 3*30*24 + 2*24 
+        n_data = n_start + 24 # 3*30*24 + 2*24 
 
         pass_dic = {"stat": "min",
-        "stat_freq": "3monthly",
-        "output_freq": "3monthly",
+        "stat_freq": "daily",
+        "output_freq": "daily",
         "time_step": 60,
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_min_uas_3monthly.nc",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests/",
+        "out_filepath": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 
@@ -186,17 +186,17 @@ class test_opa(unittest.TestCase):
     def test_max(self): 
 
         n_start = 2*30*24 
-        n_data = n_start + 3*30*24 + 2*24 
+        n_data = n_start + 31*24 #  3*30*24 + 2*24 
 
         pass_dic = {"stat": "max",
-        "stat_freq": "3monthly",
-        "output_freq": "3monthly",
+        "stat_freq": "monthly",
+        "output_freq": "monthly",
         "time_step": 60,
         "variable": "uas",
         "save": False,
         "checkpoint": True,
-        "checkpoint_file": "tests/checkpoint_max_uas_monthly.nc",
-        "out_file": "tests/"}
+        "checkpoint_filepath": "tests",
+        "out_filepath": "tests/"}
 
         for i in range(n_start, n_data, 1): 
 

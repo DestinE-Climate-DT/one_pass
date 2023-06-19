@@ -2,7 +2,8 @@ name: env_opa
 channels:
   - conda-forge
 dependencies:
-  - python=3.10
-  - numpy=1.22
-  - xarray=2023.3.0
-  - dask=2023.3.2
+  - python
+  - numpy
+  - xarray
+  - dask
+  - zarr

@@ -12,12 +12,12 @@ tests = [
 ]
 
 setup(name='one_pass',
-      version='0.0.1',
+      version='0.2.3',
       description='One Pass Algorithms',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
       url='https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass',
-      python_requires='>=3.9,',
+      python_requires='>=3.9',
       packages=['one_pass'],
       extras_require={
           'tests': tests,
@@ -27,5 +27,6 @@ setup(name='one_pass',
 	'numpy',
 	'xarray',	
 	'dask',
+        'zarr',
       ]
     )
