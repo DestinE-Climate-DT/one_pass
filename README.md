@@ -8,13 +8,13 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms will take as input any xarray like object, either a DataSet or a DataArray and compute the requested statistics. For details of the algorithms used, please refer to the `README.ipynb`. 
 
 ## Version 
-The current released version can be found at tag: `v0.2.3`. 
+The current released version can be found at tag: `v0.3.0`. 
 **This version requires different initialisation comapred to `v0.1.1`, see below for details.** 
 
 ## How to configure
 The one pass algorithms are contained in the python script `opa.py` and need to be passed configuration information (data requests) in order from them to work. These requests can either be given as a python dictionary (see `wrapper.py`) or from the configuration file `config.yml`. The following need to be defined: 
 
-- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max"`.
+- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max", "percentile"`.
 
 - `stat_freq:` This defines the frequency of the requested statistic. The current options are `"hourly", "3hourly", "6hourly", "12hourly", "daily", "weekly", "monthly", "3monthly", "annually", "continuous"`. Be careful about spelling, it matters. Note: for the frequencies `"weekly", "monthly", "annually`, the statistic will work with the calendar, e.g. `"annually"` will only work if you the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for monthly and weekly, where weekly runs from Monday - Sunday. The option of `"continuous`, will start from the first piece of data that you give it. 
 
@@ -39,6 +39,10 @@ Some general notes on the config file:
 2. If you change the details of the config file, delete the checkpoint files that may have been written from the old file to avoid mis-calculation. **Note: the new version v0.2.2 should recognise if the checkpoint file is now redundant (in the case that you have gone further back in time) and should correct itself. In case of doubt, always delete it however** 
 
 3. See `config.yml` for an example config file. 
+
+4. **note on percentile in v0.3.0** If you choose the `stat: percentile` option, you also need the config file to include the line: `percentile_list: [0.2, 0.5]`, where the list is the percentiles that you request between the values of [0,1], it can be as long as you like but must be comma seperated. 
+
+5. **note of thresh_exceed** If you choose the `stat: thresh_exceed` you need to include a threshold exceedance value. In the config file include the line `threshold: xxx` where xxx is your value for threshold exceedance. 
 
 ## How to run
 When using the package, there are four main steps, all shown in `wrapper.py`. They are: 
@@ -72,7 +76,7 @@ In Lumi / Levante (any platform with internet connection) this can be easily don
 ```
 git clone https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
 cd one_pass
-git checkout v0.2.2`
+git checkout v0.3.0`
 ```
 
 In MareNostrum4 there is no outwards internet connection, so the code must be first cloned locally and then uploaded to the HPC. To load the correct modules run: 
@@ -86,7 +90,8 @@ The package depedends on the following modules:
 - `xarray`
 - `pandas`
 - `dask`
-- `dask.array`
+- `zarr`
+- `pytdigest`
 
 All the dependencies are  given in the `setup.py` script or, if you're using conda, are given in the `environment.yml`.
 
