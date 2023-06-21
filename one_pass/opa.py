@@ -1,11 +1,16 @@
 from typing import Dict
 import os 
+import sys
 import pickle 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask 
 import dask.array as da
+import time 
+#from crick import TDigest as TDigestCrick
+from pytdigest import TDigest
+#from dask.distributed import client, LocalCluster
 from numcodecs import Blosc
 import zarr 
 import time 
@@ -33,6 +38,8 @@ class Opa:
 
     def __init__(self, user_request: Dict): 
 
+        #start_time = time.time() 
+
         """ Initalisation
         
         Arguments 
@@ -44,7 +51,10 @@ class Opa:
 
         self._process_request(request)
 
-        self._check_thresh()
+        if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
+            self._check_checkpoint(request)
+
+        self._check_attrs() # checks unique config attributes required for some statistics 
 
         if(request.get("checkpoint")): # if using checkpointing  
             self._check_checkpoint(request)
@@ -120,13 +130,23 @@ class Opa:
             self.__setattr__(key, request[key])
     
 
-    def _check_thresh(self):
+    def _check_attrs(self):
 
         """ check for threshold """
 
         if(self.stat == "thresh_exceed"):
             if (hasattr(self, "threshold") == False):
                 raise AttributeError('need to provide threshold of exceedance value')
+            
+        if(self.stat == "percentile"):
+            if (hasattr(self, "percentile_list") == False):
+                raise AttributeError('For the percentile statistic you need to provide a list of required percentiles,'
+                                     'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
+                                     'if you want the whole distribution, stat == cdf')
+            
+            for j in range(np.size(self.percentile_list)):
+                if(self.percentile_list[j] > 1): 
+                    raise AttributeError('Percentiles must be between 0 and 1')
             
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
@@ -196,16 +216,20 @@ class Opa:
         --------
         self.stat_cum : zero filled data array with the shape of the data compressed in the time dimension 
         """
+        ds_size = ds.tail(time = 1)
+
+        #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+        value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
         if(self.stat_freq == "continuous"):
             self.count_continuous = 0
 
-        if(self.stat != "hist" or self.stat != "percentile"):
+        if(self.stat_freq == "continuous"):
+            self.count_continuous = 0
+
+        if(self.stat != "hist" and self.stat != "percentile"):
             
             ds_size = ds.tail(time = 1)
-
-            #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
-            value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -223,18 +247,27 @@ class Opa:
 
             # else loop for histograms of percentile calculations that may require a different initial grid
         else: # TODO: complete for hist and percetiles 
-            if ds.chunks is None:
-                pass 
-                #value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
-            else:
-                pass 
-                # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+            # if ds.chunks is None:
+            #     pass 
+            #     #value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
+            # else:
+            #     pass 
+            #     # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
+            self.array_length = np.size(ds_size)
+            digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
+
+            for j in range(self.array_length):
+                digest_list[j] = TDigest() # initalising digests and adding to list
+
+            self.__setattr__(str(self.stat + "_cum"), digest_list)
+            
+            # first set percentile cum as flattened array with on axis length of number of percentiles
+            #self.__setattr__(str(self.stat + "_cum"), da.tile(da.empty(self.array_length), (np.size(self.percentile_list), 1)))
 
     def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
 
         """ initalises both time attributes and attributes relating to the statistic """
-
         self.count = 0
         self.time_stamp = time_stamp
 
@@ -259,6 +292,7 @@ class Opa:
         Checks to see if in the timestamp of the data is the 'first' in the requested statistic. If so, 
         should_init and proceed are set to true.  
         """ 
+
         should_init = False
 
         if(time_stamp_min < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
@@ -690,6 +724,57 @@ class Opa:
 
         return
 
+    def _update_percentile(self, ds, weight=1):
+
+        """currently sequential loop that updates the digest for each grid point"""
+        
+        if(weight == 1):
+
+            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
+        
+            for j in range(self.array_length):
+                # using crick or pytdigest
+                self.percentile_cum[j].update(ds_values[j])
+
+        else: 
+
+            ds_values = ds.values.reshape((weight, -1))
+
+            for j in range(self.array_length):
+                # using crick or pytdigest
+                self.percentile_cum[j].update(ds_values[:,j]) # update multiple values 
+
+
+
+        self.count = self.count + weight
+        
+        return 
+
+    def _get_percentile(self, ds):
+
+        """converts digest functions into percentiles """
+        
+        for j in range(self.array_length):
+            # for crick 
+            # self.percentile_cum[j] = self.percentile_cum[j].quantile(self.percentile_list) # if there are 4 percentiles, : should be 4 
+            self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(self.percentile_list) # if there are 4 percentiles, : should be 4 
+
+        self.percentile_cum = np.transpose(self.percentile_cum)
+
+        # reshaping percentile cum into the correct shape 
+        ds_size = ds.tail(time = 1)
+        value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+        final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
+        
+        #print(np.shape(final_size))
+
+        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
+        #print(np.shape(self.percentile_cum))
+
+        self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) # adding axis for time 
+
+        return 
+
     def _update(self, ds, weight=1):
 
         """ depending on the requested statistic will send data to the correct function """ 
@@ -714,8 +799,10 @@ class Opa:
 
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
-    
 
+        elif(self.stat == "percentile"):
+            self._update_percentile(ds, weight)
+    
     def _load_dask(self):
 
         """ computing dask lazy operations and calling data into memory """
@@ -729,11 +816,20 @@ class Opa:
         If it's larger than 1.6 GB (pickle limit is 2GB) it will save the main climate data to zarr
         with only meta data stored as pickle """
         
-        self._load_dask() # first load data into memory 
+        if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute') and callable(self.__getattribute__(str(self.stat + "_cum")).compute()):
+            self._load_dask() # first load data into memory 
 
-        item_size = self.__getattribute__(str(self.stat + "_cum")).size
-        memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
-        total_size = (item_size*memory_size)/(10**9) # total size in GB 
+        if (type(self.__getattribute__(str(self.stat + "_cum"))) == list):
+
+            # can maybe just use the line below: 
+            total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
+
+        else: 
+            item_size = self.__getattribute__(str(self.stat + "_cum")).size
+            memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
+            total_size = (item_size*memory_size)/(10**9) # total size in GB 
+
+            #TODO: what about std which also contains the mean? etc 
 
         if(total_size < 1.6): # limit on a pickle file is 2GB 
 
@@ -763,10 +859,16 @@ class Opa:
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
         """ creates xarray dataSet object with final data and original metadata  """
+        self.final_array = final_stat
 
         ds = ds.tail(time = 1) # compress the dataset down to 1 dimension in time 
         ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs)) # re-label the time coordinate 
+            
+        if (self.stat == "percentile"):
 
+            ds = ds.expand_dims(dim={"percentile": np.size(self.percentile_list)}, axis=1)
+            ds = ds.assign_coords(percentile = ("percentile", np.array(self.percentile_list))) # re-label the time coordinate 
+            
         dm = xr.Dataset(
         data_vars = dict(
                 [(ds.name, (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
@@ -885,7 +987,7 @@ class Opa:
         else:
             file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
 
-        dm.to_netcdf(path = file_name, mode ='w') # will re-write the file if it is already there
+        dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
         dm.close()
         print('finished saving')
 
@@ -948,6 +1050,9 @@ class Opa:
             return dm 
 
         if (self.count == self.n_data and self.stat_freq != "continuous"):   # when the statistic is full
+
+            if(self.stat == "percentile"): 
+                self._get_percentile(ds)
 
             dm, final_time_file_str = self._data_output(ds) # output as a dataset 
 
