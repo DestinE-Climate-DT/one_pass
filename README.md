@@ -14,7 +14,7 @@ The current released version can be found at tag: `v0.3.0`.
 ## How to configure
 The one pass algorithms are contained in the python script `opa.py` and need to be passed configuration information (data requests) in order from them to work. These requests can either be given as a python dictionary (see `wrapper.py`) or from the configuration file `config.yml`. The following need to be defined: 
 
-- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max", "percentile"`.
+- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max", "percentile"`. **Note `percentile` is new to v0.3.0, see below for details on how to use in the config.**
 
 - `stat_freq:` This defines the frequency of the requested statistic. The current options are `"hourly", "3hourly", "6hourly", "12hourly", "daily", "weekly", "monthly", "3monthly", "annually", "continuous"`. Be careful about spelling, it matters. Note: for the frequencies `"weekly", "monthly", "annually`, the statistic will work with the calendar, e.g. `"annually"` will only work if you the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for monthly and weekly, where weekly runs from Monday - Sunday. The option of `"continuous`, will start from the first piece of data that you give it. 
 
