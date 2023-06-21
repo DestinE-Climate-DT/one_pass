@@ -8,7 +8,8 @@ import pandas as pd
 import dask 
 import dask.array as da
 import time 
-from crick import TDigest as TDigestCrick
+#from crick import TDigest as TDigestCrick
+from pytdigest import TDigest
 #from dask.distributed import client, LocalCluster
 from numcodecs import Blosc
 import zarr 
@@ -143,6 +144,10 @@ class Opa:
                                      'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
                                      'if you want the whole distribution, stat == cdf')
             
+            for j in range(np.size(self.percentile_list)):
+                if(self.percentile_list[j] > 1): 
+                    raise AttributeError('Percentiles must be between 0 and 1')
+            
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
         pass # TODO: do you want this function? It shouldn't be needed if the checkpoint file path is changed but 
@@ -242,22 +247,23 @@ class Opa:
 
             # else loop for histograms of percentile calculations that may require a different initial grid
         else: # TODO: complete for hist and percetiles 
-            if ds.chunks is None:
-                pass 
-                #value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
-            else:
-                pass 
-                # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
+            # if ds.chunks is None:
+            #     pass 
+            #     #value = np.zeros((1, np.size(ds.lat), np.size(ds.lon)))
+            # else:
+            #     pass 
+            #     # value = da.zeros((1, np.size(ds.lat), np.size(ds.lon))) # keeping everything as a 3D array
 
             self.array_length = np.size(ds_size)
             digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
 
             for j in range(self.array_length):
-                digest = TDigestCrick() # initalising digests and adding to list
-                digest_list[j] = digest
+                digest_list[j] = TDigest() # initalising digests and adding to list
 
-            self.__setattr__("digest_cum", digest_list)
-            self.__setattr__(str(self.stat + "_cum"), da.concatenate([self.array_length] * np.size(self.percentile_list), axis=0))
+            self.__setattr__(str(self.stat + "_cum"), digest_list)
+            
+            # first set percentile cum as flattened array with on axis length of number of percentiles
+            #self.__setattr__(str(self.stat + "_cum"), da.tile(da.empty(self.array_length), (np.size(self.percentile_list), 1)))
 
     def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
 
@@ -717,39 +723,53 @@ class Opa:
         return
 
     def _update_percentile(self, ds, weight=1):
+
+        """currently sequential loop that updates the digest for each grid point"""
         
         if(weight == 1):
 
             ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
         
             for j in range(self.array_length):
-                digest = self.digest_cum[j]
-                digest.update(ds_values[j])
-                self.digest_cum[j] = digest
+                # using crick or pytdigest
+                self.percentile_cum[j].update(ds_values[j])
+
         else: 
 
             ds_values = ds.values.reshape((weight, -1))
 
             for j in range(self.array_length):
-                #digest = self.digest_cum[j]
-                self.digest_cum[j].update(ds_values[:,j]) # update multiple values 
-                #self.digest_cum[j] = digest
+                # using crick or pytdigest
+                self.percentile_cum[j].update(ds_values[:,j]) # update multiple values 
 
+
+
+        self.count = self.count + weight
+        
         return 
 
-    def get_percentile(self, ds):
+    def _get_percentile(self, ds):
+
+        """converts digest functions into percentiles """
         
         for j in range(self.array_length):
-            digest = self.digest_cum[j] # extract digest 
-            self.percentile_cum[:,j] = digest.quantile(self.percentile_list) # if there are 4 percentiles, : should be 4 
+            # for crick 
+            # self.percentile_cum[j] = self.percentile_cum[j].quantile(self.percentile_list) # if there are 4 percentiles, : should be 4 
+            self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(self.percentile_list) # if there are 4 percentiles, : should be 4 
+
+        self.percentile_cum = np.transpose(self.percentile_cum)
 
         # reshaping percentile cum into the correct shape 
-
         ds_size = ds.tail(time = 1)
         value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
-
         final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
+        
+        #print(np.shape(final_size))
+
         self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
+        #print(np.shape(self.percentile_cum))
+
+        self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) # adding axis for time 
 
         return 
 
@@ -837,10 +857,16 @@ class Opa:
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
         """ creates xarray dataSet object with final data and original metadata  """
+        self.final_array = final_stat
 
         ds = ds.tail(time = 1) # compress the dataset down to 1 dimension in time 
         ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs)) # re-label the time coordinate 
+            
+        if (self.stat == "percentile"):
 
+            ds = ds.expand_dims(dim={"percentile": np.size(self.percentile_list)}, axis=1)
+            ds = ds.assign_coords(percentile = ("percentile", np.array(self.percentile_list))) # re-label the time coordinate 
+            
         dm = xr.Dataset(
         data_vars = dict(
                 [(ds.name, (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
@@ -1024,7 +1050,7 @@ class Opa:
         if (self.count == self.n_data and self.stat_freq != "continuous"):   # when the statistic is full
 
             if(self.stat == "percentile"): 
-                self._get_percentile()
+                self._get_percentile(ds)
 
             dm, final_time_file_str = self._data_output(ds) # output as a dataset 
 
