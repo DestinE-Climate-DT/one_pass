@@ -7,3 +7,4 @@ dependencies:
   - xarray
   - dask
   - zarr
+  - pytdigest
