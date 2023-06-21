@@ -292,6 +292,8 @@ class Opa:
         if(self.checkpoint):# delete checkpoint file 
             if os.path.isfile(self.checkpoint_file):
                 os.remove(self.checkpoint_file)
+            if os.path.isfile(self.checkpoint_file_zarr):
+                os.remove(self.checkpoint_file_zarr)
 
     def _compare_old_timestamp(self, time_stamp, time_stamp_min, time_stamp_tot_append, proceed): 
 
@@ -956,6 +958,8 @@ class Opa:
                 if(self.checkpoint == True): # and write_check == True):# delete checkpoint file 
                     if os.path.isfile(self.checkpoint_file):
                         os.remove(self.checkpoint_file)
+                    if os.path.isfile(self.checkpoint_file_zarr):
+                        os.remove(self.checkpoint_file_zarr)
                     #else:
                     #    print("Error: %s file not found" % self.checkpoint_file)
 
@@ -1006,6 +1010,8 @@ class Opa:
                         if(self.checkpoint):# delete checkpoint file 
                             if os.path.isfile(self.checkpoint_file):
                                 os.remove(self.checkpoint_file)
+                            if os.path.isfile(self.checkpoint_file_zarr):
+                                os.remove(self.checkpoint_file_zarr)
                             #else:
                             #    print("Error: %s file not found" % self.checkpoint_file)
 
