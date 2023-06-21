@@ -1,5 +1,6 @@
 from typing import Dict
 import os 
+import sys
 import pickle 
 import numpy as np
 import xarray as xr
@@ -52,7 +53,7 @@ class Opa:
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
 
-        self._check_thresh()
+        self._check_attrs() # checks unique config attributes required for some statistics 
 
         if(request.get("checkpoint")): # if using checkpointing  
             self._check_checkpoint(request)
@@ -92,8 +93,6 @@ class Opa:
                 temp_self = pickle.load(f)
                 f.close()
 
-
-
                 for key in vars(temp_self):
                     self.__setattr__(key, vars(temp_self)[key])
 
@@ -130,13 +129,19 @@ class Opa:
             self.__setattr__(key, request[key])
     
 
-    def _check_thresh(self):
+    def _check_attrs(self):
 
         """ check for threshold """
 
         if(self.stat == "thresh_exceed"):
             if (hasattr(self, "threshold") == False):
                 raise AttributeError('need to provide threshold of exceedance value')
+            
+        if(self.stat == "percentile"):
+            if (hasattr(self, "percentile_list") == False):
+                raise AttributeError('For the percentile statistic you need to provide a list of required percentiles,'
+                                     'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
+                                     'if you want the whole distribution, stat == cdf')
             
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
@@ -208,18 +213,18 @@ class Opa:
         """
         ds_size = ds.tail(time = 1)
 
-        if(self.stat_freq == "continuous"):
-            self.count_continuous = 0
+        #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+        value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
         if(self.stat_freq == "continuous"):
             self.count_continuous = 0
 
-        if(self.stat != "hist" or self.stat != "percentile"):
+        if(self.stat_freq == "continuous"):
+            self.count_continuous = 0
+
+        if(self.stat != "hist" and self.stat != "percentile"):
             
             ds_size = ds.tail(time = 1)
-
-            #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
-            value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -246,14 +251,13 @@ class Opa:
 
             self.array_length = np.size(ds_size)
             digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
-            percen_list = [dict() for x in range(self.array_length)]
 
             for j in range(self.array_length):
                 digest = TDigestCrick() # initalising digests and adding to list
                 digest_list[j] = digest
 
             self.__setattr__("digest_cum", digest_list)
-            self.__setattr__(str(self.stat + "_cum"), percen_list)
+            self.__setattr__(str(self.stat + "_cum"), da.concatenate([self.array_length] * np.size(self.percentile_list), axis=0))
 
     def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
 
@@ -282,6 +286,7 @@ class Opa:
         Checks to see if in the timestamp of the data is the 'first' in the requested statistic. If so, 
         should_init and proceed are set to true.  
         """ 
+
         should_init = False
 
         if(time_stamp_min < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
@@ -714,27 +719,37 @@ class Opa:
     def _update_percentile(self, ds, weight=1):
         
         if(weight == 1):
-            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
-        else: 
-            pass 
 
-        for j in range(self.array_length):
-            digest = self.digest_cum[j]
-            digest.update(ds_values[j])
-            self.digest_cum[j] = digest
+            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
+        
+            for j in range(self.array_length):
+                digest = self.digest_cum[j]
+                digest.update(ds_values[j])
+                self.digest_cum[j] = digest
+        else: 
+
+            ds_values = ds.values.reshape((weight, -1))
+
+            for j in range(self.array_length):
+                #digest = self.digest_cum[j]
+                self.digest_cum[j].update(ds_values[:,j]) # update multiple values 
+                #self.digest_cum[j] = digest
 
         return 
 
     def get_percentile(self, ds):
         
-        if(np.size(self.percentiles) == 1):
-            
-            for j in range(self.array_length):
-                digest = self.digest_cum[j] # extract digest 
-                self.percentile_cum[j] = digest.quantile(self.percentiles)
+        for j in range(self.array_length):
+            digest = self.digest_cum[j] # extract digest 
+            self.percentile_cum[:,j] = digest.quantile(self.percentile_list) # if there are 4 percentiles, : should be 4 
+
+        # reshaping percentile cum into the correct shape 
 
         ds_size = ds.tail(time = 1)
-        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(ds_size))
+        value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+
+        final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
+        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
 
         return 
 
@@ -762,8 +777,10 @@ class Opa:
 
         elif(self.stat == "thresh_exceed"):
             self._update_threshold(ds, weight)
-    
 
+        elif(self.stat == "percentile"):
+            self._update_percentile(ds, weight)
+    
     def _load_dask(self):
 
         """ computing dask lazy operations and calling data into memory """
@@ -777,11 +794,20 @@ class Opa:
         If it's larger than 1.6 GB (pickle limit is 2GB) it will save the main climate data to zarr
         with only meta data stored as pickle """
         
-        self._load_dask() # first load data into memory 
+        if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute') and callable(self.__getattribute__(str(self.stat + "_cum")).compute()):
+            self._load_dask() # first load data into memory 
 
-        item_size = self.__getattribute__(str(self.stat + "_cum")).size
-        memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
-        total_size = (item_size*memory_size)/(10**9) # total size in GB 
+        if (type(self.__getattribute__(str(self.stat + "_cum"))) == list):
+
+            # can maybe just use the line below: 
+            total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
+
+        else: 
+            item_size = self.__getattribute__(str(self.stat + "_cum")).size
+            memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
+            total_size = (item_size*memory_size)/(10**9) # total size in GB 
+
+            #TODO: what about std which also contains the mean? etc 
 
         if(total_size < 1.6): # limit on a pickle file is 2GB 
 
