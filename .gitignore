@@ -3,6 +3,5 @@ coverage.xml
 coverage/
 .coverage
 venv/
-
 __pycache__
 
