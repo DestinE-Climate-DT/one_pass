@@ -19,6 +19,8 @@ prepare:
     - pip3.9 install pylint
 
 test:
+  variables:
+    SCHEDULER_PARAMETERS: "-N 1 -t 03:00:00"
   tags:
     - docker
   stage: test
