@@ -9,3 +9,4 @@ dependencies:
   - zarr
   - pytdigest
   - netcdf4
+  - cytoolz
