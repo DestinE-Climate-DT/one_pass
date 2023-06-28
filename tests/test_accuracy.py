@@ -124,7 +124,7 @@ class test_opa(unittest.TestCase):
         "time_step": 60,
         "variable": "uas",
         "save": False,
-        "checkpoint": True,
+        "checkpoint": False,
         "checkpoint_filepath": "tests",
         "out_filepath": "tests/"}
 
