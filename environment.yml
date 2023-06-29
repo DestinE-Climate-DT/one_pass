@@ -7,4 +7,8 @@ dependencies:
   - xarray
   - dask
   - zarr
-  - pytdigest
+  - pytest
+  - netcdf4
+  - pip 
+  - pip:
+    - pytdigest

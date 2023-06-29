@@ -90,7 +90,6 @@ def convert_time(time_word = "daily", time_stamp_input = None):
             time_stamp_input_tot = time_stamp_input_min
         
         time_stamp_tot_append = time_stamp_input_hour
-        
 
     elif(time_word == "12hourly"):
         

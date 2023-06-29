@@ -53,11 +53,9 @@ class Opa:
 
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
+            
 
         self._check_attrs() # checks unique config attributes required for some statistics 
-
-        if(request.get("checkpoint")): # if using checkpointing  
-            self._check_checkpoint(request)
 
     def _check_checkpoint(self, request):
         """
@@ -129,7 +127,6 @@ class Opa:
         for key in request: 
             self.__setattr__(key, request[key])
     
-
     def _check_attrs(self):
 
         """ check for threshold """
@@ -218,8 +215,10 @@ class Opa:
         """
         ds_size = ds.tail(time = 1)
 
-        #value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
-        value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+        if ds.chunks is None:
+            value = np.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
+        else:
+            value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
 
         if(self.stat_freq == "continuous"):
             self.count_continuous = 0
@@ -357,7 +356,8 @@ class Opa:
             elif(time_stamp > self.time_stamp): # option 2, it's a time step into the future - data mising 
                 
                 if abs(min_diff) < 2*self.time_step:
-                    print('Time gap too large, there seems to be data missing, small enough to carry on')
+                    
+                    print('Time gap at ' + str(time_stamp) + ' too large, there seems to be data missing, small enough to carry on')
                     self.time_stamp = time_stamp
                     proceed = True
 
@@ -554,7 +554,6 @@ class Opa:
         except AttributeError:
             pass # data already at data_array
 
-        #da.rechunk(ds, chunks=[1,450,600])
         return ds
 
     def _check_num_time_stamps(self, ds):
@@ -591,6 +590,7 @@ class Opa:
         """ computes one pass mean with weight corresponding to the number of timesteps being added  """ 
 
         self.count = self.count + weight
+        
         if (weight == 1):
             mean_cum = self.mean_cum + weight*(ds - self.mean_cum) / (self.count) 
         else:
@@ -601,25 +601,27 @@ class Opa:
 
     def _update_var(self, ds, weight):
 
-        """ computes one pass variance with weight corresponding to the number of timesteps being added  """ 
+        """ computes one pass variance with weight corresponding to the number of timesteps being added
+        don't need to update count as that is done in mean""" 
 
         old_mean = self.mean_cum  # storing 'old' mean temporarily
 
         if(weight == 1):
             self._update_mean(ds, weight)
             var_cum = self.var_cum + weight*(ds - old_mean)*(ds - self.mean_cum)
+        
         else:
             temp_mean = self._two_pass_mean(ds) # two-pass mean
-            self._update_mean(temp_mean, weight) # update self.mean_cum
-            temp_var = self._two_pass_var(ds) # two pass variance
+            temp_var = (self._two_pass_var(ds))*(weight-1) # two pass variance
             # see paper Mastelini. S
-            var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*((self.count - weight)*weight/self.count)
-
+            var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*((self.count*weight)/(self.count+weight))
+            
+            self._update_mean(ds, weight)
+            
         if (self.count == self.n_data):
             var_cum = var_cum/(self.count - 1) # using sample variance NOT population variance
 
         self.var_cum = var_cum.data
-
 
     def _update_std(self, ds, weight):
         
@@ -807,7 +809,7 @@ class Opa:
 
         """ computing dask lazy operations and calling data into memory """
 
-        # print('loading dask')
+        #print('loading dask')
         self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute()) 
 
     def _write_checkpoint(self):
@@ -816,18 +818,18 @@ class Opa:
         If it's larger than 1.6 GB (pickle limit is 2GB) it will save the main climate data to zarr
         with only meta data stored as pickle """
         
-        if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute') and callable(self.__getattribute__(str(self.stat + "_cum")).compute()):
+        if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute'):
             self._load_dask() # first load data into memory 
 
-        if (type(self.__getattribute__(str(self.stat + "_cum"))) == list):
+        #if (type(self.__getattribute__(str(self.stat + "_cum"))) == list):
 
             # can maybe just use the line below: 
-            total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
+        total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
 
-        else: 
-            item_size = self.__getattribute__(str(self.stat + "_cum")).size
-            memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
-            total_size = (item_size*memory_size)/(10**9) # total size in GB 
+        #else: 
+        #    item_size = self.__getattribute__(str(self.stat + "_cum")).size
+        #    memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
+        #    total_size = (item_size*memory_size)/(10**9) # total size in GB 
 
             #TODO: what about std which also contains the mean? etc 
 
@@ -871,7 +873,7 @@ class Opa:
             
         dm = xr.Dataset(
         data_vars = dict(
-                [(ds.name, (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
+                [(str(ds.name + "_" + self.stat), (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
             ),
         coords = dict(
             ds.coords
@@ -1006,7 +1008,7 @@ class Opa:
     def compute(self, ds):
     
         """  Actual function call  """
-    
+
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
 
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
@@ -1020,6 +1022,7 @@ class Opa:
             return
                     
         how_much_left = (self.n_data - self.count) # how much is let of your statistic to fill
+        
 
         if (how_much_left >= weight): # will not span over new statistic
 
@@ -1063,8 +1066,10 @@ class Opa:
                 if(self.checkpoint == True): # and write_check == True):# delete checkpoint file 
                     if os.path.isfile(self.checkpoint_file):
                         os.remove(self.checkpoint_file)
-                    if os.path.isfile(self.checkpoint_file_zarr):
-                        os.remove(self.checkpoint_file_zarr)
+                    
+                    if (hasattr(self, 'use_zarr')):
+                        if os.path.isfile(self.checkpoint_file_zarr):
+                            os.remove(self.checkpoint_file_zarr)
                     #else:
                     #    print("Error: %s file not found" % self.checkpoint_file)
 
@@ -1115,8 +1120,10 @@ class Opa:
                         if(self.checkpoint):# delete checkpoint file 
                             if os.path.isfile(self.checkpoint_file):
                                 os.remove(self.checkpoint_file)
-                            if os.path.isfile(self.checkpoint_file_zarr):
-                                os.remove(self.checkpoint_file_zarr)
+                                
+                            if (hasattr(self, 'use_zarr')):
+                                if os.path.isfile(self.checkpoint_file_zarr):
+                                    os.remove(self.checkpoint_file_zarr)
                             #else:
                             #    print("Error: %s file not found" % self.checkpoint_file)
 

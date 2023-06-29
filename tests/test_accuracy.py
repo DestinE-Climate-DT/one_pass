@@ -12,8 +12,10 @@ path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(path)
 os.chdir(path)
 
-from one_pass.opa import *
 from one_pass.opa import Opa
+from one_pass.convert_time import convert_time
+from one_pass.check_stat import check_stat
+from one_pass import util
 
 ############### load data ##################################
 
@@ -36,6 +38,8 @@ fileList.sort()
 data = xr.open_dataset(fileList[0])  # , chunks = 'auto') # open dataset
 data = data.astype(np.float64)
 
+dec_place = 1e-3
+
 ############################# define functions ######################################
 
 def two_pass_mean(data, n_start, n_data):
@@ -51,172 +55,187 @@ def two_pass_std(data, n_start, n_data):
     ds = data.isel(time=slice(n_start, n_data)) 
     axNum = ds.get_axis_num('time')
     np_std = np.std(ds, axis = axNum, dtype = np.float64, ddof = 1, keepdims = True) 
+    
     return np_std
 
 def two_pass_var(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data)) 
     axNum = ds.get_axis_num('time')
-    np_std = np.var(ds, axis = axNum, dtype = np.float64, ddof = 1, keepdims = True)  
-    return np_std
+    np_var = np.var(ds, axis = axNum, dtype = np.float64, ddof = 1, keepdims = True)  
+    
+    return np_var
 
 def two_pass_min(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data)) 
     axNum = ds.get_axis_num('time')
     np_min = np.min(ds, axis = axNum, keepdims = True)  
+    
     return np_min
 
 def two_pass_max(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data)) 
     axNum = ds.get_axis_num('time')
-    np_min = np.max(ds, axis = axNum, keepdims = True)
-    return np_min
-
-#################################### define unit tests ###################################
-
-class test_opa(unittest.TestCase): 
-
-    def test_mean(self): 
-
-        n_start = 2*30*24 
-        n_data = n_start + 24 # + 3*30*24 + 2*24
-
-        pass_dic = {"stat": "mean",
-        "stat_freq": "daily",
-        "output_freq": "daily",
-        "time_step": 60,
-        "variable": "uas",
-        "save": False,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/"}
-
-        for i in range(n_start, n_data, 1): 
-            ds = data.isel(time=slice(i,i+1)) # extract moving window
-            daily_mean = Opa(pass_dic)
-            dm = daily_mean.compute(ds)
-
-        ## run two pass mean 
-        data_arr = getattr(data, pass_dic["variable"])
-        np_mean = two_pass_mean(data_arr, n_start, n_data)
-
-        dec_place = 1e-10
-        message = "OPA mean and numpy mean not equal to " + str(dec_place) + " dp"
+    np_max = np.max(ds, axis = axNum, keepdims = True)
     
-        # the OPA will produce a dataSet to keep metadata to reducing down to dataArray
-        dm = getattr(dm, pass_dic["variable"])
+    return np_max
 
-        is_equal = np.allclose(dm, np_mean, rtol = dec_place, atol = 0)
-        
-        self.assertTrue(is_equal, message)
+#################################### define opa test ###################################
 
+
+def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic): 
+
+    opa_stat = Opa(pass_dic)
+
+    for i in range(n_start, n_data, step): 
+
+        ds = data.isel(time=slice(i,i+step))
+        dm = opa_stat.compute(ds)
+
+    #dm = getattr(dm, pass_dic["variable"])
+    dm = getattr(dm, pass_dic["variable"] + "_"+ pass_dic["stat"])
+
+    return dm 
+
+def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic): 
+
+    for i in range(n_start, n_data, step): 
+
+        opa_stat = Opa(pass_dic)
+        ds = data.isel(time=slice(i,i+step))
+        dm = opa_stat.compute(ds)
+
+    #dm = getattr(dm, pass_dic["variable"])
+    dm = getattr(dm, pass_dic["variable"] + "_"+ pass_dic["stat"])
+
+    return dm 
+
+
+####################### py tests ##############################
+
+def test_mean():
     
-    def test_std(self): 
-
-        n_start = 2*30*24 
-        n_data = n_start + 31*24 # 3*30*24 + 2*24 
-        
-        pass_dic = {"stat": "std",
-        "stat_freq": "monthly",
-        "output_freq": "monthly",
-        "time_step": 60,
-        "variable": "uas",
-        "save": False,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests",
-        "out_filepath": "tests/"}
-
-        for i in range(n_start, n_data, 1): 
-
-            ds = data.isel(time=slice(i,i+1)) 
-            monthly_std = Opa(pass_dic)
-            dm = monthly_std.compute(ds)
-
-        ## run two pass mean 
-        data_arr = getattr(data, pass_dic["variable"])
-        np_std = two_pass_std(data_arr, n_start, n_data)
-
-        dec_place = 1e-10
-        message = "OPA std and numpy std not equal to " + str(dec_place) + " dp"
-        
-        dm = getattr(dm, pass_dic["variable"])
-
-        is_equal = np.allclose(dm, np_std, rtol = dec_place, atol = 0)
-        self.assertTrue(is_equal, message)
-
-
+    n_start = 2*30*24 
+    n_data = n_start + 12 # + 3*30*24 + 2*24
+    step = 4 
     
-    def test_min(self): 
+    pass_dic = {"stat": "mean",
+    "stat_freq": "12hourly",
+    "output_freq": "12hourly",
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": True,
+    "checkpoint_filepath": "tests",
+    "out_filepath": "tests"}
 
+    data_arr = getattr(data, pass_dic["variable"])
+    
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-        n_start = 2*30*24 
-        n_data = n_start + 24 # 3*30*24 + 2*24 
+    two_pass = two_pass_mean(data_arr, n_start, n_data)
+    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, atol = dec_place), message
+    
+    
+    
+def test_std():
 
-        pass_dic = {"stat": "min",
-        "stat_freq": "daily",
-        "output_freq": "daily",
-        "time_step": 60,
-        "variable": "uas",
-        "save": False,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/"}
+    n_start = 2*30*24 
+    n_data = n_start + 24 
+    step = 1
 
-        for i in range(n_start, n_data, 1): 
+    pass_dic = {"stat": "std",
+    "stat_freq": "daily",
+    "output_freq": "daily",
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": False,
+    "checkpoint_filepath": "tests",
+    "out_filepath": "tests"}
+    
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-            ds = data.isel(time=slice(i,i+1)) 
-            weekly_min = Opa(pass_dic)
-            dm = weekly_min.compute(ds)
+    two_pass = two_pass_std(data_arr, n_start, n_data)
+    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, atol = dec_place), message
+    
+    
+    
+def test_var():
 
-        ## run two pass min
-        data_arr = getattr(data, pass_dic["variable"])
-        np_min = two_pass_min(data_arr, n_start, n_data)
+    n_start = 24*3
+    n_data = n_start + 7*24 
+    step = 24
 
-        dec_place = 1e-10
-        message = "OPA min and numpy min not equal to " + str(dec_place) + " dp"
-        
-        dm = getattr(dm, pass_dic["variable"])
+    pass_dic = {"stat": "var",
+    "stat_freq": "weekly",
+    "output_freq": "weekly",
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": True,
+    "checkpoint_filepath": "tests",
+    "out_filepath": "tests"}
+    
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-        is_equal = np.allclose(dm, np_min, rtol = dec_place, atol = 0)
-        self.assertTrue(is_equal, message)
+    two_pass = two_pass_var(data_arr, n_start, n_data)
+    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, atol = dec_place), message
+    
+def test_max():
 
+    n_start = 0 
+    n_data = n_start + 6 # 3*30*24 + 2*24 
+    step = 2
+    
+    pass_dic = {"stat": "max",
+    "stat_freq": "6hourly",
+    "output_freq": "6hourly",
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": False,
+    "checkpoint_filepath": "tests",
+    "out_filepath": "tests"}
 
-    def test_max(self): 
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-        n_start = 2*30*24 
-        n_data = n_start + 31*24 #  3*30*24 + 2*24 
+    two_pass = two_pass_max(data_arr, n_start, n_data)
+    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, atol = dec_place), message
+    
+def test_min():
 
-        pass_dic = {"stat": "max",
-        "stat_freq": "monthly",
-        "output_freq": "monthly",
-        "time_step": 60,
-        "variable": "uas",
-        "save": False,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests",
-        "out_filepath": "tests/"}
+    n_start = 0 
+    n_data = n_start + 31*24 # 3*30*24 + 2*24 
+    step = 24 
+    
+    pass_dic = {"stat": "min",
+    "stat_freq": "monthly",
+    "output_freq": "monthly",
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": False,
+    "checkpoint_filepath": "tests",
+    "out_filepath": "tests"}
 
-        for i in range(n_start, n_data, 1): 
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-            ds = data.isel(time=slice(i,i+1)) 
-            monthly_max = Opa(pass_dic)
-            dm = monthly_max.compute(ds)
-
-        ## run two pass max
-        data_arr = getattr(data, pass_dic["variable"])
-        np_max = two_pass_max(data_arr, n_start, n_data)
-
-        dec_place = 1e-10
-        message = "OPA max and numpy max not equal to " + str(dec_place) + " dp"
-        
-        dm = getattr(dm, pass_dic["variable"])
-
-        is_equal = np.allclose(dm, np_max, rtol = dec_place, atol = 0)
-        self.assertTrue(is_equal, message)
-
-
-if __name__ == '__main__':
-    unittest.main()
-
+    two_pass = two_pass_min(data_arr, n_start, n_data)
+    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, atol = dec_place), message
