@@ -31,5 +31,6 @@ setup(name='one_pass',
         'pytdigest',
         'pytest',
         'netcdf4',
+        'tqdm',
       ]
     )
