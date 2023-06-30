@@ -32,5 +32,6 @@ setup(name='one_pass',
         'pytest',
         'netcdf4',
         'cytoolz',
+        'tqdm',
       ]
     )
