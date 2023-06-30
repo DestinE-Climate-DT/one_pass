@@ -21,7 +21,7 @@ The one pass algorithms are contained in the python script `opa.py` and need to 
 
 - `time_step:` This is the the step of your incoming data in **minutes**. This is repeated data from the GSV call and will eventually be combined with the GSV request however for now, it needs to be set seperately. 
 
-- `'variable:` The climate variable you want to compute your statistic on. If you provide the Opa with a dataArray, you do not need to set this, however if you provide a dataSet then this is required. 
+- `'variable:` The climate variable you want to compute your statistic on. If you provide the OPA with a dataArray, you do not need to set this, however if you provide a dataSet then this is required. **Note the OPA can only work with one variable at a time, multiple variables will be handled by different calls in the workflow** 
 
 - `save:` Either `True` or `False`. If you set this to `False`, the final statistc will only be output in memory and will get overwritten when a new statistic is avaliable. It is recommended to set this to `True` and a netCDF file will be written when the statistic is completed. 
 
