@@ -1,7 +1,7 @@
 stages:
   - prepare
   - test
-  - clean
+  - lint
 
 prepare:
   tags:
@@ -17,6 +17,15 @@ prepare:
     - source venv/bin/activate
     - pip3.9 install -e .[all]
     - pip3.9 install pylint
+
+
+lint-opa:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - pylint one_pass/opa.py
 
 test:
   variables:
