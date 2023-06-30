@@ -1,7 +1,7 @@
 stages:
   - prepare
-  - test
   - lint
+  - test
 
 prepare:
   tags:
@@ -25,7 +25,37 @@ lint-opa:
     - csccloud
   stage: lint
   script:
+    - source venv/bin/activate
     - pylint one_pass/opa.py
+
+lint-check_stat:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/check_stat.py
+
+lint-util:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/util.py
+
+lint-convert_time:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/convert_time.py
+
+
 
 test:
   variables:
