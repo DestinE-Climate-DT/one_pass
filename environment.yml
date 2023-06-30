@@ -9,7 +9,6 @@ dependencies:
   - zarr
   - pytest
   - netcdf4
-  - tqdm
-  - pip 
   - pip:
     - pytdigest
+  - cytoolz
