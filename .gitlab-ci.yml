@@ -55,6 +55,15 @@ lint-convert_time:
     - source venv/bin/activate
     - pylint one_pass/convert_time.py
 
+lint-init:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/__init__.py
+
 
 
 test:
