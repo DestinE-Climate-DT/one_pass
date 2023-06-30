@@ -14,6 +14,8 @@ from pytdigest import TDigest
 from numcodecs import Blosc
 import zarr 
 import time 
+import tqdm
+
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
@@ -47,13 +49,15 @@ class Opa:
         : pass either a config file or dictionary 
         
         """
+                
         request = util.parse_request(user_request)
 
         self._process_request(request)
 
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
-            
+          
+        check_stat(statistic = self.stat) # first check it's a valid statistic 
 
         self._check_attrs() # checks unique config attributes required for some statistics 
 
@@ -109,7 +113,6 @@ class Opa:
         else:
             raise KeyError("need to pass a file path for the checkpoint file")
 
-
     def _process_request(self, request):
 
         """
@@ -139,11 +142,12 @@ class Opa:
             if (hasattr(self, "percentile_list") == False):
                 raise AttributeError('For the percentile statistic you need to provide a list of required percentiles,'
                                      'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
-                                     'if you want the whole distribution, stat == cdf')
+                                     'if you want the whole distribution, "percentile_list" : ["all"]')
             
+        if (self.percentile_list[0] != "all"):
             for j in range(np.size(self.percentile_list)):
                 if(self.percentile_list[j] > 1): 
-                    raise AttributeError('Percentiles must be between 0 and 1')
+                    raise AttributeError('Percentiles must be between 0 and 1 or ["all"] for the whole distribution')
             
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
@@ -256,8 +260,8 @@ class Opa:
             self.array_length = np.size(ds_size)
             digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
 
-            for j in range(self.array_length):
-                digest_list[j] = TDigest() # initalising digests and adding to list
+            for j in tqdm.tqdm(range(self.array_length)):
+                digest_list[j] = TDigest(compression = 15) # initalising digests and adding to list
 
             self.__setattr__(str(self.stat + "_cum"), digest_list)
             
@@ -539,8 +543,6 @@ class Opa:
     def _check_variable(self, ds):
 
         """ Checks if the incoming data is an xarray dataArray. If it's a dataSet, will convert """
-        
-        check_stat(statistic = self.stat) # first check it's a valid statistic 
 
         try:
             getattr(ds, "data_vars") # this means it a data_set
@@ -552,10 +554,26 @@ class Opa:
                 raise Exception('If passing dataSet need to provide the correct variable, opa can only use one variable at the moment')
         
         except AttributeError:
+            self.data_set_attr = ds.attrs # still extracting attributes from dataArray here 
             pass # data already at data_array
 
         return ds
+    
+    def _check_none(self, ds, weight):
+        
+        """This function is called if the user has requested stat: 'none'. 
+        This means that they do not want to compute any statstic 
+        over any frequency, we will simply save the incoming data. """
+        
+        final_time_file_str = self._create_none_file_name(ds, weight)
+                                
+        dm = self._create_none_data_set(ds) # this will convert the dataArray back into a dataSet with the metadata of the dataSet
 
+        if(self.save == True):            
+            self._save_output(dm, ds, final_time_file_str)
+
+        return dm 
+    
     def _check_num_time_stamps(self, ds):
 
         """Check how many time stamps are in the incoming data. 
@@ -734,7 +752,7 @@ class Opa:
 
             ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
         
-            for j in range(self.array_length):
+            for j in tqdm.tqdm(range(self.array_length)): # this is looping through every grid cell 
                 # using crick or pytdigest
                 self.percentile_cum[j].update(ds_values[j])
 
@@ -742,11 +760,9 @@ class Opa:
 
             ds_values = ds.values.reshape((weight, -1))
 
-            for j in range(self.array_length):
+            for j in tqdm.tqdm(range(self.array_length)):
                 # using crick or pytdigest
                 self.percentile_cum[j].update(ds_values[:,j]) # update multiple values 
-
-
 
         self.count = self.count + weight
         
@@ -755,6 +771,9 @@ class Opa:
     def _get_percentile(self, ds):
 
         """converts digest functions into percentiles """
+        
+        if self.percentile_list[0] == 'all':
+            self.percentile_list = np.linspace(0, 100, 101)
         
         for j in range(self.array_length):
             # for crick 
@@ -768,10 +787,7 @@ class Opa:
         value = da.zeros_like(ds_size, dtype=np.float64) # forcing computation in float64
         final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
         
-        #print(np.shape(final_size))
-
         self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
-        #print(np.shape(self.percentile_cum))
 
         self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) # adding axis for time 
 
@@ -804,14 +820,20 @@ class Opa:
 
         elif(self.stat == "percentile"):
             self._update_percentile(ds, weight)
-    
+            
+
     def _load_dask(self):
 
         """ computing dask lazy operations and calling data into memory """
 
+        start_time = time.time()
+        
         #print('loading dask')
-        self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute()) 
-
+        self.__setattr__(str(self.stat + "_cum"), self.__getattribute__(str(self.stat + "_cum")).compute())
+        
+        end_time = time.time() - start_time
+        print(np.round(end_time,4), 's to load dask')
+        
     def _write_checkpoint(self):
 
         """write checkpoint file. First checks the size of the class and if it can fit in memory. 
@@ -821,22 +843,22 @@ class Opa:
         if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute'):
             self._load_dask() # first load data into memory 
 
-        #if (type(self.__getattribute__(str(self.stat + "_cum"))) == list):
-
             # can maybe just use the line below: 
         total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
 
-        #else: 
-        #    item_size = self.__getattribute__(str(self.stat + "_cum")).size
-        #    memory_size = self.__getattribute__(str(self.stat + "_cum")).itemsize
-        #    total_size = (item_size*memory_size)/(10**9) # total size in GB 
-
-            #TODO: what about std which also contains the mean? etc 
+        if (self.stat == "var" or self.stat == "min" or self.stat == "max"): # they have the arrays repeated 
+            total_size *= 2
+        if(self.stat == "std"): 
+            total_size *= 3
 
         if(total_size < 1.6): # limit on a pickle file is 2GB 
 
             with open(self.checkpoint_file, 'wb') as file: 
+                #start_time = time.time()
                 pickle.dump(self, file)
+                
+                #end_time =  time.time() - start_time
+                #print(end_time, 's to save pickle checkpoint')
 
         else: 
             self.use_zarr = True
@@ -850,18 +872,35 @@ class Opa:
                 else: 
                     self.checkpoint_file_zarr = os.path.join(self.checkpoint_filepath, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
 
+                #start_time = time.time() 
                 zarr.array(self.__getattribute__(str(self.stat + "_cum")), store = self.checkpoint_file_zarr, compressor=compressor, overwrite = True)
+                #end_time = time.time() - start_time
+                #print(end_time, 's to save zarr checkpoint')
             
             # now just pickle the rest of the meta data 
             opa_meta = OpaMeta(self) # creates seperate class for the meta data 
             
             with open(self.checkpoint_file, 'wb') as file: 
                 pickle.dump(opa_meta, file)
+    
+    def _create_none_data_set(self, ds):
+        
+        """creates an xarray dataSet for the option of stat: "none". Here the dataSet will be exactly the same as the 
+        original, but only containing the requested variable from the config.yml"""
+        
+        try:
+            ds = getattr(ds, self.variable) 
+            dm = ds.to_dataset(dim = None, name = self.variable)
+        except AttributeError: 
+            dm = ds.to_dataset(dim = None, name = ds.name)    
+        
+        dm = dm.assign_attrs(self.data_set_attr)
 
+        return dm 
+    
     def _create_data_set(self, final_stat, final_time_stamp, ds):
 
         """ creates xarray dataSet object with final data and original metadata  """
-        self.final_array = final_stat
 
         ds = ds.tail(time = 1) # compress the dataset down to 1 dimension in time 
         ds = ds.assign_coords(time = (["time"], [final_time_stamp], ds.time.attrs)) # re-label the time coordinate 
@@ -892,6 +931,7 @@ class Opa:
         """ gathers final data and meta data for the final xarray dataSet  """
 
         final_stat = None
+        
         final_stat = self.__getattribute__(str(self.stat + "_cum"))
 
         if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
@@ -900,10 +940,10 @@ class Opa:
         final_time_file_str = self._create_file_name(time_word = time_word)
         final_time_stamp = self._create_final_timestamp(time_word = time_word)
 
-        try:
-            getattr(self, "data_set_attr") # if it was originally a data set
-        except AttributeError: # only looking at a data_array
-            self.data_set_attr = ds.attrs #both data_set and data_array will have matching attribs
+        #try: # THIS IS NOW INCLUDED IN CHECK+DATASET FUCNTION 
+        #    getattr(self, "data_set_attr") # if it was originally a data set
+        #except AttributeError: # only looking at a data_array
+        #    self.data_set_attr = ds.attrs #both data_set and data_array will have matching attribs
 
         self.data_set_attr["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
         ds.attrs["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
@@ -931,6 +971,24 @@ class Opa:
         final_time_stamp = self.init_time_stamp
 
         return final_time_stamp 
+    
+    def _create_none_file_name(self, ds, weight):
+
+        """ creates the final file name for the netCDF file. If append is True 
+        then the file name will span from the first requested statistic to the last. 
+        time_word corresponds to the continous option which outputs checks every month"""
+
+        final_time_file_str = None
+        time_stamp_sorted = sorted(ds.time.data) # assuming that incoming data has a time dimension
+        time_stamp_list = [pd.to_datetime(x) for x in time_stamp_sorted]
+        
+        if (weight > 1):
+            final_time_file_str = time_stamp_list[0].strftime("%Y_%m_%d_T%H_%M") + "_to_" + time_stamp_list[-1].strftime("%Y_%m_%d_T%H_%M")
+        else:
+            final_time_file_str = time_stamp_list[0].strftime("%Y_%m_%d_T%H_%M")
+
+        return final_time_file_str
+    
 
     def _create_file_name(self, append = False, time_word = None):
 
@@ -946,7 +1004,7 @@ class Opa:
 
         if (append):
 
-            if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
+            if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly" or self.stat_freq == "12hourly"):
                 self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y_%m_%d_T%H")
 
             elif (self.stat_freq == "daily" or self.stat_freq == "weekly"):
@@ -958,7 +1016,7 @@ class Opa:
             elif (self.stat_freq == "annually"):
                 self.final_time_file_str = self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y")
         else:
-            if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly"):
+            if (self.stat_freq == "hourly" or self.stat_freq == "3hourly" or self.stat_freq == "6hourly" or self.stat_freq == "12hourly"):
                 final_time_file_str = self.init_time_stamp.strftime("%Y_%m_%d_T%H")
 
             elif (self.stat_freq == "daily"):
@@ -982,16 +1040,26 @@ class Opa:
     def _save_output(self, dm, ds, final_time_file_str):
 
         """  Creates final file name and path and saves final dataSet """
+        if(self.stat == 'none'):
+            if (hasattr(self, 'variable')): # if there are multiple variables in the file
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data.nc')
+            else:
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_raw_data.nc')
 
-        if (hasattr(self, 'variable')): # if there are multiple variables in the file
+        else: 
+            if (hasattr(self, 'variable')): # if there are multiple variables in the file
 
-            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
-        else:
-            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
+            else:
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_{self.stat_freq}_{self.stat}.nc')
+
+        start_time = time.time()
 
         dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
         dm.close()
-        print('finished saving')
+        
+        end_time = time.time() - start_time
+        print('finished saving in', np.round(end_time,4) ,'s')
 
 
     def _call_recursive(self, how_much_left, weight, ds):
@@ -1002,17 +1070,21 @@ class Opa:
         ds = ds.isel(time=slice(how_much_left, weight))
         Opa.compute(self, ds) # calling recursive function
 
-
     ############## defining class methods ####################
     
     def compute(self, ds):
     
         """  Actual function call  """
-
+        
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
-
+ 
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
 
+        if (self.stat == "none"):
+
+            dm = self._check_none(ds, weight)
+            return dm 
+        
         ds, weight, already_seen, n_data_att_exist, time_stamp_list = self._check_time_stamp(ds, weight) # check the time stamp and if the data needs to be initalised 
 
         if(already_seen): # check if data has been 'seen', will only skip if data doesn't get re-initalised
