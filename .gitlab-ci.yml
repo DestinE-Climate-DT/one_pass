@@ -3,20 +3,29 @@ stages:
   - test
   - clean
 
-cache:
-  paths:
-    - coverage/coverage.xml
-
 prepare:
+  tags:
+    - docker
+  artifacts:
+    paths:
+      - venv
+    expire_in: 20 minutes
   stage: prepare
   script:
-    - python3 -m venv venv
+    - echo running on $HOST as $USER
+    - python3.9 -m venv venv
     - source venv/bin/activate
-    - pip install -e .[all]
+    - pip3.9 install -e .[all]
+    - pip3.9 install pylint
 
 test:
+  variables:
+    SCHEDULER_PARAMETERS: "-N 1 -t 03:00:00"
+  tags:
+    - docker
   stage: test
   script:
+    - source venv/bin/activate
     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   # These artifacts are saved with every build in GitLab and can be reviewed later. If
@@ -28,8 +37,3 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
-clean:
-  stage: clean
-  script:
-    - deactivate
-    - rm -rf venv/

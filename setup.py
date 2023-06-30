@@ -8,7 +8,7 @@ tests = [
     'coverage==7.2.*',
     'pytest==7.2.*',
     'pytest-cov==4.*',
-    'pytest-mock==3.10.*'
+    'pytest-mock==3.10.*',
 ]
 
 setup(name='one_pass',
@@ -31,5 +31,6 @@ setup(name='one_pass',
         'pytdigest',
         'pytest',
         'netcdf4',
+        'cytoolz',
       ]
     )
