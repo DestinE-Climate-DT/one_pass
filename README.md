@@ -8,12 +8,12 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms will take as input any xarray like object (either a DataSet or a DataArray) from the GSV interface and will compute the requested statistics. For details of the algorithms used, please refer to the `README.ipynb`. 
 
 ## Version 
-The current released version can be found at tag: `v0.3.1`. 
+The current released version can be found at tag: `v0.3.2`. 
 
 ## How to configure
 The one pass algorithms are contained in the python script `opa.py` and need to be passed configuration information (data requests) in order from them to work. These requests can either be given as a python dictionary (see `wrapper.py`) or from the configuration file `config.yml`. The following need to be defined: 
 
-- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max", "percentile"` or `"none"`. **Note `percentile` is new to v0.3.0, and `none` is new to v0.3.1 see below for details on how to use them in the config.**
+- `stat:`. This variable defines the statistic you wish to compute. The current options are `"mean", "std", "var", "thresh_exceed", "min", "max", "percentile"` or `"raw"`. **Note `percentile` is new to v0.3.0, and `raw` is new to v0.3.2 see below for details on how to use them in the config.**
 
 - `stat_freq:` This defines the frequency of the requested statistic. The current options are `"hourly", "3hourly", "6hourly", "12hourly", "daily", "weekly", "monthly", "3monthly", "annually", "continuous"`. Be careful about spelling, it matters. Note: for the frequencies `"weekly", "monthly", "annually`, the statistic will work with the calendar, e.g. `"annually"` will only work if you the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for monthly and weekly, where weekly runs from Monday - Sunday. The option of `"continuous`, will start from the first piece of data that you give it. 
 
@@ -43,7 +43,7 @@ Some general notes on the config file:
 
 5. **note of thresh_exceed** If you choose the `stat: thresh_exceed` you need to include a threshold exceedance value. In the config file include the line `threshold: xxx` where xxx is your value for threshold exceedance.
 
-6. **note on the none option** If you choose the `stat: none` the OPA will simply output the raw data that you feed to the algorithm. If `save: True` then it will save to disk. For the none option you still need to provide the variable of interest as the OPA can only process one variable at a time. If you provide a dataSet with multiple variables, only the variable given will be saved as a dataSet. If `stat: none`, the two options for `stat_freq` and `outout_freq` should be set to none as well, however if they are left as another time frequency they will simply be ignored. 
+6. **note on the raw option** If you choose the `stat: raw` the OPA will simply output the raw data that you feed to the algorithm. If `save: True` then it will save to disk. For the raw option you still need to provide the variable of interest as the OPA can only process one variable at a time. If you provide a dataSet with multiple variables, only the variable given will be saved as a dataSet. If `stat: raw`, the two options for `stat_freq` and `outout_freq` should be set to None, however if they are left as another time frequency they will simply be ignored. 
 
 ## How to run
 When using the package, there are four main steps, all shown in `wrapper.py`. They are: 
