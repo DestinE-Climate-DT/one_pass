@@ -9,7 +9,7 @@ stats = {
     "max",
     "histogram", 
     "percentile",
-    "none",
+    "raw",
 }
 
 def check_stat(statistic = "mean"):

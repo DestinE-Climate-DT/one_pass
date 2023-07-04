@@ -16,7 +16,6 @@ import zarr
 import time 
 import tqdm
 
-
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
 from one_pass import util
@@ -144,10 +143,10 @@ class Opa:
                                      'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
                                      'if you want the whole distribution, "percentile_list" : ["all"]')
             
-        if (self.percentile_list[0] != "all"):
-            for j in range(np.size(self.percentile_list)):
-                if(self.percentile_list[j] > 1): 
-                    raise AttributeError('Percentiles must be between 0 and 1 or ["all"] for the whole distribution')
+            if (self.percentile_list[0] != "all"):
+                for j in range(np.size(self.percentile_list)):
+                    if(self.percentile_list[j] > 1): 
+                        raise AttributeError('Percentiles must be between 0 and 1 or ["all"] for the whole distribution')
             
     def _compare_request(self):
         """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
@@ -551,7 +550,7 @@ class Opa:
                 ds = getattr(ds, self.variable) # converts to a dataArray
 
             except AttributeError:
-                raise Exception('If passing dataSet need to provide the correct variable, opa can only use one variable at the moment')
+                raise Exception('If passing dataSet need to provide the correct variable/variableeter, opa can only use one variable at the moment')
         
         except AttributeError:
             self.data_set_attr = ds.attrs # still extracting attributes from dataArray here 
@@ -559,9 +558,9 @@ class Opa:
 
         return ds
     
-    def _check_none(self, ds, weight):
+    def _check_raw(self, ds, weight):
         
-        """This function is called if the user has requested stat: 'none'. 
+        """This function is called if the user has requested stat: 'raw'. 
         This means that they do not want to compute any statstic 
         over any frequency, we will simply save the incoming data. """
         
@@ -886,7 +885,7 @@ class Opa:
     def _create_none_data_set(self, ds):
         
         """creates an xarray dataSet for the option of stat: "none". Here the dataSet will be exactly the same as the 
-        original, but only containing the requested variable from the config.yml"""
+        original, but only containing the requested variable / variable from the config.yml"""
         
         try:
             ds = getattr(ds, self.variable) 
@@ -912,7 +911,7 @@ class Opa:
             
         dm = xr.Dataset(
         data_vars = dict(
-                [(str(ds.name + "_" + self.stat), (ds.dims, final_stat, ds.attrs))],   # need to add variable attributes CHANGED
+                [(str(ds.name + "_" + self.stat), (ds.dims, final_stat, ds.attrs))],   # need to add variable/variable attributes CHANGED
             ),
         coords = dict(
             ds.coords
@@ -1040,14 +1039,14 @@ class Opa:
     def _save_output(self, dm, ds, final_time_file_str):
 
         """  Creates final file name and path and saves final dataSet """
-        if(self.stat == 'none'):
-            if (hasattr(self, 'variable')): # if there are multiple variables in the file
+        if(self.stat == 'raw'):
+            if (hasattr(self, 'variable')): # if there are multiple variables/variables in the file
                 file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data.nc')
             else:
                 file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_raw_data.nc')
 
         else: 
-            if (hasattr(self, 'variable')): # if there are multiple variables in the file
+            if (hasattr(self, 'variable')): # if there are multiple variables/ variable in the file
 
                 file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
             else:
@@ -1080,9 +1079,9 @@ class Opa:
  
         weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
 
-        if (self.stat == "none"):
+        if (self.stat == "raw"):
 
-            dm = self._check_none(ds, weight)
+            dm = self._check_raw(ds, weight)
             return dm 
         
         ds, weight, already_seen, n_data_att_exist, time_stamp_list = self._check_time_stamp(ds, weight) # check the time stamp and if the data needs to be initalised 

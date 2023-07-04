@@ -1,9 +1,9 @@
-stat: "percentile"
-percentile_list: [0.1, 0.5, 0.99]
+stat: "mean"
+percentile_list : None,
 stat_freq: "daily"
 output_freq: "daily"
 time_step: 60 # timestep of data in minutes
-variable: "uas"
+param: "uas"
 save: True
 checkpoint: True
 checkpoint_filepath: "/home/bsc32/bsc32263/git/data/"
