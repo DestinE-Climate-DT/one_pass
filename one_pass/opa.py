@@ -19,6 +19,7 @@ import math
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
+from one_pass.check_request import check_request 
 from one_pass import util
 
 class OpaMeta:
@@ -54,12 +55,14 @@ class Opa:
 
         self._process_request(request)
 
+        check_request(request = self)
+
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
           
-        check_stat(statistic = self.stat) # first check it's a valid statistic 
+        #check_stat(statistic = self.stat) # first check it's a valid statistic 
 
-        self._check_attrs() # checks unique config attributes required for some statistics 
+        #self._check_attrs() # checks unique config attributes required for some statistics 
 
     def _check_checkpoint(self, request):
         """
@@ -130,29 +133,29 @@ class Opa:
         for key in request: 
             self.__setattr__(key, request[key])
     
-    def _check_attrs(self):
+    # def _check_attrs(self):
 
-        """ check for threshold """
+    #     """ check for threshold """
 
-        if(self.stat == "thresh_exceed"):
-            if (hasattr(self, "threshold") == False):
-                raise AttributeError('need to provide threshold of exceedance value')
+    #     if(self.stat == "thresh_exceed"):
+    #         if (hasattr(self, "threshold") == False):
+    #             raise AttributeError('need to provide threshold of exceedance value')
             
-        if(self.stat == "percentile"):
-            if (hasattr(self, "percentile_list") == False):
-                raise AttributeError('For the percentile statistic you need to provide a list of required percentiles,'
-                                     'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
-                                     'if you want the whole distribution, "percentile_list" : ["all"]')
+    #     if(self.stat == "percentile"):
+    #         if (hasattr(self, "percentile_list") == False):
+    #             raise AttributeError('For the percentile statistic you need to provide a list of required percentiles,'
+    #                                  'e.g. "percentile_list" : [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile,'
+    #                                  'if you want the whole distribution, "percentile_list" : ["all"]')
             
-            if (self.percentile_list[0] != "all"):
-                for j in range(np.size(self.percentile_list)):
-                    if(self.percentile_list[j] > 1): 
-                        raise AttributeError('Percentiles must be between 0 and 1 or ["all"] for the whole distribution')
+    #         if (self.percentile_list[0] != "all"):
+    #             for j in range(np.size(self.percentile_list)):
+    #                 if(self.percentile_list[j] > 1): 
+    #                     raise AttributeError('Percentiles must be between 0 and 1 or ["all"] for the whole distribution')
             
-    def _compare_request(self):
-        """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
-        pass # TODO: do you want this function? It shouldn't be needed if the checkpoint file path is changed but 
-             # it's a good check
+    # def _compare_request(self):
+    #     """checking that the request in the checkpoint file matches the incoming request, if not, take the incoming request"""
+    #     pass # TODO: do you want this function? It shouldn't be needed if the checkpoint file path is changed but 
+    #          # it's a good check
 
     ############### end if __init__ #####################
 
@@ -767,7 +770,18 @@ class Opa:
         self.count = self.count + weight
         
         return 
+    
+    
+    def _update_bias_correction(self, ds, weight=1):
 
+        """currently sequential loop that updates the digest for each grid point"""
+        
+        self._update_percentile(ds, weight)
+        
+        # code that concatenates all the raw data         
+        
+        return 
+    
     def _get_percentile(self, ds):
 
         """converts digest functions into percentiles """
@@ -821,6 +835,8 @@ class Opa:
         elif(self.stat == "percentile"):
             self._update_percentile(ds, weight)
             
+        elif(self.stat == "bias_correction"):
+            self._update_bias_correction(ds, weight)
 
     def _load_dask(self):
 
