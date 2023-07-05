@@ -15,6 +15,7 @@ from numcodecs import Blosc
 import zarr 
 import time 
 import tqdm
+import math 
 
 from one_pass.convert_time import convert_time
 from one_pass.check_stat import check_stat
@@ -182,7 +183,7 @@ class Opa:
                     print('WARNING: timings of input data span over new statistic')
                     self.n_data = int(self.stat_freq_min/self.time_step) 
             else:
-                self.n_data = int((self.stat_freq_min - time_stamp_min)/self.time_step)
+                self.n_data = math.ceil((self.stat_freq_min - time_stamp_min)/self.time_step)
         
         else:
             raise Exception('Frequency of the requested statistic (e.g. daily) must be wholly divisible by the timestep (dt) of the input data')
