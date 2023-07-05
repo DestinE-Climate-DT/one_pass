@@ -911,7 +911,7 @@ class Opa:
             
         dm = xr.Dataset(
         data_vars = dict(
-                [(str(ds.name + "_" + self.stat), (ds.dims, final_stat, ds.attrs))],   # need to add variable/variable attributes CHANGED
+                [(str(ds.name), (ds.dims, final_stat, ds.attrs))],   # need to add variable/variable attributes CHANGED
             ),
         coords = dict(
             ds.coords
