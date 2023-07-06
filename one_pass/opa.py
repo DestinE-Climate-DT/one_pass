@@ -18,7 +18,7 @@ import tqdm
 import math 
 
 from one_pass.convert_time import convert_time
-from one_pass.check_stat import check_stat
+#from one_pass.check_stat import check_stat
 from one_pass.check_request import check_request 
 from one_pass import util
 

@@ -95,7 +95,7 @@ def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic):
         dm = opa_stat.compute(ds)
 
     #dm = getattr(dm, pass_dic["variable"])
-    dm = getattr(dm, pass_dic["variable"] + "_"+ pass_dic["stat"])
+    dm = getattr(dm, pass_dic["variable"])
 
     return dm 
 
@@ -108,7 +108,7 @@ def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
         dm = opa_stat.compute(ds)
 
     #dm = getattr(dm, pass_dic["variable"])
-    dm = getattr(dm, pass_dic["variable"] + "_"+ pass_dic["stat"])
+    dm = getattr(dm, pass_dic["variable"])
 
     return dm 
 
