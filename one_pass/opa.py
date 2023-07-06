@@ -272,7 +272,7 @@ class Opa:
 
         """ initalises both time attributes and attributes relating to the statistic """
         self.count = 0
-        self.time_stamp = time_stamp
+        self.time_stamp = time_stamp 
 
         self._initialise_time(time_stamp_min, time_stamp_tot_append)
         self._initialise_attrs(ds)
@@ -347,14 +347,14 @@ class Opa:
             this appended data set. """
 
         n_data_att_exist = self._check_n_data()
-
+        
         if(n_data_att_exist): 
             
             min_diff = time_stamp - self.time_stamp
             min_diff = min_diff.total_seconds() / 60 # calculates the difference in the old and new time stamps in minutes 
 
             if (min_diff == self.time_step): # option 1, it's the time step directly before, carry on 
-                self.time_stamp = time_stamp # re-set self.time_stamp with the new time stamp 
+                self.time_stamp = time_stamp # re-set self.time_stamp with the new time stamp
                 proceed = True # we're happy as it's simply the next step 
 
             elif(time_stamp > self.time_stamp): # option 2, it's a time step into the future - data mising 
@@ -362,7 +362,7 @@ class Opa:
                 if abs(min_diff) < 2*self.time_step:
                     
                     print('Time gap at ' + str(time_stamp) + ' too large, there seems to be data missing, small enough to carry on')
-                    self.time_stamp = time_stamp
+                    self.time_stamp = time_stamp 
                     proceed = True
 
                 else: 
@@ -519,7 +519,7 @@ class Opa:
 
                 elif(should_init_time):
                     self.count = 0
-                    self.time_stamp = time_stamp
+                    self.time_stamp = time_stamp 
                     self._initialise_time(time_stamp_min, time_stamp_tot_append)
 
             already_seen = self._check_have_seen(time_stamp_min) # checks count 
@@ -1102,9 +1102,13 @@ class Opa:
             
             self._update(ds, weight)  # update rolling statistic with weight
 
-            if(self.checkpoint == True and self.count < self.n_data):
-                
-                self._write_checkpoint() # this will not be written when count == ndata 
+            if(self.stat_freq != "continuous"): 
+                if(self.checkpoint == True and self.count < self.n_data):
+                    self._write_checkpoint() # this will not be written when count == ndata 
+            
+            else: 
+                if(self.checkpoint == True):
+                    self._write_checkpoint() # this will be written when count == ndata because still need the checkpoitn for continuous
 
         elif(how_much_left < weight): # this will span over the new statistic 
 
