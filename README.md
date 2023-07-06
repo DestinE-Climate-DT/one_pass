@@ -8,7 +8,7 @@ The `one_pass` package is in a preliminary developement phase. Some features are
 The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms will take as input any xarray like object (either a DataSet or a DataArray) from the GSV interface and will compute the requested statistics. For details of the algorithms used, please refer to the `README.ipynb`. 
 
 ## Version 
-The current released version can be found at tag: `v0.3.2`. 
+The current released version can be found at tag: `v0.3.5`. 
 
 ## How to configure
 The one pass algorithms are contained in the python script `opa.py` and need to be passed configuration information (data requests) in order from them to work. These requests can either be given as a python dictionary (see `wrapper.py`) or from the configuration file `config.yml`. The following need to be defined: 
