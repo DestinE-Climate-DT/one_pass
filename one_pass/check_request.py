@@ -77,6 +77,12 @@ def check_request(request):
     except AttributeError: 
         raise Exception ("config.yml must include key value pair 'output_freq' : some_freq, see READ.md for details")
 
+    try:
+        getattr(request, "bias_correction") # if time_append already exisits it won't overwrite it 
+    
+    except AttributeError: 
+        raise Exception ("config.yml must include key value pair 'bias_correction' : True or False, see READ.md for details")
+    
     if(request.stat == "thresh_exceed"):
         if (hasattr(request, "threshold") == False):
             raise AttributeError('need to provide threshold of exceedance value')
