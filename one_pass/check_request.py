@@ -13,6 +13,7 @@ stat_options = {
     "histogram", 
     "percentile",
     "raw",
+    "bias_correction",
 }
 
 stat_freq_options = {
@@ -51,7 +52,8 @@ def check_request(request):
             raise ValueError(f"The requested stat '{stat}' is not supported, valid values are: {valid_values}")
     
     except AttributeError: 
-        raise Exception("config.yml must include key value pair 'stat' : some_stat, corresponding to the statistic you require see READ.md for details")
+        raise Exception("config.yml must include key value pair 'stat' : some_stat, \
+            corresponding to the statistic you require see READ.md for details")
     
     try:
         getattr(request, "stat_freq") # if time_append already exisits it won't overwrite it 
@@ -78,10 +80,10 @@ def check_request(request):
         raise Exception ("config.yml must include key value pair 'output_freq' : some_freq, see READ.md for details")
 
     try:
-        getattr(request, "bias_correction") # if time_append already exisits it won't overwrite it 
+        getattr(request, "variable") # if time_append already exisits it won't overwrite it 
     
     except AttributeError: 
-        raise Exception ("config.yml must include key value pair 'bias_correction' : True or False, see READ.md for details")
+        raise Exception ("config.yml must include key value pair 'variable' : variable of interest, see READ.md for details")
     
     if(request.stat == "thresh_exceed"):
         if (hasattr(request, "threshold") == False):
