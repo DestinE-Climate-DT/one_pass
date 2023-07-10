@@ -781,7 +781,6 @@ class Opa:
                 # using crick or pytdigest
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(ds_values[:, j])
 
-
         self.count = self.count + weight
         
         return 
