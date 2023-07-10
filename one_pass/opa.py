@@ -75,7 +75,6 @@ class OpaMeta:
             if key not in blacklist:
                 self.__setattr__(key, value)
 
-
 class Opa:
 
     """ One pass algorithm class that will contain the rolling statistic """
