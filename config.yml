@@ -1,6 +1,6 @@
 stat: "bias_correction"
 percentile_list : None,
-threshold_exceed : None.
+threshold_exceed : None,
 stat_freq: "daily"
 output_freq: "daily"
 time_step: 60 # timestep of data in minutes

@@ -99,11 +99,18 @@ class Opa:
 
         if(request.get("checkpoint")): # are we reading from checkpoint files each time? 
             self._check_checkpoint(request)
-          
-        #check_stat(statistic = self.stat) # first check it's a valid statistic 
 
-        #self._check_attrs() # checks unique config attributes required for some statistics 
+    def _load_pickle(self, file_path):
+        
+        f = open(file_path, 'rb')
+        temp_self = pickle.load(f)
+        f.close()
 
+        for key in vars(temp_self):
+            self.__setattr__(key, vars(temp_self)[key])
+
+        del(temp_self)
+                
     def _check_checkpoint(self, request):
         """
         Takes user user request and checks if a checkpoint file exists from which to initalise the statistic from
@@ -121,30 +128,23 @@ class Opa:
         if (request.get("checkpoint_filepath")): 
 
             file_path = request.get("checkpoint_filepath")
+            
+            if os.path.exists(file_path): 
+                pass 
+            else:
+                raise KeyError("Please pass a valid file path for the checkpointing")
 
             if (hasattr(self, 'use_zarr')): # if it doesn't have zarr, all data in the pickle 
-                if(hasattr(self, 'variable')):
-                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
-                else: 
-                    self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
+                self.checkpoint_file_zarr = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.zarr')
 
-            if (hasattr(self, 'variable')): # if there are multiple variables in the file
+            if (self.stat == "bias_correction"):
+                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_mean.pkl')
+            else: 
                 self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.variable}_{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
-            else:
-                self.checkpoint_file = os.path.join(file_path, 'checkpoint_'f'{self.stat_freq}_{self.output_freq}_{self.stat}.pkl')
 
             if os.path.exists(self.checkpoint_file): # see if the checkpoint file exists
 
-                f = open(self.checkpoint_file, 'rb')
-                temp_self = pickle.load(f)
-                f.close()
-
-                for key in vars(temp_self):
-                    self.__setattr__(key, vars(temp_self)[key])
-
-                del(temp_self)
-
-                #self._compare_request()
+                self._load_pickle(self.checkpoint_file)
                 
                 if (hasattr(self, 'use_zarr')):
                     if os.path.exists(self.checkpoint_file_zarr): # if using a zarr file 
@@ -153,8 +153,15 @@ class Opa:
             else: 
                 # using checkpoints but theres is no file 
                 pass
+            
+            if (hasattr(self, 'checkpoint_file_bc')): # this is loading the t-digest class 
+                
+                if os.path.exists(self.checkpoint_file_bc): 
+
+                    self._load_pickle(self.checkpoint_file_bc)
+                
         else:
-            raise KeyError("need to pass a file path for the checkpoint file")
+            raise KeyError("need to pass a file path for the checkpoint file(s)")
 
     def _process_request(self, request):
 
@@ -221,13 +228,25 @@ class Opa:
                 output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)[0]
                 # eg. how many days requested: 7 days of saving with daily data
                 
-                self.time_append = ((output_freq_min - time_stamp_tot_append)/ self.stat_freq_min) # how many do you need to append
+                self.time_append = ((output_freq_min - time_stamp_tot_append)/ self.stat_freq_min) # how many do you need 
+                # to append
                 self.time_append_time_stamp = self.time_stamp
                 
                 if(self.time_append < 1 and self.stat_freq != "continuous"): #output_freq_min < self.stat_freq_min
                     raise ValueError('Output frequency can not be less than frequency of statistic')
 
-    def _initialise_attrs(self, ds):
+    def _init_digests(self, ds_size):
+    
+        self.array_length = np.size(ds_size)
+        digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, /
+        # lists preserve order 
+
+        for j in tqdm.tqdm(range(self.array_length)):
+            digest_list[j] = TDigest(compression = 15) # initalising digests and adding to list
+
+        self.__setattr__(str(self.stat + "_cum"), digest_list)  
+            
+    def _initialise_attrs(self, ds, should_init_digests):
 
         """
         Initialises data structure for cumulative stats 
@@ -246,7 +265,7 @@ class Opa:
         if(self.stat_freq == "continuous"):
             self.count_continuous = 0
 
-        if(self.stat != "bias_correction" and self.stat != "percentile"): #  and self.bias_correction == False):
+        if(self.stat != "bias_correction" and self.stat != "percentile"): 
             
             ds_size = ds.tail(time = 1)
 
@@ -264,34 +283,29 @@ class Opa:
             elif(self.stat == "min" or self.stat == "max"):
                 self.__setattr__("timings", value)
 
-            # else loop for histograms of percentile calculations that may require a different initial grid
-        else: # THIS IS FOR HISTOGRAMS / PERCENTILES / BIAS-CORRECTION
+        elif(self.stat == "percentiles"): # THIS IS FOR  PERCENTILES / BIAS-CORRECTION
 
-            self.array_length = np.size(ds_size)
-            digest_list = [dict() for x in range(self.array_length)] # list of dictionaries for each grid cell, lists preserve order 
-
-            for j in tqdm.tqdm(range(self.array_length)):
-                digest_list[j] = TDigest(compression = 15) # initalising digests and adding to list
-
-            self.__setattr__(str(self.stat + "_cum"), digest_list)
-            #self.__setattr__(str("tdigest_cum"), digest_list)
+            self._init_digests(ds_size)
             
-            # first set percentile cum as flattened array with on axis length of number of percentiles
-            #self.__setattr__(str(self.stat + "_cum"), da.tile(da.empty(self.array_length), (np.size(self.percentile_list), 1)))
-
-            if (self.stat == "bias_correction"): 
+        elif (self.stat == "bias_correction"): 
                 
-                # also need to get raw data to pass 
-                self.__setattr__("raw_data_for_bc", ds)
+            # also need to get raw data to pass 
+            self.__setattr__("raw_data_for_bc", ds)
+            # also going to need the daily means 
+            self.__setattr__("mean_cum", value)
+                
+            if (should_init_digests): 
+                # this will only need to initalise for the first month after that, you're reading from the checkpoints
+                self._init_digests(ds_size)
             
-    def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
+    def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append, should_init_digests = False):
 
         """ initalises both time attributes and attributes relating to the statistic """
         self.count = 0
         self.time_stamp = time_stamp
 
         self._initialise_time(time_stamp_min, time_stamp_tot_append)
-        self._initialise_attrs(ds)
+        self._initialise_attrs(ds, should_init_digests)
 
     def _check_n_data(self):
 
@@ -303,6 +317,17 @@ class Opa:
             n_data_att_exist = False
         
         return n_data_att_exist
+    
+    def _check_digests_exist(self):
+        
+        """ checks if the attribute n_data is already there """
+        try:
+            getattr(self, "bias_correction_cum")
+            digests_exist = True 
+        except AttributeError:
+            digests_exist = False
+        
+        return digests_exist
             
     def _should_initalise(self, time_stamp_min, proceed):
 
@@ -313,7 +338,8 @@ class Opa:
 
         should_init = False
 
-        if(time_stamp_min < self.time_step): # this indicates that it's the first data  otherwise time_stamp will be larger
+        if(time_stamp_min < self.time_step): # this indicates that it's the first data  otherwise time_stamp /
+            # will be larger
             should_init = True
             proceed = True 
 
@@ -333,6 +359,25 @@ class Opa:
             proceed = True
 
         return proceed, should_init_time, should_init_value
+    
+    
+    def _should_initalise_bc(self, time_stamp_min, time_stamp_min_bc, proceed):
+            
+        proceed, should_init_time = self._should_initalise(time_stamp_min, proceed)
+
+        should_init_digests = False
+        
+        digests_exist = self._check_digests_exist()
+                
+        if(digests_exist):
+            pass
+        
+        elif(time_stamp_min_bc < self.time_step): # this indicates that it's the first data  otherwise time_stamp /
+            # will be larger
+            should_init_digests = True
+            proceed = True # not sure about this??? 
+
+        return proceed, should_init_time, should_init_digests
 
     def _remove_time_append(self):
 
@@ -414,11 +459,15 @@ class Opa:
                         else: # you've got back sometime within the time_append window
                             output_freq_min = convert_time(time_word = self.output_freq, time_stamp_input = self.time_stamp)[0]
                             
-                            full_append = (output_freq_min/self.stat_freq_min) # time (units of stat_append) for how long time_append should be
-                            start_int = full_append - self.time_append # if starting mid way through a output_freq, gives you the start of where you are
-                            start_new_int = (time_stamp_tot_append / self.stat_freq_min) # time (units of stat_append) for for where time_append should start with new timestamp 
+                            full_append = (output_freq_min/self.stat_freq_min) # time (units of stat_append) for how /
+                            # long time_append should be
+                            start_int = full_append - self.time_append # if starting mid way through a output_freq, /
+                            # gives you the start of where you are
+                            start_new_int = (time_stamp_tot_append / self.stat_freq_min) # time (units of stat_append) 
+                            # for for where time_append should start with new timestamp 
 
-                            if ((start_int == start_new_int) or (start_new_int < start_int)): # new time step == beginning of time append 
+                            if ((start_int == start_new_int) or (start_new_int < start_int)): 
+                                # new time step == beginning of time append 
                                 
                                 print("removing checkpoint as starting from beginning of time append")
                                 self._remove_time_append()
@@ -470,12 +519,13 @@ class Opa:
     def _check_time_stamp(self, ds, weight):
 
         """
-        Function to check the incoming timestamps of the data and check if it is the first one of the required statistic.
-        First time stamps will pass through 'compare old timestamps' which will compare the new timestamps against 
-        any previous timestamps stored in a checkpoint file. For details see function. If this passes, the timestamp will 
-        be checked to see if it's the first in the required statstic. If so, initalise the function with the required variables.
-        If not, the function will also check if it's either 'seen' the data before or if it should simply be skipped as it's half
-        way through a required statistic. 
+        Function to check the incoming timestamps of the data and check if it is the first one of the /
+        required statistic. First time stamps will pass through 'compare old timestamps' which will compare /
+        the new timestamps against any previous timestamps stored in a checkpoint file. 
+        For details see function. If this passes, the timestamp will be checked to see if it's the /
+        first in the required statstic. If so, initalise the function with the required variables.
+        If not, the function will also check if it's either 'seen' the data before or if it should simply /
+        be skipped as it's halfway through a required statistic. 
 
         Args:
         ds: Incoming xarray dataArray with associated timestamp(s)
@@ -486,11 +536,13 @@ class Opa:
         n_data: number of pieces of information required to make up the requested statistic 
         count: how far through the statistic you are, when initalised, this will be set to 1
         stat_cum: will set an empty array of the correct dimensions, ready to be filled with the statistic 
-        ds may change length if the time stamp corresponding to the start of the statistic corresponds to half way through ds.
+        ds may change length if the time stamp corresponding to the start of the statistic corresponds to half /
+        way through ds.
 
         Checks:
         If it is not the first timestamp of the statistic, it will check: 
-        - that the attribute n_data has already been assigned, otherwise will realise that this data doesn't correspond to this statistic
+        - that the attribute n_data has already been assigned, otherwise will realise that this data doesn't /
+        correspond to this statistic
         If the first piece of incoming data doesn't correspond to the initial data, and weight is greater than 1, 
         it will check the other incoming pieces of data to see if they correspond to the initial statistic
         """
@@ -505,25 +557,41 @@ class Opa:
             time_stamp = time_stamp_list[index]
             
             """Outputs of convert time: 
-            self.stat_freq_min = the number of minutes in the statistic requested, e.g. daily = 60*24 
-            time_stamp_min = the number of minutes in the given timestamp based on your requested stat_freq. 
-                                so if you're timestamp is 15 minutes into a new day and you requested stat_freq = daily, then this = 15
-            time_stamp_tot_append = the number of 'stat_freq' in minutes of the time stamp already completed (only used for appending data)
+            self.stat_freq_min = the number of minutes in the statistic requested, /
+                                e.g. daily = 60*24 
+            time_stamp_min = the number of minutes in the given timestamp based on
+                                your requested stat_freq. so if you're timestamp is 15 minutes /
+                                into a new day and you requested stat_freq = daily, then this = 15
+            time_stamp_tot_append = the number of 'stat_freq' in minutes of the time stamp already 
+                                completed (only used for appending data)
             """
+            
             if(self.stat_freq != "continuous"):
                 self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.stat_freq, time_stamp_input = time_stamp)
-            else: 
+
+            elif(self.stat_freq == "continuous"): 
                 self.stat_freq_min, time_stamp_min, time_stamp_tot_append = convert_time(time_word = self.output_freq, time_stamp_input = time_stamp)
             
+            if(self.stat == "bias_correction"): 
+                self.stat_freq_min_bc, time_stamp_min_bc, rubbish = convert_time(time_word = "monthly", time_stamp_input = time_stamp)
+
             proceed = self._compare_old_timestamp(time_stamp, time_stamp_min, time_stamp_tot_append, proceed)
 
             if(self.stat_freq_min < self.time_step):
                 raise ValueError('time_step too large for requested statistic')
             
             if(self.stat_freq != "continuous"):
-                proceed, should_init = self._should_initalise(time_stamp_min, proceed) 
-                if(should_init):
-                    self._initialise(ds, time_stamp, time_stamp_min, time_stamp_tot_append)
+                
+                if(self.stat != "bias_correction"): # will never use "continuous for bias_correction"
+                    proceed, should_init = self._should_initalise(time_stamp_min, proceed) 
+                    if(should_init):
+                        self._initialise(ds, time_stamp, time_stamp_min, time_stamp_tot_append)
+                
+                else: 
+                    proceed, should_init, should_init_digests = self._should_initalise_bc(time_stamp_min, time_stamp_min_bc, proceed)
+                    if(should_init):
+                        self._initialise(ds, time_stamp, time_stamp_min, time_stamp_tot_append, should_init_digests)
+                    
             else: 
                 proceed, should_init_time, should_init = self._should_initalise_contin(time_stamp_min, proceed)
                 
@@ -579,9 +647,10 @@ class Opa:
         This means that they do not want to compute any statstic 
         over any frequency, we will simply save the incoming data. """
         
-        final_time_file_str = self._create_none_file_name(ds, weight)
+        final_time_file_str = self._create_raw_file_name(ds, weight)
                                 
-        dm = self._create_raw_data_set(ds) # this will convert the dataArray back into a dataSet with the metadata of the dataSet
+        dm = self._create_raw_data_set(ds) 
+        # this will convert the dataArray back into a dataSet with the metadata of the dataSet
 
         if(self.save == True):            
             self._save_output(dm, ds, final_time_file_str)
@@ -593,7 +662,6 @@ class Opa:
         """Check how many time stamps are in the incoming data. 
         It's possible that the GSV interface will have multiple messages"""
 
-        #time_stamp_list = sorted(ds.time.data) # this method could be very different for a GRIB file, need to understand time stamps
         time_num = np.size(ds.time.data)
 
         return time_num
@@ -687,13 +755,15 @@ class Opa:
             self.min_cum['time'] = ds.time
             self.timings['time'] = ds.time
             ds_time = ds_time.where(ds < self.min_cum, self.timings)
-            # this gives the new self.min_cum number when the  condition is FALSE (location at which to preserve the objects values)
+            # this gives the new self.min_cum number when the  condition is FALSE (location at which to /
+            # preserve the objects values)
             ds = ds.where(ds < self.min_cum, self.min_cum)
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
 
         self.count = self.count + weight
-        self.min_cum = ds #running this way around as Array type does not have the function .where, this only works for data_array
+        self.min_cum = ds #running this way around as Array type does not have the function .where, /
+                            # this only works for data_array
         self.timings = ds_time
 
         return
@@ -723,7 +793,8 @@ class Opa:
             self.max_cum['time'] = ds.time
             self.timings['time'] = ds.time
             ds_time = ds_time.where(ds > self.max_cum, self.timings)
-            # this gives the new self.max_cum number when the  condition is FALSE (location at which to preserve the objects values)
+            # this gives the new self.max_cum number when the  condition is FALSE (location at which /
+            # to preserve the objects values)
             ds = ds.where(ds > self.max_cum, self.max_cum)
 
         ds_time = ds_time.astype('datetime64[ns]') # convert to datetime64 for saving
@@ -763,15 +834,13 @@ class Opa:
         
         if(weight == 1):
 
-            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, this might be a problem with dask? 
+            ds_values = np.reshape(ds.values, self.array_length) # here we have extracted the underlying np array, /
+            # this might be a problem with dask? 
         
             for j in tqdm.tqdm(range(self.array_length)): # this is looping through every grid cell 
                 # using crick or pytdigest
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(ds_values[j])
-                #if(self.stat == "percentile"):
-                #    self.percentile_cum[j].update(ds_values[j])
-                #elif(self.stat == "bias_correction"):
-                #    self.bias_correction_cum[j].update(ds_values[j])
+
                 
         else: 
 
@@ -803,9 +872,11 @@ class Opa:
         
         for j in range(self.array_length):
             # for crick 
-            # self.percentile_cum[j] = self.percentile_cum[j].quantile(self.percentile_list) # if there are 4 percentiles, : should be 4 
+            # self.percentile_cum[j] = self.percentile_cum[j].quantile(self.percentile_list) 
+            # # if there are 4 percentiles, : should be 4 
             
-            self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(self.percentile_list) # if there are 4 percentiles, : should be 4 
+            self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(self.percentile_list) 
+            # if there are 4 percentiles, : should be 4 
 
         self.percentile_cum = np.transpose(self.tdigest_cum)
 
@@ -826,7 +897,8 @@ class Opa:
         """converts list of digest back into original grid """
 
         #for j in range(self.array_length):
-        #    self.tdigest_cum[j] = self.tdigest_cum[j].inverse_cdf(self.percentile_list) # if there are 4 percentiles, : should be 4 
+        #    self.tdigest_cum[j] = self.tdigest_cum[j].inverse_cdf(self.percentile_list) 
+        # # if there are 4 percentiles, : should be 4 
 
         self.bias_correction_cum = np.transpose(self.bias_correction_cum)
         self.bias_correction_cum = PicklableTDigest(self.bias_correction_cum)
@@ -870,9 +942,11 @@ class Opa:
             self._update_tdigest(ds, weight)
             
         elif(self.stat == "bias_correction"): # also update the raw data required for the bias correction
-            if(self.count > 0):    
+            
+            if(self.count > 0):  
                 self._update_raw_data(ds)
-            self._update_tdigest(ds, weight)
+            
+            self._update_mean(ds, weight) # want DAILY means 
 
     def _write_pickle(self, what_to_dump, file_name = None): 
         
@@ -924,28 +998,31 @@ class Opa:
         """write checkpoint file. First checks the size of the class and if it can fit in memory. 
         If it's larger than 1.6 GB (pickle limit is 2GB) it will save the main climate data to zarr
         with only meta data stored as pickle """
-        
-        #if (self.stat != "percentile" or self.bias_correction == False):
-            
+                    
         if hasattr(self.__getattribute__(str(self.stat + "_cum")), 'compute'):
             self._load_dask() # first load data into memory 
         
         total_size = sys.getsizeof(self.__getattribute__(str(self.stat + "_cum")))/(10**9) # total size in GB
                 
-        if(self.stat == "percentile" or self.stat == "bias_correction"): 
-            
+        if(self.stat == "percentile"): # or self.stat == "bias_correction"): 
+    
             for j in tqdm.tqdm(range(self.array_length)):
-            #     #TODO: make this generic one line 
-            #     #self.__setattr__(str(self.stat + "_cum")[j], PicklableTDigest(self.__getattribute__(str(self.stat + "_cum"))[j]))
-                if(self.stat == "bias_correction"):
-                    self.bias_correction_cum[j] = PicklableTDigest(self.__getattribute__(str(self.stat + "_cum"))[j])
-                elif(self.stat == "percentile"):
-                    self.percentile_cum[j] = PicklableTDigest(self.__getattribute__(str(self.stat + "_cum"))[j])
+                self.percentile_cum[j] = PicklableTDigest(self.__getattribute__(str(self.stat + "_cum"))[j])
+               
+                    #            if(self.stat == "bias_correction"):
+                    # self.bias_correction_cum[j] = PicklableTDigest(self.__getattribute__(str(self.stat + "_cum"))[j])
                          
         if (self.stat == "var" or self.stat == "min" or self.stat == "max"): # they have the arrays repeated 
             total_size *= 2
         if(self.stat == "std"): 
             total_size *= 3
+        
+        if(self.stat == "bias_correction"):
+            if hasattr(self.__getattribute__("mean_cum"), 'compute'):
+                self._load_dask() # first load data into memory 
+            
+            total_size += sys.getsizeof(self.__getattribute__(str("mean_cum")))/(10**9) # total size in GB
+
 
         if(total_size < 1.6): # limit on a pickle file is 2GB 
 
@@ -998,30 +1075,30 @@ class Opa:
 
         return dm
 
-    def _data_output(self, ds, time_word = None):
+    def _data_output(self, ds, time_word = None, bc_mean = False):
 
         """ gathers final data and meta data for the final xarray dataSet  """
 
         final_stat = None
         
-        #if (self.stat != "percentile" and self.bias_correction == False):
-        final_stat = self.__getattribute__(str(self.stat + "_cum"))
-        #else:
-        #    final_stat = self.__getattribute__("tdigest_cum")
+        if(bc_mean): # this is the flag to extract the mean value for the bias_correction
+            final_stat = self.__getattribute__(str("mean_cum"))
+            self.data_set_attr["OPA"] = str(self.stat_freq + " mean calculated using one-pass algorithm")
+            ds.attrs["OPA"] = str(self.stat_freq + " mean calculated using one-pass algorithm")        
+        else: 
+            final_stat = self.__getattribute__(str(self.stat + "_cum"))
+            self.data_set_attr["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
+            ds.attrs["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
             
         if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
             final_stat = final_stat.data
 
-        final_time_file_str = self._create_file_name(time_word = time_word)
+        if(self.stat == "bias_correction" and bc_mean == False):
+            final_time_file_str = self._create_file_name_bc()
+        else:
+            final_time_file_str = self._create_file_name(time_word = time_word)
+        
         final_time_stamp = self._create_final_timestamp()
-
-        #try: # THIS IS NOW INCLUDED IN CHECK+DATASET FUCNTION 
-        #    getattr(self, "data_set_attr") # if it was originally a data set
-        #except AttributeError: # only looking at a data_array
-        #    self.data_set_attr = ds.attrs #both data_set and data_array will have matching attribs
-
-        self.data_set_attr["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
-        ds.attrs["OPA"] = str(self.stat_freq + " " + self.stat + " " + "calculated using one-pass algorithm")
 
         self.final_stat = final_stat 
         
@@ -1039,6 +1116,7 @@ class Opa:
         self.dm_append = dm_append.sortby("time")
         self.count_append = self.count_append + 1 
 
+        return 
 
     def _create_final_timestamp(self):
 
@@ -1049,7 +1127,7 @@ class Opa:
 
         return final_time_stamp 
     
-    def _create_none_file_name(self, ds, weight):
+    def _create_raw_file_name(self, ds, weight):
 
         """ creates the final file name for the netCDF file. If append is True 
         then the file name will span from the first requested statistic to the last. 
@@ -1114,34 +1192,52 @@ class Opa:
 
         return final_time_file_str
         
-    def _save_output(self, dm, ds, final_time_file_str, bc_raw = False):
+    def _create_file_name_bc(self): 
+        
+        final_time_file_str = self.init_time_stamp.strftime("%m")
+
+        return final_time_file_str
+        
+        
+    def _save_output(self, dm, ds, final_time_file_str, bc_raw = False, bc_mean = False):
+
+        if os.path.exists(self.out_filepath): 
+            pass 
+        else:
+            raise KeyError("Please pass a valid file path for saving")
 
         """  Creates final file name and path and saves final dataSet """
-        if(bc_raw == False):
-            if(self.stat == 'raw'):
-                #if (hasattr(self, 'variable')): # if there are multiple variables/variables in the file
-                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data.nc')
-                #else:
-                #    file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{ds.name}_raw_data.nc')
-            elif(self.stat == "bias_correction"): 
-                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.pkl')
+            
+        if(self.stat == 'raw'):
+            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data.nc')
+  
+        elif(self.stat == 'bias_correction'): 
+            
+            if(bc_mean):
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc')                    
+            elif(bc_raw):
+                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data_for_bc.nc')
             else: 
-                file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
-        else: 
-            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_raw_data_for_bc.nc')
+                self.checkpoint_file_bc = os.path.join(self.out_filepath, f'month_{final_time_file_str}_{self.variable}_{self.stat}.pkl')
+
+        else: # normal other stats 
+            file_name = os.path.join(self.out_filepath, f'{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc')
          
         start_time = time.time()
         
-        if(self.stat != "bias_correction"):
+        if(self.stat != "bias_correction" or bc_raw == True or bc_mean == True):
             dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
             dm.close()
         
         else:
-            if(bc_raw == True):
-                dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
-                dm.close() 
-            else: 
-                self._write_pickle(dm, file_name)
+            # if(bc_raw == True):
+            #     dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
+            #     dm.close() 
+            # if(bc_mean == True):
+            #     dm.to_netcdf(path = file_name, mode = 'w') # will re-write the file if it is already there
+            #     dm.close() 
+            # else: 
+            self._write_pickle(dm, self.checkpoint_file_bc)
                 
         end_time = time.time() - start_time
         print('finished saving in', np.round(end_time,4) ,'s')
@@ -1162,13 +1258,15 @@ class Opa:
         
         ds = self._check_variable(ds) # convert from a data_set to a data_array if required
     
-        weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps in a file and will do two pass statistic
+        weight = self._check_num_time_stamps(ds) # this checks if there are multiple time stamps /
+        # in a file and will do two pass statistic
 
-        if (self.stat == "raw"): #  and self.bias_correction == False):
+        if (self.stat == "raw"): 
             dm = self._check_raw(ds, weight)
             return dm 
         
-        ds, weight, already_seen, n_data_att_exist, time_stamp_list = self._check_time_stamp(ds, weight) # check the time stamp and if the data needs to be initalised 
+        ds, weight, already_seen, n_data_att_exist, time_stamp_list = self._check_time_stamp(ds, weight) 
+        # check the time stamp and if the data needs to be initalised 
 
         if(already_seen): # check if data has been 'seen', will only skip if data doesn't get re-initalised
             return    
@@ -1191,7 +1289,8 @@ class Opa:
 
             else: 
                 if(self.checkpoint == True):
-                    self._write_checkpoint() # this will be written when count == ndata because still need the checkpoitn for continuous
+                    self._write_checkpoint() # this will be written when count == ndata because /
+                    # still need the checkpoitn for continuous
 
         elif(how_much_left < weight): # this will span over the new statistic 
 
@@ -1215,18 +1314,25 @@ class Opa:
 
             if(self.stat == "percentile"):
                 self._get_percentile(ds) # this will give self.tdigest but it's full of percentiles 
-            if(self.stat == "bias_correction"): # if(self.bias_correction == True): 
-                self._get_bias_correction_tdigest(ds) # this will give the original grid full pickable tdigest objects self.tdigest
+            
+            if(self.stat == "bias_correction"): 
+                # now want to pass daily mean into bias_corr 
+                self._update_tdigest(self.mean_cum, 1) # we know the weight = 1 as it's the mean over that day 
+                self._get_bias_correction_tdigest(ds) # this will give the original grid full /
+                #pickable tdigest objects self.tdigest
                 dm_raw = self._create_raw_data_set(self.raw_data_for_bc)
-                
+                dm_mean, final_time_file_str_bc = self._data_output(ds, bc_mean = True) # output as a dataset
+
             dm, final_time_file_str = self._data_output(ds) # output as a dataset 
 
             if(self.time_append == 1): #output_freq_min == self.stat_freq_min
                 if(self.save == True):
                     self._save_output(dm, ds, final_time_file_str)
-                    if(self.stat == "bias_correction"): # if(self.bias_correction == True):
-                        self._save_output(dm_raw, ds, final_time_file_str, bc_raw = True) # saving raw data for bc as well 
                     
+                    if(self.stat == "bias_correction"): # also need to save raw files and mean cum 
+                        self._save_output(dm_raw, ds, final_time_file_str_bc, bc_raw = True) # saving raw data for bc as well 
+                        self._save_output(dm_mean, ds, final_time_file_str_bc, bc_mean = True) # saving daily means 
+                        
                 if(self.checkpoint == True): # and write_check == True):# delete checkpoint file 
                     if os.path.isfile(self.checkpoint_file):
                         os.remove(self.checkpoint_file)
