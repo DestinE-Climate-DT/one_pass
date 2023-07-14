@@ -63,7 +63,7 @@ def incorrect_stat(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "tests/checkpoint_wrong_name_uas_daily.pickle",
+        "checkpoint_filepath": "tests/",
         "out_filepath": "tests/"}
     
     n_start = 0 
@@ -84,7 +84,7 @@ def incorrect_freq(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "tests/checkpoint_mean_uas_wrong_freq.pickle",
+        "checkpoint_filepath": "tests/",
         "out_filepath": "tests/"}
     
     n_start = 0 
@@ -106,7 +106,7 @@ def lower_output(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "tests/checkpoint_mean_uas_daily.pickle",
+        "checkpoint_filepath": "tests/",
         "out_filepath": "tests/"}
     
     n_start = 0 
@@ -118,7 +118,6 @@ def lower_output(data):
         ds = data.isel(time=slice(i,i+1)) # extract moving window
         dm = daily_mean.compute(ds)
 
-
 def bad_timestep(data):
 
     pass_dic = {"stat": "mean",
@@ -128,7 +127,7 @@ def bad_timestep(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "tests/checkpoint_mean_uas_daily.pickle",
+        "checkpoint_filepath": "tests/",
         "out_filepath": "tests/"}
     
     n_start = 0 
@@ -170,7 +169,7 @@ def check_attributes(data):
         "variable": "es",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "tests/checkpoint_mean_es_daily.pickle",
+        "checkpoint_filepath": "tests/",
         "out_filepath": "tests/"}
     
     n_start = 0 
@@ -188,19 +187,16 @@ def test_raises_stat_error():
 
     with pytest.raises(ValueError):
         incorrect_stat(data)
-
-
+        
 def test_raises_freq_error():
 
     with pytest.raises(ValueError):
         incorrect_freq(data)
 
-
 def test_raises_timing_error():
 
     with pytest.raises(ValueError):
         lower_output(data)
-
 
 def test_bad_timestep():
 
