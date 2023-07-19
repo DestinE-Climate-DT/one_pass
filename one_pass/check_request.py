@@ -188,7 +188,7 @@ def check_request(request):
         
     #TODO: need to include making the directory if it doesn't exist 
     if(request.save): 
-        file_path = request.get("out_filepath")
+        file_path = getattr(request, "out_filepath") 
         
         if os.path.exists(file_path): 
             # check it points to a directory 
@@ -204,7 +204,7 @@ def check_request(request):
         
     #TODO: need to include making the directory if it doesn't exist 
     if(request.checkpoint): 
-        file_path = request.get("checkpoint_filepath")
+        file_path = getattr(request, "checkpoint_filepath")
         
         if os.path.exists(file_path): 
             # check it points to a directory 

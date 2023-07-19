@@ -359,7 +359,8 @@ class Opa:
     
     def _init_digests(self, ds_size):
     
-        """ Function to initalise a flat array full of empty 
+        """ 
+        Function to initalise a flat array full of empty 
         tDigest objects. 
         
         Arguments 
@@ -370,6 +371,7 @@ class Opa:
         ---------
         a call attribute corresponding to a flat array of 
         empty digests matching the size of the incoming data 
+        
         """
         
         self.array_length = np.size(ds_size)

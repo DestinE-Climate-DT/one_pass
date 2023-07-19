@@ -15,6 +15,29 @@ os.chdir(path)
 from one_pass.opa import *
 from one_pass.opa import Opa
 
+
+""" 
+Outline of testing functions in this script: 
+
+Will throw correct errors when: 
+1. pass incorrect statistic name
+2. pass incorrect stat_freq or output freq 
+3. pass out put freq less than stat freq 
+4. pass a timestep that doesn't fit into the stat freq 
+    - bad timestep 
+5. path to checkpoint files and output files exist 
+    (check outfile at the beginning instead of at the end)
+6. If variable is wrong / doesn't exisit 
+7. MAYBE - pass a timestep that is incorrect (when count == n data 
+    throws error that time step isn't what was expected)
+
+Correct does: 
+1. writes checkpoint files 
+2. writes slow checkpoint files as netCDF
+
+"""
+
+
 ############### load data ##################################
 
 # os.chdir('/home/b/b382291/git/AQUA/') 
@@ -38,22 +61,6 @@ data = data.astype(np.float64)
 
 ############################# define functions ######################################
 
-
-""" 
-Will throw correct errors when: 
-1. pass incorrect statistic name
-2. pass incorrect stat_freq or output freq 
-3. pass out put freq less than stat freq 
-4. pass a timestep that doesn't fit into the stat freq - bad timestep 
-5. path to checkpoint files and output files exist (check outfile at the beginning instead of at the end)
-6. If variable is wrong / doesn't exisit 
-7. MAYBE - pass a timestep that is incorrect (when count == n data throws error that time step isn't what was expected)
-
-Correct does: 
-1. writes checkpoint files 
-2. writes slow checkpoint files as netCDF
-
-"""
 def incorrect_stat(data):
 
     pass_dic = {"stat": "wrong_name",

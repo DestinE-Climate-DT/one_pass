@@ -124,6 +124,8 @@ def test_mean():
     pass_dic = {"stat": "mean",
     "stat_freq": "12hourly",
     "output_freq": "12hourly",
+    "percentile_list" : None,
+    "threshold_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -133,7 +135,8 @@ def test_mean():
 
     data_arr = getattr(data, pass_dic["variable"])
     
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
     two_pass = two_pass_mean(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
@@ -151,6 +154,8 @@ def test_std():
     pass_dic = {"stat": "std",
     "stat_freq": "daily",
     "output_freq": "daily",
+    "percentile_list" : None,
+    "threshold_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -159,7 +164,8 @@ def test_std():
     "out_filepath": "tests"}
     
     data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
     two_pass = two_pass_std(data_arr, n_start, n_data)
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
@@ -177,6 +183,8 @@ def test_var():
     pass_dic = {"stat": "var",
     "stat_freq": "weekly",
     "output_freq": "weekly",
+    "percentile_list" : None,
+    "threshold_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -185,7 +193,8 @@ def test_var():
     "out_filepath": "tests"}
     
     data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
     two_pass = two_pass_var(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
@@ -201,6 +210,8 @@ def test_max():
     pass_dic = {"stat": "max",
     "stat_freq": "6hourly",
     "output_freq": "6hourly",
+    "percentile_list" : None,
+    "threshold_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -209,7 +220,8 @@ def test_max():
     "out_filepath": "tests"}
 
     data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
     two_pass = two_pass_max(data_arr, n_start, n_data)
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
@@ -225,6 +237,8 @@ def test_min():
     pass_dic = {"stat": "min",
     "stat_freq": "monthly",
     "output_freq": "monthly",
+    "percentile_list" : None,
+    "threshold_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -233,7 +247,8 @@ def test_min():
     "out_filepath": "tests"}
 
     data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
     two_pass = two_pass_min(data_arr, n_start, n_data)
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
