@@ -197,42 +197,48 @@ def check_request(request):
             you have set checkpoint : False, here you can put None"
         )
         
-    #TODO: need to include making the directory if it doesn't exist 
     if(request.save): 
         file_path = getattr(request, "out_filepath") 
-        
-        if os.path.exists(file_path): 
+        if os.path.exists(os.path.dirname(file_path)): 
             # check it points to a directory 
-            if(os.path.isdir(file_path)):
-                pass 
-            else: 
+            if(os.path.isdir(file_path)): 
+                pass
+            else:
                 raise ValueError(
                     f"Please pass a file path for saving that does \
                     not include the file name as this is created dynamically"
                 )
         else:
-            os.mkdir(file_path)
-            print('created new directory for saving')
-            #raise ValueError("Please pass a valid file path for saving")
+            if(os.path.isdir(file_path)):
+                os.mkdir(os.path.dirname(file_path))
+                print('created new directory for saving')
+            else:
+                raise ValueError(
+                    "Please pass a valid file path for saving"
+                )
         
-    #TODO: need to include making the directory if it doesn't exist 
     if(request.checkpoint): 
         file_path = getattr(request, "checkpoint_filepath")
-        
-        if os.path.exists(file_path): 
+        if os.path.exists(os.path.dirname(file_path)): 
             # check it points to a directory 
-            if(os.path.isdir(file_path)):
-                pass 
-            else: 
+            if(os.path.isdir(file_path)): 
+                pass
+            else:
                 raise ValueError(
                     f"Please pass a file path for checkpointing that \
-                    dooe not include the file name as this is \
+                    does not include the file name, as this is \
                     created dynamically"
                 ) 
         else:
-            os.mkdir(file_path)
-            print('created new directory for checkpointing')
-            #raise ValueError("Please pass a valid file path for checkpoint")
+            # if they have put a file name here it will drop it 
+            if(os.path.isdir(file_path)):
+                os.mkdir(os.path.dirname(file_path))
+                print('created new directory for checkpointing')
+            else:
+                raise ValueError(
+                    "Please pass a valid file path for checkpointing"
+                )
+        
         
     
     if(request.stat == "thresh_exceed"):
@@ -258,18 +264,18 @@ def check_request(request):
                         for the whole distribution'
                     )
                     
-        if(request.stat == "bias_correction"): 
-            if (request.stat_freq != "daily"):
-                raise ValueError(
-                    f'Must set stat_freq equal to daily when requesting \
-                        data for bias correction'
-                )
-        
-            if (request.output_freq != "daily"):
-                raise ValueError(
-                    f'Must set output_freq equal to daily when requesting \
-                        data for bias correction'
-                )
+    if(request.stat == "bias_correction"): 
+        if (request.stat_freq != "daily"):
+            raise ValueError(
+                f'Must set stat_freq equal to daily when requesting \
+                    data for bias correction'
+            )
+    
+        if (request.output_freq != "daily"):
+            raise ValueError(
+                f'Must set output_freq equal to daily when requesting \
+                    data for bias correction'
+            )
         
     return 
             

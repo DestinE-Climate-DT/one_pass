@@ -383,7 +383,7 @@ def wrong_checkpointfile(data):
         "variable": "uas",
         "save": True,
         "checkpoint": True,
-        "checkpoint_filepath": "test/checkpoint.pkl",
+        "checkpoint_filepath": "tests/checkpoint.pkl",
         "out_filepath": "tests/"}
     
     n_start = 0 
