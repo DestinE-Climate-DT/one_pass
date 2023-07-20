@@ -16,7 +16,6 @@ stat_options = {
     "thresh_exceed",
     "min",
     "max",
-    "histogram", 
     "percentile",
     "raw",
     "bias_correction",
@@ -212,7 +211,9 @@ def check_request(request):
                     not include the file name as this is created dynamically"
                 )
         else:
-            raise ValueError("Please pass a valid file path for saving")
+            os.mkdir(file_path)
+            print('created new directory for saving')
+            #raise ValueError("Please pass a valid file path for saving")
         
     #TODO: need to include making the directory if it doesn't exist 
     if(request.checkpoint): 
@@ -229,7 +230,9 @@ def check_request(request):
                     created dynamically"
                 ) 
         else:
-            raise ValueError("Please pass a valid file path for checkpoint")
+            os.mkdir(file_path)
+            print('created new directory for checkpointing')
+            #raise ValueError("Please pass a valid file path for checkpoint")
         
     
     if(request.stat == "thresh_exceed"):

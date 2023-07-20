@@ -1321,6 +1321,7 @@ class Opa:
         value = da.zeros_like(ds_size, dtype=np.float64) 
         final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
 
+        # with the percentiles we add another dimension for the percentiles
         self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
         # adding axis for time
         self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) 
@@ -1348,7 +1349,7 @@ class Opa:
         self.bias_correction_cum = np.reshape(
             self.bias_correction_cum, np.shape(final_size)
         )
-        self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) 
+        #self.bias_correction_cum = np.expand_dims(self.bias_correction_cum, axis = 0) 
 
 
         return 
