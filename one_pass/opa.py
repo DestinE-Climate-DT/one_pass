@@ -440,7 +440,7 @@ class Opa:
             elif(self.stat == "min" or self.stat == "max"):
                 self.__setattr__("timings", value)
 
-        elif(self.stat == "percentiles"):
+        elif(self.stat == "percentile"):
             self._init_digests(ds_size)
             
         elif (self.stat == "bias_correction"): 
@@ -1301,7 +1301,7 @@ class Opa:
         """
         
         if self.percentile_list[0] == 'all':
-            self.percentile_list = np.linspace(0, 100, 101)
+            self.percentile_list = (np.linspace(0, 100, 101))/100
         
         for j in range(self.array_length):
             # for crick 
@@ -1312,7 +1312,7 @@ class Opa:
                 self.percentile_list
             ) 
 
-        self.percentile_cum = np.transpose(self.tdigest_cum)
+        self.percentile_cum = np.transpose(self.percentile_cum)
 
         # reshaping percentile cum into the correct shape 
         ds_size = ds.tail(time = 1) # will still have 1 for time dimension 
@@ -1320,9 +1320,11 @@ class Opa:
         # forcing computation in float64
         value = da.zeros_like(ds_size, dtype=np.float64) 
         final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
-        
-        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
 
+        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
+        # adding axis for time
+        self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) 
+        
         return 
 
     def _get_bias_correction_tdigest(self, ds):
@@ -1346,6 +1348,8 @@ class Opa:
         self.bias_correction_cum = np.reshape(
             self.bias_correction_cum, np.shape(final_size)
         )
+        self.percentile_cum = np.expand_dims(self.percentile_cum, axis = 0) 
+
 
         return 
     

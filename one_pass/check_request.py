@@ -1,6 +1,8 @@
-
 """
-Function to check if the config.dic was correct '''
+Function to check if the config.dic has been
+set correctly. 
+Will check that all key value pairs are present 
+and any setting required for certain statistics 
 """
 
 import numpy as np 
@@ -36,6 +38,7 @@ stat_freq_options = {
 
 # list of allowed options for output frequency 
 output_freq_options = {
+    "hourly",
     "3hourly",
     "6hourly",
     "12hourly",
@@ -71,9 +74,9 @@ def check_request(request):
             )
     
     except AttributeError: 
-        raise Exception(
+        raise KeyError(
             "config.yml must include key value pair 'stat' : some_stat, \
-            corresponding to the statistic you require see READ.md for details"
+            corresponding to the statistic you require see docs for details"
         )
     
     try:
@@ -89,9 +92,9 @@ def check_request(request):
             )
     
     except AttributeError: 
-        raise Exception(
+        raise KeyError(
             f"config.yml must include key value pair 'stat_freq' : \
-            some_freq, see READ.md for details"
+            some_freq, see docs for details"
         )
     
     try:
@@ -112,25 +115,34 @@ def check_request(request):
             )
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'output_freq' :\
-            some_freq, see READ.md for details"
+            some_freq, see docs for details"
         )
 
+    try:
+        getattr(request, "time_step") 
+    
+    except AttributeError: 
+        raise KeyError (
+            f"config.yml must include key value pair 'time_step' : \
+            time_step in minutes of data, see docs for details"
+        )
+        
     try:
         getattr(request, "variable") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'variable' : \
-            variable of interest, see READ.md for details"
+            variable of interest, see docs for details"
         )
     
     try:
         getattr(request, "percentile_list") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'percentile_list' : \
             list of percentiles. If not required for your statistc set \
             'percentile_list : None"
@@ -140,7 +152,7 @@ def check_request(request):
         getattr(request, "threshold_exceed") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'threshold_exceed' : \
             threshold. If not required for your statistic set \
             'threshold_exceed : None"
@@ -150,7 +162,7 @@ def check_request(request):
         getattr(request, "save") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'save' : \
             True or False. Set to True if you want to save the \
             completed statistic to netCDF"
@@ -160,7 +172,7 @@ def check_request(request):
         getattr(request, "checkpoint") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'checkpoint' : \
             True or False. Highly recommended to set to True so that \
             the Opa will save summaries in case of model crash"
@@ -170,7 +182,7 @@ def check_request(request):
         getattr(request, "out_filepath") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'output_file' : \
             file/path/for/saving. If you do not want to save, and \
             you have set save : False, here you can put None"
@@ -180,7 +192,7 @@ def check_request(request):
         getattr(request, "checkpoint_filepath") 
     
     except AttributeError: 
-        raise Exception (
+        raise KeyError (
             f"config.yml must include key value pair 'checkpoint_file' : \
             file/path/for/checkpointing. If you do not want to checkpoint, and \
             you have set checkpoint : False, here you can put None"
@@ -195,12 +207,12 @@ def check_request(request):
             if(os.path.isdir(file_path)):
                 pass 
             else: 
-                raise KeyError(
+                raise ValueError(
                     f"Please pass a file path for saving that does \
                     not include the file name as this is created dynamically"
                 )
         else:
-            raise KeyError("Please pass a valid file path for saving")
+            raise ValueError("Please pass a valid file path for saving")
         
     #TODO: need to include making the directory if it doesn't exist 
     if(request.checkpoint): 
@@ -211,13 +223,13 @@ def check_request(request):
             if(os.path.isdir(file_path)):
                 pass 
             else: 
-                raise KeyError(
+                raise ValueError(
                     f"Please pass a file path for checkpointing that \
                     dooe not include the file name as this is \
                     created dynamically"
                 ) 
         else:
-            raise KeyError("Please pass a valid file path for checkpoint")
+            raise ValueError("Please pass a valid file path for checkpoint")
         
     
     if(request.stat == "thresh_exceed"):
@@ -228,7 +240,7 @@ def check_request(request):
         
     if(request.stat == "percentile"):
         if (hasattr(request, "percentile_list") == False):
-            raise AttributeError(
+            raise ValueError(
                 f'For the percentile statistic you need to provide \
                 a list of required percentiles, e.g. "percentile_list" :\
                 [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, \
@@ -238,20 +250,20 @@ def check_request(request):
         if (request.percentile_list[0] != "all"):
             for j in range(np.size(request.percentile_list)):
                 if(request.percentile_list[j] > 1): 
-                    raise AttributeError(
+                    raise ValueError(
                         'Percentiles must be between 0 and 1 or ["all"] \
                         for the whole distribution'
                     )
                     
         if(request.stat == "bias_correction"): 
             if (request.stat_freq != "daily"):
-                raise KeyError(
+                raise ValueError(
                     f'Must set stat_freq equal to daily when requesting \
                         data for bias correction'
                 )
         
             if (request.output_freq != "daily"):
-                raise KeyError(
+                raise ValueError(
                     f'Must set output_freq equal to daily when requesting \
                         data for bias correction'
                 )

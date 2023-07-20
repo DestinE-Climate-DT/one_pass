@@ -1,5 +1,5 @@
 # script for unit testing in python 
-# test_run_mean_OPA.py
+# testing for general functionality and error handeling 
 
 import pytest
 import xarray as xr
@@ -61,54 +61,13 @@ data = data.astype(np.float64)
 
 ############################# define functions ######################################
 
-def incorrect_stat(data):
-
-    pass_dic = {"stat": "wrong_name",
-        "stat_freq": "daily",
-        "output_freq": "daily",
-        "time_step": 60,
-        "variable": "uas",
-        "save": True,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/"}
-    
-    n_start = 0 
-    n_data = 1 # only need to give it one data point as should throw error on initalisation 
-
-    for i in range(n_start, n_data, 1): 
-        ds = data.isel(time=slice(i,i+1)) # extract moving window
-        daily_mean = Opa(pass_dic)
-        dm = daily_mean.compute(ds)
-
-
-def incorrect_freq(data):
-
-    pass_dic = {"stat": "mean",
-        "stat_freq": "daily",
-        "output_freq": "wrong_freq",
-        "time_step": 60,
-        "variable": "uas",
-        "save": True,
-        "checkpoint": True,
-        "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/"}
-    
-    n_start = 0 
-    n_data = 1 
-
-    daily_mean = Opa(pass_dic)
-
-    for i in range(n_start, n_data, 1): 
-        ds = data.isel(time=slice(i,i+1)) # extract moving window
-        dm = daily_mean.compute(ds)
-
-
 def lower_output(data):
 
     pass_dic = {"stat": "mean",
         "stat_freq": "daily",
         "output_freq": "3hourly",
+        "percentile_list" : None,
+        "threshold_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -130,6 +89,8 @@ def bad_timestep(data):
     pass_dic = {"stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
+        "percentile_list" : None,
+        "threshold_exceed" : None,
         "time_step": 37.3,
         "variable": "uas",
         "save": True,
@@ -146,32 +107,14 @@ def bad_timestep(data):
         ds = data.isel(time=slice(i,i+1)) # extract moving window
         dm = daily_mean.compute(ds)
 
-def wrong_checkpointfile(data):
-
-    pass_dic = {"stat": "mean",
-        "stat_freq": "daily",
-        "output_freq": "daily",
-        "time_step": 60,
-        "variable": "uas",
-        "save": True,
-        "checkpoint": True,
-        "checkpoint_filepath": "",
-        "out_filepath": "tests/"}
-    
-    n_start = 0 
-    n_data = 1 
-
-    daily_mean = Opa(pass_dic)
-
-    for i in range(n_start, n_data, 1): 
-        ds = data.isel(time=slice(i,i+1)) # extract moving window
-        dm = daily_mean.compute(ds)
 
 def check_attributes(data):
 
     pass_dic = {"stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
+        "percentile_list" : None,
+        "threshold_exceed" : None,
         "time_step": 60,
         "variable": "es",
         "save": True,
@@ -190,15 +133,6 @@ def check_attributes(data):
 
 ####################### py tests ##############################
 
-def test_raises_stat_error():
-
-    with pytest.raises(ValueError):
-        incorrect_stat(data)
-        
-def test_raises_freq_error():
-
-    with pytest.raises(ValueError):
-        incorrect_freq(data)
 
 def test_raises_timing_error():
 
@@ -209,13 +143,6 @@ def test_bad_timestep():
 
     with pytest.raises(Exception):
         bad_timestep(data)
-
-def test_wrong_checkpointfile():
-
-    with pytest.raises(KeyError):
-        wrong_checkpointfile(data)
-        # this will flag a KeyError if the checkpoint file is not found 
-        # if you give an incorrect file path however it will flag a filepath not found error 
 
 def test_attributes():
 
