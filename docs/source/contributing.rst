@@ -18,14 +18,14 @@ Contributing Code
 
 To contribute code to one_pass, follow these general steps:
 
-1. Fork the `one_pass <https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass>``__ repository on GitLab.
+1. Fork the `one_pass <https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass>`__ repository on GitLab.
 2. Clone the forked repository to your local machine.
-3. Create a new branch for your feature or bugfix (e.g., `git checkout -b my-feature`).
-4. Make your changes passes tests.
+3. Create a new branch for your feature or bugfix (e.g., ``git checkout -b my-feature``).
+4. Make sure your changes pass the tests.
 5. Commit your changes and push them to your forked repository.
 6. Create a pull request on the one_pass repository, describing your changes and referencing any related issues.
 
-Please note that all contributed codes must be licensed under the same terms as AQUA.
+Please note that all contributed codes must be licensed under the same terms as one_pass.
 
 Documentation and Tutorials
 ---------------------------

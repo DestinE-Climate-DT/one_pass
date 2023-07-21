@@ -219,8 +219,8 @@ class Opa:
         if (hasattr(self, 'use_zarr')):  
             self.checkpoint_file_zarr = os.path.join(
                 file_path, 
-                f'checkpoint_'f'{self.variable}_{self.stat_freq}_\
-                {self.output_freq}_{self.stat}.zarr'
+                (f'checkpoint_{self.variable}_{self.stat_freq}_'
+                f'{self.output_freq}_{self.stat}.zarr')
             )
 
         # if stat is bias correction, the checkpointed statistic will 
@@ -228,15 +228,15 @@ class Opa:
         if (self.stat == "bias_correction"):
             self.checkpoint_file = os.path.join(
                 file_path, 
-                f'checkpoint_'f'{self.variable}_{self.stat_freq}_\
-                {self.output_freq}_mean.pkl'
+                (f'checkpoint_{self.variable}_{self.stat_freq}_'
+                f'{self.output_freq}_{self.stat}.pkl')
             )
         
         else: 
             self.checkpoint_file = os.path.join(
                 file_path, 
-                f'checkpoint_'f'{self.variable}_{self.stat_freq}_\
-                {self.output_freq}_{self.stat}.pkl'
+                f'checkpoint_{self.variable}_{self.stat_freq}_'
+                f'{self.output_freq}_{self.stat}.pkl'
             )
 
         # see if the checkpoint file exists
@@ -322,8 +322,8 @@ class Opa:
         
         else:
             raise Exception(
-                f'Frequency of the requested statistic (e.g. daily) must \
-                be wholly divisible by the timestep (dt) of the input data'
+                f'Frequency of the requested statistic (e.g. daily) must'
+                f' be wholly divisible by the timestep (dt) of the input data'
             )
 
         try:
@@ -640,8 +640,8 @@ class Opa:
         
         if abs(min_diff) < 2*self.time_step:
             print(
-                f'Time gap at ' + str(time_stamp) + ' too large, \
-                there seems to be data missing, small enough to carry on'
+                f'Time gap at ' + str(time_stamp) + ' too large,'
+                f' there seems to be data missing, small enough to carry on'
             )
             self.time_stamp = time_stamp
             proceed = True
@@ -694,8 +694,8 @@ class Opa:
                 # the original time append 
                 if (time_stamp < self.init_time_stamp):
                     print(
-                        f"removing checkpoint as going back to before \
-                        original time append"
+                        f"removing checkpoint as going back to before"
+                        f" original time append"
                     )
                     self._remove_time_append()
 
@@ -720,8 +720,8 @@ class Opa:
                         # new time step == beginning of time append 
                         
                         print(
-                            f"removing checkpoint as starting from beginning \
-                            of time append"
+                            f"removing checkpoint as starting from beginning"
+                            f" of time append"
                         )
                         self._remove_time_append()
 
@@ -749,8 +749,8 @@ class Opa:
                         # start of a stat, so deleting
                         else: 
                             print(
-                                f"removing previous data in time_append as can't \
-                                initalise from this point")
+                                f"removing previous data in time_append as can't"
+                                f" initalise from this point")
                             self._remove_time_append()
 
         except AttributeError: 
@@ -791,11 +791,11 @@ class Opa:
             
             # option 1, it's the time step directly before, carry on 
             if (min_diff == self.time_step): 
-                self._option_one(time_stamp, proceed)
+                proceed = self._option_one(time_stamp, proceed)
 
             # option 2, it's a time step into the future - data mising 
             elif(time_stamp > self.time_stamp): 
-                self._option_two(min_diff, time_stamp, proceed)
+                proceed = self._option_two(min_diff, time_stamp, proceed)
 
             # option 3, time stamps are the same 
             elif(time_stamp == self.time_stamp):
@@ -932,11 +932,11 @@ class Opa:
             
             proceed = self._compare_old_timestamp(time_stamp, time_stamp_min, 
                                                   time_stamp_tot_append, proceed)
-            
+
             if(self.stat_freq != "continuous"):
                 proceed, should_init = self._should_initalise(
                     time_stamp_min, proceed) 
-                   
+
                 if(should_init):   
                     self._initialise(
                         ds, time_stamp, time_stamp_min, time_stamp_tot_append
@@ -967,8 +967,8 @@ class Opa:
             n_data_att_exist = self._check_n_data()  
             if (n_data_att_exist == False):
                 print(
-                    f'passing on this data as its not the initial data for the \
-                    requested statistic'
+                    f'passing on this data as its not the initial data for the'
+                    f' requested statistic'
                 )
             
             index = index + 1 
@@ -977,6 +977,8 @@ class Opa:
         # through but starts from mid way through the incoming data 
         if (index > 1) and (proceed): 
             index = index - 1 
+            
+            print(index, 'index')
             # chops data from where it needs to start 
             ds = ds.isel(time=slice(index, weight))
             weight = weight - index 
@@ -1005,8 +1007,8 @@ class Opa:
 
             except AttributeError:
                 raise Exception(
-                    f'If passing dataSet need to provide the correct variable/ \
-                    variableeter, opa can only use one variable at the moment'
+                    f'If passing dataSet need to provide the correct variable,'
+                    f' opa can only use one variable at the moment'
                 )
         
         except AttributeError:
@@ -1227,18 +1229,18 @@ class Opa:
         
         if(weight > 1):
 
-            ds = ds.where(ds < self.threshold, 1)
-            ds = ds.where(ds >= self.threshold, 0)
+            ds = xr.where(ds < abs(self.thresh_exceed), 0, 1)
             #try slower np version that preserves dimensions
             ds = np.sum(ds, axis = 0, keepdims = True) 
+            
             ds = self.thresh_exceed_cum + ds
 
         else:
             if(self.count > 0):
                 self.thresh_exceed_cum['time'] = ds.time
 
-            ds = ds.where(ds < self.threshold, self.thresh_exceed_cum + 1)
-            ds = ds.where(ds >= self.threshold, self.thresh_exceed_cum)
+            ds = xr.where(ds < abs(self.thresh_exceed), self.thresh_exceed_cum + 1)
+            ds = xr.where(ds >= abs(self.thresh_exceed), self.thresh_exceed_cum)
 
         self.count = self.count + weight
         self.thresh_exceed_cum = ds 
@@ -1479,8 +1481,8 @@ class Opa:
             )
         else: 
             self.checkpoint_file_zarr = os.path.join(
-                self.checkpoint_filepath, 'checkpoint_'f'{self.variable}_\
-                {self.stat_freq}_{self.output_freq}_{self.stat}.zarr'
+                self.checkpoint_filepath, f'checkpoint_{self.variable}_'
+                f'{self.stat_freq}_{self.output_freq}_{self.stat}.zarr'
             )
 
             zarr.array(
@@ -1512,7 +1514,7 @@ class Opa:
             )
         
         end_time = time.time() - start_time
-        print(np.round(end_time,4), 's to load dask')
+        #print(np.round(end_time,4), 's to load dask')
         
         return 
     
@@ -1580,8 +1582,8 @@ class Opa:
         
         raw_data_attrs = self.data_set_attr
         raw_data_attrs["OPA"] = str(
-            f"raw data at native temporal \
-            resolution saved by one-pass algorithm"
+            f"raw data at native temporal"
+            f" resolution saved by one-pass algorithm"
         )
         dm = dm.assign_attrs(raw_data_attrs)
         
@@ -1665,14 +1667,14 @@ class Opa:
         elif(self.stat == "bias_correction"): 
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
             self.data_set_attr["OPA"] = str(
-                f"daily means added to the monthly digest for" +  \
-                 self.stat + " " + "calculated using one-pass algorithm"
+                f"daily means added to the monthly digest for" 
+                + self.stat + f" calculated using one-pass algorithm"
             )    
         else: 
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
             self.data_set_attr["OPA"] = str(
-                self.stat_freq + " " + self.stat + " " + \
-                "calculated using one-pass algorithm"
+                self.stat_freq + " " + self.stat + 
+                f" calculated using one-pass algorithm"
             )
             
         if(self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed"):
@@ -1855,8 +1857,8 @@ class Opa:
                 self._save_output(dm_mean, final_time_file_str_bc, bc_mean = True) 
         else: 
             raise AttributeError(
-                f'Cannot have stat_freq and output_freq not equal to daily \
-                for bias_correction'
+                f'Cannot have stat_freq and output_freq not equal to daily'
+                f' for bias_correction'
             )
                         
         return dm_raw, dm_mean
@@ -1903,7 +1905,7 @@ class Opa:
             self._write_pickle(dm, self.checkpoint_file_bc)
     
         end_time = time.time() - start_time
-        print('finished saving tdigest files in', np.round(end_time,4) ,'s')
+        #print('finished saving tdigest files in', np.round(end_time,4) ,'s')
 
         return 
 
@@ -1932,7 +1934,6 @@ class Opa:
         
         # will not span over new statistic
         if (how_much_left >= weight): 
-
             # moving the time stamp to the last of the set
             self.time_stamp = time_stamp_list[-1]  
             
@@ -2023,7 +2024,7 @@ class Opa:
 
         # when the statistic is full
         if (self.count == self.n_data and self.stat_freq != "continuous"):   
-
+            
             if(self.stat == "percentile"):
                  # this will give self.tdigest but it's full of percentiles 
                 self._get_percentile(ds)

@@ -56,7 +56,18 @@
 <span class="n">dm</span> <span class="o">=</span> <span class="n">opa_stat</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="c1"># pass some data to compute</span>
 </pre></div>
 </div>
-<p>Above, all the details of the requested statistic are given by the config.yml file, explained in <a class="reference internal" href="the_config_file.html"><span class="doc">The config.yml file</span></a>. The incoming :<code class="docutils literal notranslate"><span class="pre">data</span></code> is an <a class="reference external" href="https://docs.xarray.dev/en/stable/">xArray</a> object containing some climate data over the given (structured or unstructured) grid a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa. Once sufficient data has been passed to the Opa, <code class="docutils literal notranslate"><span class="pre">dm</span></code> will return the output of the summary statistic. For detailed examples and tutorials, refer to the <a class="reference internal" href="examples_tutorials.html"><span class="doc">Examples and Tutorials</span></a> section which contain example Jupyter notebooks.</p>
+<p>Above, all the details of the requested statistic are given by the config.yml file, explained in <a class="reference internal" href="the_config_file.html"><span class="doc">The config.yml file</span></a>. The incoming <code class="docutils literal notranslate"><span class="pre">data</span></code> is an <a class="reference external" href="https://docs.xarray.dev/en/stable/">xArray</a> object containing some climate data over a given (structured or unstructured) grid and a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa class. Once sufficient data has been passed to the Opa class (enough to complete the requested statistic), <code class="docutils literal notranslate"><span class="pre">dm</span></code> will return the output of the summary statistic. For detailed examples and tutorials, refer to the <a class="reference internal" href="examples_tutorials.html"><span class="doc">Examples and Tutorials</span></a> section which contain example Jupyter notebooks.</p>
+</section>
+<section id="a-note-on-the-output">
+<h2>A note on the Output<a class="headerlink" href="#a-note-on-the-output" title="Permalink to this heading">¶</a></h2>
+<p>The output, <code class="docutils literal notranslate"><span class="pre">dm</span></code> written above, will be an xr.dataSet. The dimensions will the same as the original dimensions of the input data, apart from the time dimension. The length of time dimension will be one, unless you set <code class="docutils literal notranslate"><span class="pre">output_freq</span></code> greater than <code class="docutils literal notranslate"><span class="pre">stat_freq</span></code>. See the <a class="reference internal" href="the_config_file.html"><span class="doc">The config.yml file</span></a> for details.</p>
+<p>The timestamp on the time dimension will correspond to the time stamp of the first piece of data that contributed to that statistic.</p>
+<p>All of the original metaData included in the dataSet will be present in the final dataSet with a new attribute corresponding to details of the one pass algorithm. There will only be one variable in the final dataSet, as the one_pass only processes one variable at a time. The name of the variable will be unchanged.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There is currently a problem with GRIB variable names that start with a number, as when saving they are saved with a / in front. This issue is being worked on.</p>
+</div>
+<p>The final output from the one_pass will only be passed when sufficient data has been streamed to the Opa class to complete the statistic. If you do not set <code class="docutils literal notranslate"><span class="pre">&quot;save&quot;</span> <span class="pre">:</span> <span class="pre">True</span></code> then this will only be output in memory and will be over written as new data is passed.</p>
 </section>
 </section>
 
@@ -84,6 +95,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Getting started</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#basic-concept">Basic Concept</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#running-in-python">Running in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#a-note-on-the-output">A note on the Output</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="the_config_file.html">The config.yml file</a></li>

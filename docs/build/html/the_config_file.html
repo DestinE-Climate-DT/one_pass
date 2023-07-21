@@ -36,17 +36,17 @@
   <section id="the-config-yml-file">
 <h1>The config.yml file<a class="headerlink" href="#the-config-yml-file" title="Permalink to this heading">¶</a></h1>
 <p>As discussed in <a class="reference internal" href="getting_started.html"><span class="doc">Getting started</span></a>, all of the one_pass configuration is set by a seperate configuration file, called config.yml. In this file you provide the details of the statistic you would like. The config.yml looks like:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">stat</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mean&quot;</span>
-<span class="nt">percentile_list</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">None</span>
-<span class="nt">threshold_exceed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">None</span>
-<span class="nt">stat_freq</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;daily&quot;</span>
-<span class="nt">output_freq</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;daily&quot;</span>
-<span class="nt">time_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
-<span class="nt">param</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;uas&quot;</span>
-<span class="nt">save</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
-<span class="nt">checkpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
-<span class="nt">checkpoint_filepath</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/file/path/to/checkpoint/&quot;</span>
-<span class="nt">out_filepath</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/file/path/to/save/&quot;</span>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span>stat: &quot;mean&quot;
+percentile_list: None
+threshold_exceed: None
+stat_freq: &quot;daily&quot;
+output_freq: &quot;daily&quot;
+time_step: 60
+param: &quot;uas&quot;
+save: True
+checkpoint: True
+checkpoint_filepath: &quot;/file/path/to/checkpoint/&quot;
+out_filepath: &quot;/file/path/to/save/&quot;
 </pre></div>
 </div>
 <p>All of the above key:value pairs must be present in the config.yml, even if not required for your requested statistic. In this case, keep the output as <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
@@ -65,10 +65,14 @@
 </pre></div>
 </div>
 <p>The functionality of all the keys in the config.yml are outlined below.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Be careful about spelling in the config file, it matters.</strong></p>
+</div>
 <section id="statistics">
 <h2>Statistics<a class="headerlink" href="#statistics" title="Permalink to this heading">¶</a></h2>
 <p>The one_pass package supports the following options for <code class="docutils literal notranslate"><span class="pre">stat</span></code> :</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span>&quot;mean&quot;, &quot;std&quot;, &quot;var&quot;, &quot;threshold_exceed&quot;, &quot;min&quot;, &quot;max&quot;, &quot;percentile&quot;, &quot;raw&quot;, &quot;bias_correction&quot;
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;mean&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;std&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;var&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;threshold_exceed&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;percentile&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bias_correction&quot;</span>
 </pre></div>
 </div>
 <section id="mean">
@@ -76,7 +80,7 @@
 <p>The mean statistic calculates the arithmatic mean over the requested temporal frequency, using the following:</p>
 <div class="math notranslate nohighlight">
 \[\bar{x}_n = g(S_{n-1}, x_n) = g(\bar{x}_{n-1}, x_n)  = \bar{x}_{n-1} + w\bigg(\frac{x_n - \bar{x}_{n-1}}{n}\bigg)\]</div>
-<p>where <span class="math notranslate nohighlight">\(n\)</span> is the current number of data samples (count), including the incoming data, <span class="math notranslate nohighlight">\(\bar{x}_n\)</span> is the updated mean, <span class="math notranslate nohighlight">\(\bar{x}_{n-1}\)</span> is the mean of the previous data and <span class="math notranslate nohighlight">\(w\)</span> is the weight of the incoming data chunk (the number of time stamps). In the case where the incoming data has more than one time step, so <span class="math notranslate nohighlight">\(w &gt; 1\)</span>, <span class="math notranslate nohighlight">\(x_n\)</span> is the temporal mean over the incoming data computed with numpy.</p>
+<p>where <span class="math notranslate nohighlight">\(n\)</span> is the current number of data samples or time steps (count) that have been passed, including the incoming data, <span class="math notranslate nohighlight">\(\bar{x}_n\)</span> is the updated mean, <span class="math notranslate nohighlight">\(\bar{x}_{n-1}\)</span> is the mean of the previous data and <span class="math notranslate nohighlight">\(w\)</span> is the weight of the incoming data chunk (the number of time stamps). In the case where the incoming data has more than one time step, so <span class="math notranslate nohighlight">\(w &gt; 1\)</span>, <span class="math notranslate nohighlight">\(x_n\)</span> is the temporal mean over the incoming data computed with numpy.</p>
 </section>
 <section id="variance">
 <h3>Variance<a class="headerlink" href="#variance" title="Permalink to this heading">¶</a></h3>
@@ -89,7 +93,7 @@
 <p>In the case where the incoming data has more than one time step (<span class="math notranslate nohighlight">\(w &gt; 1\)</span>), <span class="math notranslate nohighlight">\(M_{2,n}\)</span> is updated by</p>
 <div class="math notranslate nohighlight">
 \[M_{2,n} = M_{2,n-w} + M_{2,w} + \frac{\sqrt{(\bar{x}_{n-w} - \bar{x}_{w})} (w(n-w))}{n}\]</div>
-<p>where <span class="math notranslate nohighlight">\(M_{2,n-w}\)</span> is sum of the squared differences of the previously seen data, <span class="math notranslate nohighlight">\(M_{2,w}\)</span> is the sum of the squared differences over the incoming data block (of weight <span class="math notranslate nohighlight">\(w\)</span> and <span class="math notranslate nohighlight">\(\bar{x}_{n-w}\)</span> and <span class="math notranslate nohighlight">\(\bar{x}_{w}\)</span> are the means over those same periods respectively. See <a class="reference external" href="https://www.sciencedirect.com/science/article/abs/pii/S0167865521000520">S. Mastelini</a> for details.</p>
+<p>where <span class="math notranslate nohighlight">\(M_{2,n-w}\)</span> is sum of the squared differences of the previously seen data, <span class="math notranslate nohighlight">\(M_{2,w}\)</span> is the sum of the squared differences over the incoming data block (of weight <span class="math notranslate nohighlight">\(w\)</span>) and <span class="math notranslate nohighlight">\(\bar{x}_{n-w}\)</span> and <span class="math notranslate nohighlight">\(\bar{x}_{w}\)</span> are the means over those same periods respectively. See <a class="reference external" href="https://www.sciencedirect.com/science/article/abs/pii/S0167865521000520">S. Mastelini</a> for details.</p>
 </section>
 <section id="standard-deviation">
 <h3>Standard Deviation<a class="headerlink" href="#standard-deviation" title="Permalink to this heading">¶</a></h3>
@@ -111,14 +115,14 @@
 </section>
 <section id="threshold-exceedance">
 <h3>Threshold Exceedance<a class="headerlink" href="#threshold-exceedance" title="Permalink to this heading">¶</a></h3>
-<p>The threshold exceedance statistic (written as <code class="docutils literal notranslate"><span class="pre">&quot;threshold_exceed&quot;</span></code>) requires a vale for the key:value pair <code class="docutils literal notranslate"><span class="pre">threshold_exceed:</span> <span class="pre">some_value</span></code>, where <code class="docutils literal notranslate"><span class="pre">some_value</span></code> is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded along with the time stamps that exceedance occured. It is calcuated by:</p>
+<p>The threshold exceedance statistic (written as <code class="docutils literal notranslate"><span class="pre">&quot;threshold_exceed&quot;</span></code>) requires a value for the key:value pair <code class="docutils literal notranslate"><span class="pre">threshold_exceed:</span> <span class="pre">some_value</span></code>, where <code class="docutils literal notranslate"><span class="pre">some_value</span></code> is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded along with the time stamps that exceedance occured. It is calcuated by:</p>
 <div class="math notranslate nohighlight">
 \[\textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n &gt; \textrm{threshold_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1\]</div>
 <p>The corresponding xArray output with have two data variables, one for frequency of exceedance and one containg the timestamps over which this occured.</p>
 </section>
 <section id="percentile">
 <h3>Percentile<a class="headerlink" href="#percentile" title="Permalink to this heading">¶</a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">&quot;percentile&quot;</span></code> statistic requires the key:value pair <code class="docutils literal notranslate"><span class="pre">&quot;percentile_list&quot;</span> <span class="pre">:</span> <span class="pre">[0.2,</span> <span class="pre">0.5]</span></code> where the list contains the requested percentiles between the values of <code class="docutils literal notranslate"><span class="pre">[0,1]</span></code>. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from [0,1], put [“all”]. The number of variables in the produced dataSet will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 100 variables, one for each percentile. This statistic makes use of the <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2665963820300403">T-Digest algorithm</a> using the <a class="reference external" href="https://github.com/protivinsky/pytdigest/tree/main">python implementation</a>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">&quot;percentile&quot;</span></code> statistic requires a value for the key:value pair <code class="docutils literal notranslate"><span class="pre">&quot;percentile_list&quot;</span> <span class="pre">:</span> <span class="pre">[0.2,</span> <span class="pre">0.5]</span></code> where the list contains the requested percentiles between the values of <code class="docutils literal notranslate"><span class="pre">[0,1]</span></code>. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from <code class="docutils literal notranslate"><span class="pre">[0,1]</span></code>, put <code class="docutils literal notranslate"><span class="pre">[&quot;all&quot;]</span></code>, including the brackets <code class="docutils literal notranslate"><span class="pre">[]</span></code>. The number of variables in the produced dataSet will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 101 variables, one for each percentile including 0 and 1. This statistic makes use of the <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2665963820300403">T-Digest algorithm</a> using the <a class="reference external" href="https://github.com/protivinsky/pytdigest/tree/main">python implementation</a>.</p>
 </section>
 <section id="raw">
 <h3>Raw<a class="headerlink" href="#raw" title="Permalink to this heading">¶</a></h3>
@@ -126,7 +130,17 @@
 </section>
 <section id="bias-correction">
 <h3>Bias-Correction<a class="headerlink" href="#bias-correction" title="Permalink to this heading">¶</a></h3>
-<p>Another layer to the one-pass library is the bias-correction. This seperate package will bias-correct the incoming climate data on the fly.</p>
+<p>Another layer to the one-pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set <code class="docutils literal notranslate"><span class="pre">&quot;stat&quot;</span> <span class="pre">:</span> <span class="pre">&quot;bias_correction&quot;</span></code> you will recieve three outputs, as opposed to just one.</p>
+<ol class="arabic simple">
+<li><p>Daily aggregations of the incoming data (either daily means or summations depending on the variable) as netCDF</p></li>
+<li><p>The raw daily data as netCDF</p></li>
+<li><p>A pickle file containing tDigest objects. There will be one file for each month, and the digests will be udpated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the years the model has convered.</p></li>
+</ol>
+<p>When using this statistic, make sure to set <code class="docutils literal notranslate"><span class="pre">&quot;stat_freq&quot;</span> <span class="pre">:</span> <span class="pre">&quot;daily&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;output_freq&quot;</span> <span class="pre">:</span> <span class="pre">&quot;daily&quot;</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The bias-correction statistic has been created specifically to pass data to the bias_correction package. It does not provide bias corrected data itself.</p>
+</div>
 </section>
 </section>
 <section id="frequncies">
@@ -134,10 +148,10 @@
 <section id="statistic-frequency">
 <h3>Statistic Frequency<a class="headerlink" href="#statistic-frequency" title="Permalink to this heading">¶</a></h3>
 <p>The statistic frequency (written as <code class="docutils literal notranslate"><span class="pre">&quot;stat_freq&quot;</span></code>) can take the following options:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span>&quot;hourly&quot;, &quot;3hourly&quot;, &quot;6hourly&quot;, &quot;12hourly&quot;, &quot;daily&quot;, &quot;weekly&quot;, &quot;monthly&quot;, &quot;3monthly&quot;, &quot;annually&quot;, &quot;continuous&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;hourly&quot;</span><span class="p">,</span> <span class="s2">&quot;3hourly&quot;</span><span class="p">,</span> <span class="s2">&quot;6hourly&quot;</span><span class="p">,</span> <span class="s2">&quot;12hourly&quot;</span><span class="p">,</span> <span class="s2">&quot;daily&quot;</span><span class="p">,</span> <span class="s2">&quot;weekly&quot;</span><span class="p">,</span> <span class="s2">&quot;monthly&quot;</span><span class="p">,</span> <span class="s2">&quot;3monthly&quot;</span><span class="p">,</span> <span class="s2">&quot;annually&quot;</span><span class="p">,</span> <span class="s2">&quot;continuous&quot;</span>
 </pre></div>
 </div>
-<p>Each option defines the period over which you would like the statistic computed. <strong>Be careful about spelling, it matters.</strong> For the frequencies <code class="docutils literal notranslate"><span class="pre">&quot;weekly&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;monthly&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;annually&quot;</span></code>, the one_pass package uses the gregorian calendar, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;annually&quot;</span></code> will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. For <code class="docutils literal notranslate"><span class="pre">&quot;monthly&quot;</span></code> leap years are included. <code class="docutils literal notranslate"><span class="pre">&quot;weekly&quot;</span></code> will run from Monday - Sunday.</p>
+<p>Each option defines the period over which you would like the statistic computed. For the frequencies <code class="docutils literal notranslate"><span class="pre">&quot;weekly&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;monthly&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;annually&quot;</span></code>, the one_pass package uses the gregorian calendar, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;annually&quot;</span></code> will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. For <code class="docutils literal notranslate"><span class="pre">&quot;monthly&quot;</span></code> leap years are included. <code class="docutils literal notranslate"><span class="pre">&quot;weekly&quot;</span></code> will run from Monday - Sunday.</p>
 <p>The option of <code class="docutils literal notranslate"><span class="pre">&quot;continuous&quot;</span></code>, will start from the first piece of data that is provided and will continously update the statistic as new data is provided.</p>
 </section>
 <section id="output-frequency">

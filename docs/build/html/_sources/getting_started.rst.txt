@@ -29,6 +29,19 @@ After importing the library only two lines of python code are required to run
    dm = opa_stat.compute(data) # pass some data to compute 
 
 
-Above, all the details of the requested statistic are given by the config.yml file, explained in :doc:`the_config_file`. The incoming :``data`` is an `xArray <https://docs.xarray.dev/en/stable/>`__ object containing some climate data over the given (structured or unstructured) grid a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa. Once sufficient data has been passed to the Opa, ``dm`` will return the output of the summary statistic. For detailed examples and tutorials, refer to the :doc:`examples_tutorials` section which contain example Jupyter notebooks. 
+Above, all the details of the requested statistic are given by the config.yml file, explained in :doc:`the_config_file`. The incoming ``data`` is an `xArray <https://docs.xarray.dev/en/stable/>`__ object containing some climate data over a given (structured or unstructured) grid and a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa class. Once sufficient data has been passed to the Opa class (enough to complete the requested statistic), ``dm`` will return the output of the summary statistic. For detailed examples and tutorials, refer to the :doc:`examples_tutorials` section which contain example Jupyter notebooks. 
 
+A note on the Output
+-----------------------
 
+The output, ``dm`` written above, will be an xr.dataSet. The dimensions will the same as the original dimensions of the input data, apart from the time dimension. The length of time dimension will be one, unless you set ``output_freq`` greater than ``stat_freq``. See the :doc:`the_config_file` for details. 
+
+The timestamp on the time dimension will correspond to the time stamp of the first piece of data that contributed to that statistic. 
+
+All of the original metaData included in the dataSet will be present in the final dataSet with a new attribute corresponding to details of the one pass algorithm. There will only be one variable in the final dataSet, as the one_pass only processes one variable at a time. The name of the variable will be unchanged. 
+
+.. note:: 
+
+   There is currently a problem with GRIB variable names that start with a number, as when saving they are saved with a / in front. This issue is being worked on. 
+
+The final output from the one_pass will only be passed when sufficient data has been streamed to the Opa class to complete the statistic. If you do not set ``"save" : True`` then this will only be output in memory and will be over written as new data is passed. 
