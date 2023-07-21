@@ -378,9 +378,9 @@ class Opa:
         # list of dictionaries for each grid cell, preserves order 
         digest_list = [dict() for x in range(self.array_length)] 
 
-        for j in tqdm.tqdm(range(self.array_length)):
+        for j in (range(self.array_length)):
             # initalising digests and adding to list
-            digest_list[j] = TDigest(compression = 15) 
+            digest_list[j] = TDigest(compression = 25) 
 
         self.__setattr__(str(self.stat + "_cum"), digest_list)  
             
@@ -1230,17 +1230,19 @@ class Opa:
         if(weight > 1):
 
             ds = xr.where(ds < abs(self.thresh_exceed), 0, 1)
-            #try slower np version that preserves dimensions
-            ds = np.sum(ds, axis = 0, keepdims = True) 
-            
+             #try slower np version that preserves dimensions
+            ds = np.sum(ds, axis = 0, keepdims = True)
             ds = self.thresh_exceed_cum + ds
 
         else:
             if(self.count > 0):
                 self.thresh_exceed_cum['time'] = ds.time
 
-            ds = xr.where(ds < abs(self.thresh_exceed), self.thresh_exceed_cum + 1)
-            ds = xr.where(ds >= abs(self.thresh_exceed), self.thresh_exceed_cum)
+            # need seperate else statment for dimensions
+            ds = xr.where(
+                ds < abs(self.thresh_exceed), self.thresh_exceed_cum, 
+                self.thresh_exceed_cum + 1
+            )
 
         self.count = self.count + weight
         self.thresh_exceed_cum = ds 
@@ -1271,13 +1273,13 @@ class Opa:
                 ds_values = np.reshape(ds.values, self.array_length) 
                     
             # this is looping through every grid cell using crick or pytdigest
-            for j in tqdm.tqdm(range(self.array_length)): 
+            for j in (range(self.array_length)): 
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(ds_values[j])
 
         else: 
             ds_values = ds.values.reshape((weight, -1))
 
-            for j in tqdm.tqdm(range(self.array_length)):
+            for j in (range(self.array_length)):
                 # using crick or pytdigest
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(ds_values[:, j])
 
@@ -1336,7 +1338,7 @@ class Opa:
         them picklable """
 
         self.bias_correction_cum = np.transpose(self.bias_correction_cum)
-        for j in tqdm.tqdm(range(self.array_length)):
+        for j in (range(self.array_length)):
             self.bias_correction_cum[j] = PicklableTDigest(
                 self.__getattribute__(str(self.stat + "_cum"))[j]
             )
@@ -1549,7 +1551,7 @@ class Opa:
                
         if(self.stat == "percentile"):
     
-            for j in tqdm.tqdm(range(self.array_length)):
+            for j in (range(self.array_length)): #tqdm.tqdm
                 self.percentile_cum[j] = PicklableTDigest(
                     self.__getattribute__(str(self.stat + "_cum"))[j]
                 )

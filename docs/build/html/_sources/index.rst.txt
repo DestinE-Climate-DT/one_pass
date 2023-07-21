@@ -21,7 +21,6 @@ Welcome to one_pass's documentation!
    the_config_file
    tests
    examples_tutorials
-   api_reference
    contributing
    references_acknowledgements
 

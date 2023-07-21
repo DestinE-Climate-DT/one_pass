@@ -38,7 +38,7 @@
 <p>As discussed in <a class="reference internal" href="getting_started.html"><span class="doc">Getting started</span></a>, all of the one_pass configuration is set by a seperate configuration file, called config.yml. In this file you provide the details of the statistic you would like. The config.yml looks like:</p>
 <div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span>stat: &quot;mean&quot;
 percentile_list: None
-threshold_exceed: None
+thresh_exceed: None
 stat_freq: &quot;daily&quot;
 output_freq: &quot;daily&quot;
 time_step: 60
@@ -53,7 +53,7 @@ out_filepath: &quot;/file/path/to/save/&quot;
 <p>The same information can also be passed directly in python as a dictionary:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pass_dic</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stat&quot;</span> <span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
 <span class="s2">&quot;percentile_list&quot;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-<span class="s2">&quot;threshold_exceed&quot;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+<span class="s2">&quot;thresh_exceed&quot;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
 <span class="s2">&quot;stat_freq&quot;</span><span class="p">:</span> <span class="s2">&quot;daily&quot;</span><span class="p">,</span>
 <span class="s2">&quot;output_freq&quot;</span><span class="p">:</span> <span class="s2">&quot;daily&quot;</span><span class="p">,</span>
 <span class="s2">&quot;time_step&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
@@ -72,7 +72,7 @@ out_filepath: &quot;/file/path/to/save/&quot;
 <section id="statistics">
 <h2>Statistics<a class="headerlink" href="#statistics" title="Permalink to this heading">¶</a></h2>
 <p>The one_pass package supports the following options for <code class="docutils literal notranslate"><span class="pre">stat</span></code> :</p>
-<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;mean&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;std&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;var&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;threshold_exceed&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;percentile&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bias_correction&quot;</span>
+<div class="highlight-JSON notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;mean&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;std&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;var&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;thresh_exceed&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;percentile&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;raw&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bias_correction&quot;</span>
 </pre></div>
 </div>
 <section id="mean">
@@ -115,10 +115,10 @@ out_filepath: &quot;/file/path/to/save/&quot;
 </section>
 <section id="threshold-exceedance">
 <h3>Threshold Exceedance<a class="headerlink" href="#threshold-exceedance" title="Permalink to this heading">¶</a></h3>
-<p>The threshold exceedance statistic (written as <code class="docutils literal notranslate"><span class="pre">&quot;threshold_exceed&quot;</span></code>) requires a value for the key:value pair <code class="docutils literal notranslate"><span class="pre">threshold_exceed:</span> <span class="pre">some_value</span></code>, where <code class="docutils literal notranslate"><span class="pre">some_value</span></code> is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded along with the time stamps that exceedance occured. It is calcuated by:</p>
+<p>The threshold exceedance statistic (written as <code class="docutils literal notranslate"><span class="pre">&quot;stat&quot;</span> <span class="pre">:</span> <span class="pre">&quot;thresh_exceed&quot;</span></code>) requires a value for the key:value pair <code class="docutils literal notranslate"><span class="pre">thresh_exceed:</span> <span class="pre">some_value</span></code>, where <code class="docutils literal notranslate"><span class="pre">some_value</span></code> is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calcuated by:</p>
 <div class="math notranslate nohighlight">
-\[\textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n &gt; \textrm{threshold_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1\]</div>
-<p>The corresponding xArray output with have two data variables, one for frequency of exceedance and one containg the timestamps over which this occured.</p>
+\[\textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n &gt; \textrm{thresh_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1\]</div>
+<p>The variable in the final xr.dataSet output now corresponds to the number of times the data exceeded the threshold.</p>
 </section>
 <section id="percentile">
 <h3>Percentile<a class="headerlink" href="#percentile" title="Permalink to this heading">¶</a></h3>
@@ -237,7 +237,6 @@ out_filepath: &quot;/file/path/to/save/&quot;
 </li>
 <li class="toctree-l1"><a class="reference internal" href="tests.html">Tests</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples_tutorials.html">Examples and Tutorials</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to one_pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references_acknowledgements.html">References and Acknowledgements</a></li>
 </ul>

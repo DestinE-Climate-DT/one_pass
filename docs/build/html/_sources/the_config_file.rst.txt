@@ -7,7 +7,7 @@ As discussed in :doc:`getting_started`, all of the one_pass configuration is set
 
    stat: "mean"
    percentile_list: None
-   threshold_exceed: None
+   thresh_exceed: None
    stat_freq: "daily"
    output_freq: "daily"
    time_step: 60 
@@ -25,7 +25,7 @@ The same information can also be passed directly in python as a dictionary:
 
    pass_dic = {"stat" : "mean",
    "percentile_list" : None,
-   "threshold_exceed" : None,
+   "thresh_exceed" : None,
    "stat_freq": "daily",
    "output_freq": "daily",
    "time_step": 60,
@@ -48,7 +48,7 @@ The one_pass package supports the following options for ``stat`` :
 
 .. code-block:: JSON
    
-   "mean", "std", "var", "threshold_exceed", "min", "max", "percentile", "raw", "bias_correction"
+   "mean", "std", "var", "thresh_exceed", "min", "max", "percentile", "raw", "bias_correction"
 
 Mean
 ^^^^^^^^^^^
@@ -118,13 +118,13 @@ The maximum value (written as ``"max"``) is given by:
 Threshold Exceedance 
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The threshold exceedance statistic (written as ``"threshold_exceed"``) requires a value for the key:value pair ``threshold_exceed: some_value``, where ``some_value`` is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded along with the time stamps that exceedance occured. It is calcuated by: 
+The threshold exceedance statistic (written as ``"stat" : "thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: some_value``, where ``some_value`` is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calcuated by: 
 
 .. math:: 
 
-  \textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n > \textrm{threshold_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1
+  \textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n > \textrm{thresh_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1
 
-The corresponding xArray output with have two data variables, one for frequency of exceedance and one containg the timestamps over which this occured. 
+The variable in the final xr.dataSet output now corresponds to the number of times the data exceeded the threshold.
 
 Percentile
 ^^^^^^^^^^^^^
