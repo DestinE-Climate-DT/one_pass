@@ -1,11 +1,11 @@
-stat: "bias_correction"
+stat: "mean"
 percentile_list : None,
-threshold_exceed : None,
+thresh_exceed : None,
 stat_freq: "daily"
 output_freq: "daily"
 time_step: 60 # timestep of data in minutes
 param: "uas"
 save: True
 checkpoint: True
-checkpoint_filepath: "/home/bsc32/bsc32263/git/data/"
-out_filepath: "/home/bsc32/bsc32263/git/data/"
+checkpoint_filepath: "/file/path/to/checkpoint/"
+out_filepath: "/file/path/to/save/"

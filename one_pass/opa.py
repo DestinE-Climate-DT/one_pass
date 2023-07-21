@@ -1966,7 +1966,7 @@ class Opa:
 
         return how_much_left
     
-    def _full_continuous_data(self, ds, final_time_file_str,how_much_left, weight):
+    def _full_continuous_data(self, ds, how_much_left, weight):
         
         """
         Called when n_data = count but the stat_freq = continuous. So saving 
@@ -2020,7 +2020,7 @@ class Opa:
 
         if (self.count == self.n_data and self.stat_freq == "continuous"):
 
-            dm = self._full_continuous_data(ds, final_time_file_str)
+            dm = self._full_continuous_data(ds, how_much_left, weight)
 
             return dm 
 
