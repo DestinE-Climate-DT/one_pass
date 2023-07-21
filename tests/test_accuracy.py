@@ -13,9 +13,6 @@ sys.path.append(path)
 os.chdir(path)
 
 from one_pass.opa import Opa
-from one_pass.convert_time import convert_time
-from one_pass.check_stat import check_stat
-from one_pass import util
 
 ############### load data ##################################
 
@@ -136,7 +133,7 @@ def test_mean():
     "stat_freq": "12hourly",
     "output_freq": "12hourly",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -166,7 +163,7 @@ def test_std():
     "stat_freq": "daily",
     "output_freq": "daily",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -195,7 +192,7 @@ def test_var():
     "stat_freq": "weekly",
     "output_freq": "weekly",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -222,7 +219,7 @@ def test_max():
     "stat_freq": "6hourly",
     "output_freq": "6hourly",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -249,7 +246,7 @@ def test_min():
     "stat_freq": "monthly",
     "output_freq": "monthly",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -277,7 +274,7 @@ def test_min_hourly():
     "stat_freq": "hourly",
     "output_freq": "hourly",
     "percentile_list" : None,
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,
@@ -304,7 +301,7 @@ def test_percentile_daily():
     "stat_freq": "daily",
     "output_freq": "daily",
     "percentile_list" : ["all"],
-    "threshold_exceed" : None,
+    "thresh_exceed" : None,
     "time_step": 60,
     "variable": "uas",
     "save": False,

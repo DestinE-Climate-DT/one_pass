@@ -9,9 +9,7 @@ path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(path)
 os.chdir(path)
 
-from one_pass.opa import *
 from one_pass.opa import Opa
-
 
 """ 
 Script to test the config file 
@@ -19,8 +17,6 @@ Make sure all the required key value pairs are there
 Make sure the correction settings are flagged 
 
 """
-
-
 
 #### reading some data from disk on nord3 #### 
 file_path_data = os.path.realpath(
@@ -39,7 +35,7 @@ def missing_stat(data):
     pass_dic = {"stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -61,7 +57,7 @@ def missing_stat_freq(data):
     pass_dic = {"stat": "mean",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -84,7 +80,7 @@ def missing_output_freq(data):
     pass_dic = {"stat": "mean",
         "stat_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -106,7 +102,7 @@ def missing_percentile_list(data):
     pass_dic = {"stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -151,7 +147,7 @@ def missing_time_step(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "variable": "uas",
         "save": True,
         "checkpoint": True,
@@ -173,7 +169,7 @@ def missing_variable(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "save": True,
         "checkpoint": True,
@@ -196,7 +192,7 @@ def missing_save(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable" : "uas",
         "checkpoint": True,
@@ -219,7 +215,7 @@ def missing_checkpoint(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable" : "uas",
         "save": True,
@@ -242,7 +238,7 @@ def missing_checkpoint_filepath(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable" : "uas",
         "save": True,
@@ -265,7 +261,7 @@ def missing_out_filepath(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable" : "uas",
         "save": True,
@@ -287,7 +283,7 @@ def wrong_continuous_setting(data):
         "stat_freq": "continuous",
         "output_freq": "continuous",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable" : "uas",
         "save": True,
@@ -310,7 +306,7 @@ def incorrect_freq(data):
         "stat_freq": "daily",
         "output_freq": "wrong_freq",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -333,7 +329,7 @@ def incorrect_stat(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -355,7 +351,7 @@ def no_checkpointfile(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -378,7 +374,7 @@ def wrong_checkpointfile(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -401,7 +397,7 @@ def daily_stat_for_bc(data):
         "stat_freq": "monthly",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -424,7 +420,7 @@ def daily_output_for_bc(data):
         "stat_freq": "daily",
         "output_freq": "weekly",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,

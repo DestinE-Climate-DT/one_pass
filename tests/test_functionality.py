@@ -9,7 +9,6 @@ path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(path)
 os.chdir(path)
 
-from one_pass.opa import *
 from one_pass.opa import Opa
 
 
@@ -61,7 +60,7 @@ def lower_output(data):
         "stat_freq": "daily",
         "output_freq": "3hourly",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
@@ -84,7 +83,7 @@ def bad_timestep(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 37.3,
         "variable": "uas",
         "save": True,
@@ -108,7 +107,7 @@ def check_attributes(data):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "es",
         "save": True,
@@ -132,7 +131,7 @@ def outputs_for_bc(data, file_path):
         "stat_freq": "daily",
         "output_freq": "daily",
         "percentile_list" : None,
-        "threshold_exceed" : None,
+        "thresh_exceed" : None,
         "time_step": 60,
         "variable": "uas",
         "save": True,
