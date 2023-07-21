@@ -131,6 +131,8 @@ Percentile
 
 The ``"percentile"`` statistic requires a value for the key:value pair ``"percentile_list" : [0.2, 0.5]`` where the list contains the requested percentiles between the values of ``[0,1]``. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from ``[0,1]``, put ``["all"]``, including the brackets ``[]``. The number of variables in the produced dataSet will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 101 variables, one for each percentile including 0 and 1. This statistic makes use of the `T-Digest algorithm <https://www.sciencedirect.com/science/article/pii/S2665963820300403>`__ using the `python implementation <https://github.com/protivinsky/pytdigest/tree/main>`__. 
 
+Currently for the TDigests we have set a compression parameter at 25 (reduced from the default of 100), as we have to consider memory contraints. This value needs optimising. 
+
 Raw
 ^^^^^^^^^^
 

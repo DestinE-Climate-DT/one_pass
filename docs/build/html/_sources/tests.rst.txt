@@ -26,4 +26,4 @@ This will run all of the tests. To simply run one of the tests, run:
    
    pytest test_accuracy.py
  
-The tests cover the accuracy of all the implemented statistics, over different temporal periods and with different time length chunks. They cover functionality, error handeling and checks on the config file. 
+The tests cover the accuracy of all the implemented statistics, over different temporal periods and with different time length chunks. They also cover functionality, error handeling and checks on the config file. 

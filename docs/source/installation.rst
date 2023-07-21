@@ -67,7 +67,7 @@ When working on some HPC platforms it is not possible to directly use python con
 
    docker run --rm -ti one_pass:latest /bin/bash
 
- If you don't have permissions, add ``sudo`` to the beginning of the line. This will create your docker image. 
+If you don't have permissions, add ``sudo`` to the beginning of the line. This will create your docker image. 
 
 3. To enter the docker image run 
   
@@ -75,7 +75,7 @@ When working on some HPC platforms it is not possible to directly use python con
    
    docker run --rm -ti one_pass:latest /bin/bash
 
-  Again, if you don't have permissions, ``sudo`` to the beginning of the line. You are now running your Docker container with the environment ``(env_opa)``. To exit the container use ctrl + d.  
+Again, if you don't have permissions, ``sudo`` to the beginning of the line. You are now running your Docker container with the environment ``(env_opa)``. To exit the container use ctrl + d.  
 
 4. The next step is to create a singularity container so that you can move this docker image to any HPC system. To create the singularity file (you must have singularity installed on your local machine) run: 
 
@@ -95,7 +95,7 @@ When working on some HPC platforms it is not possible to directly use python con
 
    source /usr/local/bin/_activate_current_env.sh
 
-  You now have your singularity container containing the one_pass environment that can be passed to any HPC machine. 
+You now have your singularity container containing the one_pass environment that can be passed to any HPC machine. 
 
 7. To copy the singularity container to LUMI you can run: 
 
@@ -103,7 +103,7 @@ When working on some HPC platforms it is not possible to directly use python con
   
    scp -r one_pass_singularity.sif lumi:.
 
-  This will pass your singularity container to LUMI (or any other machine you want). You can then enter the singularity container using step 7 and 8 above. 
+This will pass your singularity container to LUMI (or any other machine you want). You can then enter the singularity container using step 7 and 8 above. 
 
 Installing environment using containers
 --------------------------------------------

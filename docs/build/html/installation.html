@@ -81,19 +81,17 @@
 <li><p>First clone the git reposity to your local machine and navigate into the root directory.</p></li>
 <li><p>Create the docker image using the command</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>  docker run --rm -ti one_pass:latest /bin/bash
-
-If you don&#39;t have permissions, add ``sudo`` to the beginning of the line. This will create your docker image.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-ti<span class="w"> </span>one_pass:latest<span class="w"> </span>/bin/bash
 </pre></div>
 </div>
+<p>If you don’t have permissions, add <code class="docutils literal notranslate"><span class="pre">sudo</span></code> to the beginning of the line. This will create your docker image.</p>
 <ol class="arabic simple" start="3">
 <li><p>To enter the docker image run</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span> docker run --rm -ti one_pass:latest /bin/bash
-
-Again, if you don&#39;t have permissions, ``sudo`` to the beginning of the line. You are now running your Docker container with the environment ``(env_opa)``. To exit the container use ctrl + d.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-ti<span class="w"> </span>one_pass:latest<span class="w"> </span>/bin/bash
 </pre></div>
 </div>
+<p>Again, if you don’t have permissions, <code class="docutils literal notranslate"><span class="pre">sudo</span></code> to the beginning of the line. You are now running your Docker container with the environment <code class="docutils literal notranslate"><span class="pre">(env_opa)</span></code>. To exit the container use ctrl + d.</p>
 <ol class="arabic simple" start="4">
 <li><p>The next step is to create a singularity container so that you can move this docker image to any HPC system. To create the singularity file (you must have singularity installed on your local machine) run:</p></li>
 </ol>
@@ -109,19 +107,17 @@ Again, if you don&#39;t have permissions, ``sudo`` to the beginning of the line.
 <ol class="arabic simple" start="6">
 <li><p>Then to activate the environment:</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>/usr/local/bin/_activate_current_env.sh
-
-You<span class="w"> </span>now<span class="w"> </span>have<span class="w"> </span>your<span class="w"> </span>singularity<span class="w"> </span>container<span class="w"> </span>containing<span class="w"> </span>the<span class="w"> </span>one_pass<span class="w"> </span>environment<span class="w"> </span>that<span class="w"> </span>can<span class="w"> </span>be<span class="w"> </span>passed<span class="w"> </span>to<span class="w"> </span>any<span class="w"> </span>HPC<span class="w"> </span>machine.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/usr/local/bin/_activate_current_env.sh
 </pre></div>
 </div>
+<p>You now have your singularity container containing the one_pass environment that can be passed to any HPC machine.</p>
 <ol class="arabic simple" start="7">
 <li><p>To copy the singularity container to LUMI you can run:</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w"> </span>scp<span class="w"> </span>-r<span class="w"> </span>one_pass_singularity.sif<span class="w"> </span>lumi:.
-
-This<span class="w"> </span>will<span class="w"> </span>pass<span class="w"> </span>your<span class="w"> </span>singularity<span class="w"> </span>container<span class="w"> </span>to<span class="w"> </span>LUMI<span class="w"> </span><span class="o">(</span>or<span class="w"> </span>any<span class="w"> </span>other<span class="w"> </span>machine<span class="w"> </span>you<span class="w"> </span>want<span class="o">)</span>.<span class="w"> </span>You<span class="w"> </span>can<span class="w"> </span><span class="k">then</span><span class="w"> </span>enter<span class="w"> </span>the<span class="w"> </span>singularity<span class="w"> </span>container<span class="w"> </span>using<span class="w"> </span>step<span class="w"> </span><span class="m">7</span><span class="w"> </span>and<span class="w"> </span><span class="m">8</span><span class="w"> </span>above.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>scp<span class="w"> </span>-r<span class="w"> </span>one_pass_singularity.sif<span class="w"> </span>lumi:.
 </pre></div>
 </div>
+<p>This will pass your singularity container to LUMI (or any other machine you want). You can then enter the singularity container using step 7 and 8 above.</p>
 </section>
 <section id="installing-environment-using-containers">
 <h2>Installing environment using containers<a class="headerlink" href="#installing-environment-using-containers" title="Permalink to this heading">¶</a></h2>

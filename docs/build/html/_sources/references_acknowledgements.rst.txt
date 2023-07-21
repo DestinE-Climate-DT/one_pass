@@ -8,7 +8,7 @@ If you use the one_pass package in your research or publications, please cite us
 
 .. code-block:: bibtex
 
-   @software{AQUA,
+   @software{one_pass,
      author       = {Katherine Grayson, Stephan Thober, et al.},
      title        = {One-pass: intelligent data reduction techniques for streamed climate data},
      year         = {20XX},
@@ -21,6 +21,6 @@ If you use the one_pass package in your research or publications, please cite us
 Acknowledgments
 -------------------
 
-We would like to thank the contributors who have helped develop, test, and maintain this package, along with highly valued advice.  
+We would like to thank the many contributors who have helped develop, test, and maintain this package, along with their  highly valued advice.  
 
 Development of one_pass is supported by European Union Contract `DE_340_CSC - Destination Earth Programme Climate Adaptation Digital Twin (Climate DT)`.
