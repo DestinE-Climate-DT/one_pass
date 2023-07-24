@@ -10,4 +10,3 @@ TODO: Note that the second notebook "example_notebook_aqua_reader.ipynb" shows t
 
 TODO: Delete the example notebook for bias correction. 
 
-TODO: update the wrapper.py sript. 
