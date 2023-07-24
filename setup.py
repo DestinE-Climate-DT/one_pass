@@ -33,5 +33,7 @@ setup(name='one_pass',
         'netcdf4',
         'cytoolz',
         'tqdm',
+        'sphinx',
+        'sphinx-rtd-theme',
       ]
     )

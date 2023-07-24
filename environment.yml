@@ -11,5 +11,7 @@ dependencies:
   - netcdf4
   - cytoolz
   - tqdm
+  - sphinx
+  - sphinx-rtd-theme
   - pip:
     - pytdigest
