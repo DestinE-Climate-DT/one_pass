@@ -65,7 +65,7 @@ When working on some HPC platforms it is not possible to directly use python con
 
 .. code-block:: bash
 
-   docker run --rm -ti one_pass:latest /bin/bash
+   docker build -t one_pass:latest .
 
 If you don't have permissions, add ``sudo`` to the beginning of the line. This will create your docker image. 
 

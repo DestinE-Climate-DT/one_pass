@@ -978,7 +978,6 @@ class Opa:
         if (index > 1) and (proceed): 
             index = index - 1 
             
-            print(index, 'index')
             # chops data from where it needs to start 
             ds = ds.isel(time=slice(index, weight))
             weight = weight - index 
@@ -1517,7 +1516,7 @@ class Opa:
         
         end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to load dask')
-        
+  
         return 
     
     def _write_checkpoint(self):
