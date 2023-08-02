@@ -8,8 +8,9 @@ ENV ENV_NAME=env_opa
 
 # gcc because pytdigest is not picking up the wheel
 # git for deps installed with git...
-RUN micromamba env create -f one_pass/environment.yml -y &&\
-    micromamba install -y -n $ENV_NAME -c conda-forge gcc git && \
+    
+RUN micromamba env create -n $ENV_NAME -c conda-forge gcc vim git &&\
+    micromamba install -y -n $ENV_NAME -f one_pass/environment.yml &&\
     micromamba clean --all --yes
 
 WORKDIR /app/one_pass/
