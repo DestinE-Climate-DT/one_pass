@@ -5,9 +5,7 @@ import sys
 # making sure we're in the correct folder  
 path = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(path)
-os.chdir(path)
 
-from one_pass.opa import *
 from one_pass.opa import Opa
 
 def main():
@@ -16,12 +14,14 @@ def main():
     pass_dic = {"stat": "mean",
     "stat_freq": "daily",
     "output_freq": "daily",
+    "thresh_exceed" : None, 
+    "percentile_list", : None, 
     "time_step": 60,
     "variable": "uas",
     "save": True,
     "checkpoint": True,
-    "checkpoint_filepath": "/home/bsc32/bsc32263/git/data/",
-    "out_filepath": "/home/bsc32/bsc32263/git/data/"}
+    "checkpoint_filepath": "/path/to/checkpoint/data/",
+    "out_filepath": "/path/to/saved/data/"}
 
     ########### GSV Interface ################  
 

@@ -8,8 +8,8 @@ path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(path)
 os.chdir(path)
 
-from one_pass.opa import *
 from one_pass.opa import Opa
+from one_pass import convert_time
 
 #from one_pass.convert_time import convert_time
 

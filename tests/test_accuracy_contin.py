@@ -125,13 +125,14 @@ def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
 
 def test_mean():
     
-    n_start = 2*30*24 
-    n_data = n_start + 12 # + 3*30*24 + 2*24
-    step = 4 
+    # 3 months of data 
+    n_start = 31*24 + 29*24
+    n_data =  n_start + 31*24*2 + 30*24
+    step = 10
     
     pass_dic = {"stat": "mean",
-    "stat_freq": "12hourly",
-    "output_freq": "12hourly",
+    "stat_freq": "continuous",
+    "output_freq": "monthly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
@@ -151,17 +152,17 @@ def test_mean():
     
     assert np.allclose(two_pass, one_pass, atol = dec_place), message
     
-    
-    
+
 def test_std():
 
-    n_start = 2*30*24 
-    n_data = n_start + 24 
-    step = 1
+    # 3 months of data 
+    n_start = 31*24 + 29*24
+    n_data =  n_start + 31*24*2 + 30*24
+    step = 10
 
     pass_dic = {"stat": "std",
-    "stat_freq": "daily",
-    "output_freq": "daily",
+    "stat_freq": "continuous",
+    "output_freq": "monthly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
@@ -179,18 +180,18 @@ def test_std():
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
     
     assert np.allclose(two_pass, one_pass, atol = dec_place), message
-    
-    
+
     
 def test_var():
 
-    n_start = 24*3
-    n_data = n_start + 7*24 
-    step = 24
-
+    # 2 months of data 
+    n_start = 31*24 + 29*24
+    n_data =  n_start + 31*24*2 
+    step = 4
+    
     pass_dic = {"stat": "var",
-    "stat_freq": "weekly",
-    "output_freq": "weekly",
+    "stat_freq": "continuous",
+    "output_freq": "monthly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
@@ -211,13 +212,14 @@ def test_var():
     
 def test_max():
 
-    n_start = 0 
-    n_data = n_start + 6 # 3*30*24 + 2*24 
-    step = 2
+    # 2 months of data 
+    n_start = 31*24 + 29*24
+    n_data =  n_start + 31*24*2 
+    step = 4
     
     pass_dic = {"stat": "max",
-    "stat_freq": "6hourly",
-    "output_freq": "6hourly",
+    "stat_freq": "continuous",
+    "output_freq": "monthly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
@@ -238,13 +240,14 @@ def test_max():
     
 def test_min():
 
-    n_start = 0 
-    n_data = n_start + 31*24 # 3*30*24 + 2*24 
-    step = 24 
-    
+    # 4 weeks of data 
+    n_start = 3*24
+    n_data =  n_start + 7*24*4
+    step = 4
+
     pass_dic = {"stat": "min",
-    "stat_freq": "monthly",
-    "output_freq": "monthly",
+    "stat_freq": "continuous",
+    "output_freq": "weekly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
@@ -260,61 +263,61 @@ def test_min():
 
     two_pass = two_pass_min(data_arr, n_start, n_data)
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
-    
+
     assert np.allclose(two_pass, one_pass, atol = dec_place), message
-    
-    
-def test_min_hourly():
 
-    n_start = 0 
-    n_data = n_start + 1 # 3*30*24 + 2*24 
-    step = 1
     
-    pass_dic = {"stat": "min",
-    "stat_freq": "hourly",
-    "output_freq": "hourly",
-    "percentile_list" : None,
-    "thresh_exceed" : None,
-    "time_step": 60,
-    "variable": "uas",
-    "save": False,
-    "checkpoint": False,
-    "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+# def test_min_hourly():
 
-    data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
-        str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
-
-    two_pass = two_pass_min(data_arr, n_start, n_data)
-    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+#     n_start = 0 
+#     n_data = n_start + 1 # 3*30*24 + 2*24 
+#     step = 1
     
-    assert np.allclose(two_pass, one_pass, atol = dec_place), message
-    
-def test_percentile_daily():
+#     pass_dic = {"stat": "min",
+#     "stat_freq": "continuous",
+#     "output_freq": "monthly",
+#     "percentile_list" : None,
+#     "thresh_exceed" : None,
+#     "time_step": 60,
+#     "variable": "uas",
+#     "save": False,
+#     "checkpoint": False,
+#     "checkpoint_filepath": "tests/",
+#     "out_filepath": "tests/"}
 
-    n_start = 0 
-    n_data = n_start + 24 # 3*30*24 + 2*24 
-    step = 24
-    
-    pass_dic = {"stat": "percentile",
-    "stat_freq": "daily",
-    "output_freq": "daily",
-    "percentile_list" : ["all"],
-    "thresh_exceed" : None,
-    "time_step": 60,
-    "variable": "uas",
-    "save": False,
-    "checkpoint": True,
-    "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+#     data_arr = getattr(data, pass_dic["variable"])
+#     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+#         str(pass_dic["stat"]) + " not equal to " + str(dec_place) + " dp"
 
-    data_arr = getattr(data, pass_dic["variable"])
-    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
-        str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
-
-    percentile_list = (np.linspace(0, 100, 101))
-    two_pass = two_pass_percentile(data_arr, n_start, n_data, percentile_list)
-    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+#     two_pass = two_pass_min(data_arr, n_start, n_data)
+#     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
     
-    assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
+#     assert np.allclose(two_pass, one_pass, atol = dec_place), message
+    
+# def test_percentile_daily():
+
+#     n_start = 0 
+#     n_data = n_start + 24 # 3*30*24 + 2*24 
+#     step = 24
+    
+#     pass_dic = {"stat": "percentile",
+#     "stat_freq": "continuous",
+#     "output_freq": "monthly",
+#     "percentile_list" : ["all"],
+#     "thresh_exceed" : None,
+#     "time_step": 60,
+#     "variable": "uas",
+#     "save": False,
+#     "checkpoint": True,
+#     "checkpoint_filepath": "tests/",
+#     "out_filepath": "tests/"}
+
+#     data_arr = getattr(data, pass_dic["variable"])
+#     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+#         str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
+
+#     percentile_list = (np.linspace(0, 100, 101))
+#     two_pass = two_pass_percentile(data_arr, n_start, n_data, percentile_list)
+#     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    
+#     assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message

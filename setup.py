@@ -12,7 +12,7 @@ tests = [
 ]
 
 setup(name='one_pass',
-      version='0.3.5',
+      version='0.4.0',
       description='One Pass Algorithms',
       author='Katherine Grayson',
       author_email='katherine.grayson@bsc.es',
@@ -33,5 +33,7 @@ setup(name='one_pass',
         'netcdf4',
         'cytoolz',
         'tqdm',
+        'sphinx',
+        'sphinx-rtd-theme',
       ]
     )
