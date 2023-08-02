@@ -46,7 +46,7 @@ def convert_time(time_word = "daily", time_stamp_input = None):
         time_append
         """
 
-    #### first looking at requested stat freq #### 
+    #### first looking at requested stat freq ####
     if time_word not in times:
         valid_values = ", ".join(times.keys())
         raise ValueError(
@@ -77,7 +77,7 @@ def convert_time(time_word = "daily", time_stamp_input = None):
     # now looking at given time stamp 
     # converting everything into minutes 
     time_stamp_input_min = time_stamp_input.minute
-    time_stamp_input_hour = time_stamp_input.hour*60 
+    time_stamp_input_hour = time_stamp_input.hour*60
     time_stamp_input_day = (time_stamp_input.day-1)*24*60
     time_stamp_input_day_of_week = (time_stamp_input.day_of_week)*24*60
     time_stamp_input_month = (
@@ -112,7 +112,7 @@ def convert_time(time_word = "daily", time_stamp_input = None):
         else:
             time_stamp_min = time_stamp_input_min
         time_stamp_tot_append = time_stamp_input_hour
-        
+
 
     elif(time_word == "daily"):
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour

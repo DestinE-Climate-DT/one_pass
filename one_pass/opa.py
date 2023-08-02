@@ -478,7 +478,7 @@ class Opa:
         
         """
         self.count = 0
-        self.time_stamp = time_stamp
+        self.time_stamp = time_stamp 
 
         self._initialise_time(time_stamp_min, time_stamp_tot_append)
         self._initialise_attrs(ds)
@@ -955,7 +955,7 @@ class Opa:
 
                 elif(should_init_time):
                     self.count = 0
-                    self.time_stamp = time_stamp
+                    self.time_stamp = time_stamp 
                     self._initialise_time(time_stamp_min, time_stamp_tot_append)
 
             already_seen = self._check_have_seen(time_stamp_min) # checks count 
