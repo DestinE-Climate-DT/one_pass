@@ -9,7 +9,7 @@
 project = 'one_pass'
 copyright = '2023, Katherine Grayson'
 author = 'Katherine Grayson'
-release = '0.1'
+release = '0.4'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

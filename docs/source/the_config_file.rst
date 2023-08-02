@@ -114,15 +114,14 @@ The maximum value (written as ``"max"``) is given by:
 
    \textrm{max}_n = g(S_{n-1}, x_n) = g(\textrm{max}_{n-1}, x_n)  =\textrm{ if } (x_n < \textrm{max}_{n-1}) \textrm{ then }  \textrm{max}_{n-1} = x_n
 
-
 Threshold Exceedance 
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The threshold exceedance statistic (written as ``"stat" : "thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: some_value``, where ``some_value`` is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calcuated by: 
+The threshold exceedance statistic (written as ``"thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: some_value``, where ``some_value`` is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calcuated by: 
 
-.. math:: 
+.. math::
 
-  \textrm{exc}_n = g(S_{n-1}, x_n) = g(exc_{n-1}, x_n = \textrm{ if } (x_n > \textrm{thresh_exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1
+  \textrm{exc}_n = g(S_{n-1}, x_n) = g(\textrm{exc}_{n-1}, x_n) = \textrm{ if } (x_n > \textrm{thresh exceed}) = \textrm{exc}_{n-1} = \textrm{exc}_{n-1} + 1
 
 The variable in the final xr.dataSet output now corresponds to the number of times the data exceeded the threshold.
 

@@ -83,6 +83,8 @@ Again, if you don't have permissions, ``sudo`` to the beginning of the line. You
   
    singularity build one_pass_singularity.sif docker-daemon://one_pass:latest
 
+Again, if you don't have permissions add ``sudo`` at the beginning of the line.
+
 5. To enter the singularity container:
 
 .. code-block:: bash
@@ -103,7 +105,7 @@ You now have your singularity container containing the one_pass environment that
   
    scp -r one_pass_singularity.sif lumi:.
 
-This will pass your singularity container to LUMI (or any other machine you want). You can then enter the singularity container using step 7 and 8 above. 
+This will pass your singularity container to LUMI (or any other machine you want). You can then enter the singularity container using step 5 and 6 above. 
 
 Installing environment using containers
 --------------------------------------------

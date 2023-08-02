@@ -24,9 +24,4 @@ Welcome to one_pass's documentation!
    contributing
    references_acknowledgements
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
