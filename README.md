@@ -7,9 +7,7 @@ The one_pass algorithms will eventually work with climate data streamted from th
 The `one_pass` package is in a preliminary developement phase. Some features are still not implemented and you may encounter bugs. For feedback and issue reporting, feel free to open an issue in: https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/-/issues
  
 ## Installation
-As there is currently no package-based installation for the `one_pass` the source must be obtained.
-
-This can easily be done (on any platform with internet connection) by cloning the repository directly:
+As there is currently no package-based installation for the `one_pass` the source must be obtained. This can easily be done (on any platform with internet connection) by cloning the repository directly:
 
 ```
 git clone https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
@@ -20,9 +18,11 @@ conda activate env_opa
 ```
 In any platform without interent connection, we have provided installation instructions using Docker in the documentation. 
 
-### Documentation 
+## Documentation 
 
-All the information on how to install, configure and run the One_Pass package is given the documentation. To access the documentation you must clone the repo (see above), make sure you've activated the `env_opa` environment and 
+All the information on how to install, configure and run the one_pass package is given the documentation, found in the docs folder. Here you will find both a pdf version and the source code to build the online documentation. 
+
+ To build the online version of the documentation you must clone the repo (see above), make sure you've activated the `env_opa` environment and 
 
 ```
 cd docs/source
