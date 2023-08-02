@@ -984,6 +984,26 @@ class Opa:
             
         return ds, weight, already_seen, n_data_att_exist, time_stamp_list
 
+    def _update_continuous_count(self, weight):
+        
+        if (self.stat_freq == 'continuous'): 
+            self.count_continuous += weight
+            temp_count = self.count_continuous
+        else: 
+            temp_count = self.count
+            
+        return temp_count 
+    
+    def _remultiply_varience(self): 
+        
+        if(self.stat_freq == 'continuous'): 
+            if(self.count_continuous > 0):
+                if(self.count == 0):
+                    
+                    self.var_cum = self.var_cum*(self.count_continuous -1)
+                    
+        return 
+        
     def _check_variable(self, ds):
 
         """ 
@@ -1073,13 +1093,14 @@ class Opa:
         """ 
 
         self.count = self.count + weight
+        temp_count = self._update_continuous_count(weight)
         
         if (weight == 1):
-            mean_cum = self.mean_cum + weight*(ds - self.mean_cum) / (self.count) 
+            mean_cum = self.mean_cum + weight*(ds - self.mean_cum) / (temp_count) 
         else:
              # compute two pass mean first
             temp_mean = self._two_pass_mean(ds)
-            mean_cum = self.mean_cum + weight*(temp_mean - self.mean_cum) / (self.count) 
+            mean_cum = self.mean_cum + weight*(temp_mean - self.mean_cum) / (temp_count) 
 
         self.mean_cum = mean_cum.data
         
@@ -1092,6 +1113,9 @@ class Opa:
         of timesteps being added don't need to update count as that is done 
         in mean
         """ 
+        
+        self._remultiply_varience()
+        
         # storing 'old' mean temporarily
         old_mean = self.mean_cum  
 
@@ -1105,16 +1129,24 @@ class Opa:
             # two pass variance
             temp_var = (self._two_pass_var(ds))*(weight-1) 
             # see paper Mastelini. S
-            var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*(
-                (self.count*weight)/(self.count+weight)
-            )
+            if(self.stat_freq != 'continuous'):
+                var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*(
+                    (self.count*weight)/(self.count+weight)
+                )
+            else:
+                var_cum = self.var_cum + temp_var + np.square(old_mean - temp_mean)*(
+                    (self.count_continuous*weight)/(self.count_continuous+weight)
+                )
             
             self._update_mean(ds, weight)
             
         if (self.count == self.n_data):
             # using sample variance NOT population variance
-            var_cum = var_cum/(self.count - 1) 
-
+            if(self.stat_freq != 'continuous'):
+                var_cum = var_cum/(self.count - 1) 
+            else: 
+                var_cum = var_cum/(self.count_continuous - 1)
+                
         self.var_cum = var_cum.data
         
         return 
@@ -1134,6 +1166,23 @@ class Opa:
         
         return 
 
+    def _update_min_internal(self, ds, ds_time):
+        
+        """"
+        Function that updates the axis of attributes min_cum 
+        and timings and updates the array ds with any values
+        in min_cum that are smaller 
+        
+        """
+        self.min_cum['time'] = ds.time
+        self.timings['time'] = ds.time
+        ds_time = ds_time.where(ds < self.min_cum, self.timings)
+        # this gives the new self.min_cum number when the  condition is FALSE 
+        # (location at which to preserve the objects values)
+        ds = ds.where(ds < self.min_cum, self.min_cum)
+        
+        return ds, ds_time
+        
     def _update_min(self, ds, weight):
 
         """ 
@@ -1157,25 +1206,43 @@ class Opa:
             for i in range(0, weight):
                 timestamp = np.datetime_as_string((timings.values[i]))
                 ds_time = ds_time.where(min_index != i, timestamp)
-
-        if(self.count > 0):
-            self.min_cum['time'] = ds.time
-            self.timings['time'] = ds.time
-            ds_time = ds_time.where(ds < self.min_cum, self.timings)
-            # this gives the new self.min_cum number when the  condition is FALSE 
-            # (location at which to preserve the objects values)
-            ds = ds.where(ds < self.min_cum, self.min_cum)
+                
+        if(self.stat_freq != 'continuous'):
+            if(self.count > 0):
+                ds, ds_time = self._update_min_internal(ds, ds_time)
+        else:
+            if(self.count_continuous > 0):
+                ds, ds_time = self._update_min_internal(ds, ds_time)
 
         # convert to datetime64 for saving
         ds_time = ds_time.astype('datetime64[ns]') 
 
         self.count = self.count + weight
+        self._update_continuous_count(weight)
+
         #running this way around as Array type does not have the function .where,
         # this only works for data_array
         self.min_cum = ds 
         self.timings = ds_time
 
         return
+    
+    def _update_max_internal(self, ds, ds_time):
+        
+        """"
+        Function that updates the axis of attributes max_cum 
+        and timings and updates the array ds with any values
+        in max_cum that are larger
+        
+        """
+        self.max_cum['time'] = ds.time
+        self.timings['time'] = ds.time
+        ds_time = ds_time.where(ds > self.max_cum, self.timings)
+        # this gives the new self.max_cum number when the  condition is 
+        # FALSE (location at which to preserve the objects values)
+        ds = ds.where(ds > self.max_cum, self.max_cum)
+        
+        return ds, ds_time
 
     def _update_max(self, ds, weight):
 
@@ -1202,18 +1269,18 @@ class Opa:
                 timestamp = np.datetime_as_string((timings.values[i]))
                 ds_time = ds_time.where(max_index != i, timestamp)
 
-        if(self.count > 0):
-            self.max_cum['time'] = ds.time
-            self.timings['time'] = ds.time
-            ds_time = ds_time.where(ds > self.max_cum, self.timings)
-            # this gives the new self.max_cum number when the  condition is 
-            # FALSE (location at which to preserve the objects values)
-            ds = ds.where(ds > self.max_cum, self.max_cum)
+        if(self.stat_freq != 'continuous'):
+            if(self.count > 0):
+                ds, ds_time = self._update_max_internal(ds, ds_time)
+        else:
+            if(self.count_continuous > 0):
+                ds, ds_time = self._update_max_internal(ds, ds_time)
 
         # convert to datetime64 for saving
         ds_time = ds_time.astype('datetime64[ns]') 
 
         self.count = self.count + weight
+        self._update_continuous_count(weight)
         self.max_cum = ds 
         self.timings = ds_time
 
@@ -1244,6 +1311,7 @@ class Opa:
             )
 
         self.count = self.count + weight
+        self._update_continuous_count(weight)
         self.thresh_exceed_cum = ds 
 
         return
@@ -1284,7 +1352,8 @@ class Opa:
 
         if (self.stat != "bias_correction"):
             self.count = self.count + weight
-        
+            self._update_continuous_count(weight)
+
         return 
     
     def _update_raw_data(self, ds):
@@ -1978,7 +2047,6 @@ class Opa:
         dm, final_time_file_str = self._data_output(ds, time_word = self.output_freq)
         if(self.save == True):
             self._save_output(dm, final_time_file_str)
-        self.count_continuous = self.count_continuous + self.count
         
         # if there's more to compute - call before return 
         if (how_much_left < weight): 
