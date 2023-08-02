@@ -1,9 +1,8 @@
+""" OPA utility library"""
 import sys
-import yaml
-from typing import Dict
 from pathlib import Path
-
-
+import yaml
+#from typing import Dict
 
 def load_yaml(infile):
     """Load generic yaml file"""
@@ -34,11 +33,10 @@ def parse_request(user_request):
     dict
         Dictionary contian MARS request in pyfdb-readable format. 
     """
-    if isinstance(user_request, str) or isinstance(user_request, Path):
+    if isinstance(user_request, (Path,str)):
         user_request =  load_yaml(user_request)
     elif not isinstance(user_request, dict):
-        raise Exception(f"Could not extract request from type {type(user_request)}. Request must be parsed as Python Dict or from a YAML file.")
+        raise RuntimeError(f"Could not extract request from type {type(user_request)}. \
+                Request must be parsed as Python Dict or from a YAML file.")
 
     return user_request
-
-

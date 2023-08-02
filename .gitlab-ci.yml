@@ -1,7 +1,7 @@
 stages:
   - prepare
+  - lint
   - test
-  - clean
 
 prepare:
   tags:
@@ -12,11 +12,59 @@ prepare:
     expire_in: 20 minutes
   stage: prepare
   script:
-    - echo running on $HOST as $USER
     - python3.9 -m venv venv
     - source venv/bin/activate
+    - python3.9 -m pip install --upgrade pip
     - pip3.9 install -e .[all]
     - pip3.9 install pylint
+
+
+lint-opa:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/opa.py
+
+lint-check_stat:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/check_stat.py
+
+lint-util:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/util.py
+
+lint-convert_time:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/convert_time.py
+
+lint-init:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/__init__.py
+
+
 
 test:
   variables:
