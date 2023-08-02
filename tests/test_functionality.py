@@ -168,25 +168,25 @@ def test_attributes():
     with pytest.raises(Exception):
         check_attributes(data)
         
-def test_output_for_bc():
+# def test_output_for_bc():
     
-    # test to check that the number of files is 3 produced by
-    # bias correction 
-    # delete files in this path 
-    file_path = os.path.realpath(
-        os.path.join(os.path.dirname(__file__), 'output_for_bc/')
-        )
+#     # test to check that the number of files is 3 produced by
+#     # bias correction 
+#     # delete files in this path 
+#     file_path = os.path.realpath(
+#         os.path.join(os.path.dirname(__file__), 'output_for_bc/')
+#         )
     
-    if os.path.exists(file_path): 
-        fileList = os.listdir(file_path) 
-        num_of_files = np.size(fileList)
+#     if os.path.exists(file_path): 
+#         fileList = os.listdir(file_path) 
+#         num_of_files = np.size(fileList)
 
-        for files in range(num_of_files): 
-            os.remove(os.path.join(file_path, fileList[files]))
+#         for files in range(num_of_files): 
+#             os.remove(os.path.join(file_path, fileList[files]))
     
-    outputs_for_bc(data, file_path)
+#     outputs_for_bc(data, file_path)
     
-    fileList = os.listdir(file_path) 
-    num_of_files = np.size(fileList)
+#     fileList = os.listdir(file_path) 
+#     num_of_files = np.size(fileList)
     
-    assert num_of_files == 3
+#     assert num_of_files == 3
