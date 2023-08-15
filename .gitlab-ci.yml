@@ -28,14 +28,14 @@ lint-opa:
     - source venv/bin/activate
     - pylint one_pass/opa.py
 
-lint-check_stat:
+lint-check_request:
   allow_failure: true
   tags:
     - csccloud
   stage: lint
   script:
     - source venv/bin/activate
-    - pylint one_pass/check_stat.py
+    - pylint one_pass/check_request.py
 
 lint-util:
   allow_failure: true
