@@ -35,7 +35,7 @@ lint-check_stat:
   stage: lint
   script:
     - source venv/bin/activate
-    - pylint one_pass/check_stat.py
+    - pylint one_pass/check_request.py
 
 lint-util:
   allow_failure: true
