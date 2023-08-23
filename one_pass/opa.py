@@ -2,18 +2,17 @@ from typing import Dict
 import os 
 import sys
 import pickle 
+import time 
+import math 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask 
 import dask.array as da
-import time 
 from pytdigest import TDigest
 from numcodecs import Blosc
 import zarr 
-import time 
 import tqdm
-import math 
 
 from one_pass.convert_time import convert_time
 from one_pass.check_request import check_request 
@@ -1328,7 +1327,7 @@ class Opa:
         
         if(weight == 1):
             
-            #TODO: check you need the differnence with bias_correction 
+            #TODO: check if you need the difference with bias_correction
             if(self.stat == "bias_correction"):
                 if hasattr(self.mean_cum, "chunks"):
                     ds = ds.compute()

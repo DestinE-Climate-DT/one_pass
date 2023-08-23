@@ -28,7 +28,7 @@ lint-opa:
     - source venv/bin/activate
     - pylint one_pass/opa.py
 
-lint-check_stat:
+lint-check_request:
   allow_failure: true
   tags:
     - csccloud
