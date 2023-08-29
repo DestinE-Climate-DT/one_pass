@@ -1,18 +1,23 @@
 """ OPA utility library"""
 import sys
 from pathlib import Path
+
 import yaml
-#from typing import Dict
+
+# from typing import Dict
+
 
 def load_yaml(infile):
     """Load generic yaml file"""
     try:
-        with open(infile, 'r', encoding='utf-8') as file:
+        with open(infile, "r", encoding="utf-8") as file:
             cfg = yaml.load(file, Loader=yaml.FullLoader)
             if len(cfg) == 0:
                 cfg = cfg[0]
     except IOError:
-        sys.exit(f'ERROR: {infile} not found: you need to have this configuration file!')
+        sys.exit(
+            f"ERROR: {infile} not found: you need to have this configuration file!"
+        )
     return cfg
 
 
@@ -31,12 +36,14 @@ def parse_request(user_request):
     Returns:
     --------
     dict
-        Dictionary contian MARS request in pyfdb-readable format. 
+        Dictionary contian MARS request in pyfdb-readable format.
     """
-    if isinstance(user_request, (Path,str)):
-        user_request =  load_yaml(user_request)
+    if isinstance(user_request, (Path, str)):
+        user_request = load_yaml(user_request)
     elif not isinstance(user_request, dict):
-        raise RuntimeError(f"Could not extract request from type {type(user_request)}. \
-                Request must be parsed as Python Dict or from a YAML file.")
+        raise RuntimeError(
+            f"Could not extract request from type {type(user_request)}. \
+                Request must be parsed as Python Dict or from a YAML file."
+        )
 
     return user_request
