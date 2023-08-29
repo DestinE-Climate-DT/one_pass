@@ -1,7 +1,7 @@
 Installation
 =============
 
-The one_pass library is hosted in Git, at the BSC GitLab Earth Sciences repository. The package is avalible through pip or git. We recommend using Mamba, a package manager for conda-forge, for setting up the python environment. 
+The one_pass library is hosted in Git, at the BSC GitLab Earth Sciences repository, and v0.4 can be found on the `CSC gitHub <https://github.com/DestinE-Climate-DT>`__. The package is avalible through pip or git. We recommend using Mamba, a package manager for conda-forge, for setting up the python environment. 
 
 Pre-requisites
 ------------------
