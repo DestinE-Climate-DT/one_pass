@@ -1,7 +1,7 @@
 Tests
 =========
 
-The opa package uses pytest, a common python testing framework, for both writing and running tests. The Gitlab also uses Continuous Integration/Continuous Development (CI/CD) which runs the testing suite whenever changes are pushed to the reposity. The CI/CD pipeline currently uses a small test data file located in the repository for testing. In the future it will use data located on different HPC platforms to test the functionality and accuracy of the code. Code coverage is also impelmented in the CI/CD. 
+The one_pass package uses pytest, a common python testing framework, for both writing and running tests. The Gitlab also uses Continuous Integration/Continuous Development (CI/CD) which runs the testing suite whenever changes are pushed to the reposity. The CI/CD pipeline currently uses a small test data file located in the repository for testing. In the future it will use data located on different HPC platforms to test the functionality and accuracy of the code. Code coverage is also impelemented in the CI/CD. 
 
 Running Tests Locally
 ---------------------------
@@ -26,4 +26,4 @@ This will run all of the tests. To simply run one of the tests, run:
    
    pytest test_accuracy.py
  
-The tests cover the accuracy of all the implemented statistics, over different temporal periods and with different time length chunks. They also cover functionality, error handeling and checks on the config file. 
+The tests cover the accuracy of all the implemented statistics, over different temporal periods and with different time length chunks. They also cover functionality, error handeling and checks on the statistic request. 

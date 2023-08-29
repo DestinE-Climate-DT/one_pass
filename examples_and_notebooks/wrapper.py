@@ -1,12 +1,13 @@
-import glob 
-import os 
-import sys 
+import glob
+import os
+import sys
 
 # making sure we're in the correct folder  
 path = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(path)
 
 from one_pass.opa import Opa
+
 
 def main():
 ###### initalising OPA ################# 

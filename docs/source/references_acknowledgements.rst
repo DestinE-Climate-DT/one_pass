@@ -10,8 +10,8 @@ If you use the one_pass package in your research or publications, please cite us
 
    @software{one_pass,
      author       = {Katherine Grayson, Stephan Thober, et al.},
-     title        = {One-pass: intelligent data reduction techniques for streamed climate data},
-     year         = {20XX},
+     title        = {One_pass: intelligent data reduction techniques for streamed climate data},
+     year         = {2023},
      publisher    = {GitLab},
      journal      = {Barcelona Supercomputing Center, Earth Sciences GitLab},
      howpublished = {\url{https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/main}},
