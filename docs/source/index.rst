@@ -18,7 +18,11 @@ Welcome to one_pass's documentation!
    introduction
    installation
    getting_started
+<<<<<<< HEAD
    the_data_request
+=======
+   the_config_file
+>>>>>>> ac1181b (updated documentation)
    a_note_on_timestamps
    a_note_on_the_output
    tests

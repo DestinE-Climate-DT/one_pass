@@ -29,9 +29,13 @@ After importing the library only two lines of python code are required to run
    dm = opa_stat.compute(data) # pass some data to compute 
 
 
+<<<<<<< HEAD
 Above, all the details of the requested statistic are given by the data request, located here in the ``config.yml`` file. How to configure the data request is explained in :doc:`the_data_request`. The incoming ``data`` is an `xarray <https://docs.xarray.dev/en/stable/>`__ object containing some climate data over a given (structured or unstructured) grid and a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa class. Once sufficient data has been passed to the Opa class (enough to complete the requested statistic), ``dm`` will return the output of the summary statistic. For details of output file naming conventions and structure of the output, refer to :doc:`a_note_on_the_output`. For detailed examples and tutorials, refer to the :doc:`examples_tutorials` section which contain example Jupyter notebooks. 
 
 If you have requested to save the output the file name will be ``timestamp_variable_requestedfrequency_statistic.nc``. For example, if you asked for a monthly mean of percipitation the file name would be output as ``2070_05_pr_monthly_mean.nc``. The one_pass will not differentiate between different experimental runs. 
+=======
+Above, all the details of the requested statistic are given by the config.yml file, explained in :doc:`the_config_file`. The incoming ``data`` is an `xarray <https://docs.xarray.dev/en/stable/>`__ object containing some climate data over a given (structured or unstructured) grid and a certain temporal period. The second line will be run multiple times, as the data stream progress, continously providing new data to the Opa class. Once sufficient data has been passed to the Opa class (enough to complete the requested statistic), ``dm`` will return the output of the summary statistic. For details of output file naming conventions and structure of the output, refer to :doc:`a_note_on_the_output`. For detailed examples and tutorials, refer to the :doc:`examples_tutorials` section which contain example Jupyter notebooks. 
+>>>>>>> ac1181b (updated documentation)
 
 .. note:: 
 

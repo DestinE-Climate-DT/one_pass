@@ -28,7 +28,9 @@ To build the online version of the documentation you must clone the repo (see ab
 ```
 cd docs
 make html 
-``` 
+
+```
+ 
 This will build the oneline documentation in the folder `docs/build/html`. To access the documentation you can then click on `index.html` which will generate the webpage docs. If you have built the documentation on a remote platform (i.e. HPC) you can copy the documentation to your local machine via: 
 
 ```
@@ -41,6 +43,7 @@ To build the pdf version of the docs, again you must clone the repo (see above),
 
 ```
 cd docs
+
 make latexpdf
 
 ```

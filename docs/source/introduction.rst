@@ -21,4 +21,8 @@ One-pass algorithms (also known as single-pass algorithms) are streaming algorit
  S_1 = g(x_1) \rightarrow S_2 = g(S_1, x_2) \rightarrow S_3 = g(S_2, x_3) \rightarrow S_n = g(S_{n-1}, x_n).
 
  
+<<<<<<< HEAD
 If we let :math:`X_n = \{x_1, x_2, ..., x_n\}` represent the data set at time :math:`n`, then :math:`S_n = f(X_n) = g(S_{n-1}, x_n)`, where :math:`f` is a function that acts on the  whole data set and computes the summary :math:`S_n` in one go using all values and :math:`g` is a 'one_pass' function that updates a previous summary :math:`S_{n-1}` with a new value :math:`x_n`. The summaries :math:`S_n` require less memory than the full dataset :math:`X_n`.
+=======
+If we let :math:`X_n = \{x_1, x_2, ..., x_n\}` represent the data set at time :math:`n`, then :math:`S_n = f(X_n) = g(S_{n-1}, x_n)`, where :math:`f` is a function that acts on the  whole data set and computes the summary :math:`S_n` in one go using all values and :math:`g` is a 'one pass' function that updates a previous summary :math:`S_{n-1}` with a new value :math:`x_n`. The summaries :math:`S_n` require less memory than the full dataset :math:`X_n`.
+>>>>>>> ac1181b (updated documentation)
