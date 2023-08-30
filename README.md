@@ -43,7 +43,6 @@ To build the pdf version of the docs, again you must clone the repo (see above),
 
 ```
 cd docs
-
 make latexpdf
 
 ```
