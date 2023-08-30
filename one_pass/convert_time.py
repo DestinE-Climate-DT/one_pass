@@ -35,9 +35,9 @@ def convert_time(time_word="daily", time_stamp_input=None):
     time_stamp_input = a pandas timestamp of the current data
 
     Returns
-    ---------
-    stat_freq_min = the total number of minutes corresponding
-        to the given 'time_word' (for montly, this will depend
+    --------- 
+    stat_freq_min = the total number of minutes corresponding 
+        to the given 'time_word' (for monthly, this will depend 
         on the incoming timestamp)
     time_stamp_min = the total number of minutes of the
         incoming timestamp since the start of the given time word
@@ -75,8 +75,8 @@ def convert_time(time_word="daily", time_stamp_input=None):
         elif quarter == 3 or quarter == 4: 
             stat_freq_min = stat_freq_min*(31+31+30)
 
-    # now looking at given time stamp
-    # converting everything into minutes
+    # now looking at given time stamp 
+    # converting everything into minutes 
     time_stamp_input_min = time_stamp_input.minute
     time_stamp_input_hour = time_stamp_input.hour*60
     time_stamp_input_day_of_month = (time_stamp_input.day-1)*24*60
