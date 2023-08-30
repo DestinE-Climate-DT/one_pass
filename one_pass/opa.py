@@ -231,15 +231,31 @@ class Opa:
             )
 
         # if stat is bias correction, the checkpointed statistic will
-        # be the daily mean
+        # be the daily mean unless the variable is precipitaiton 
+        # in which case you want the daily summation 
         if self.stat == "bias_correction":
-            self.checkpoint_file = os.path.join(
-                file_path,
-                (
-                    f"checkpoint_{self.variable}_{self.stat_freq}_"
-                    f"{self.output_freq}_mean.pkl"
-                ),
-            )
+            
+            if (
+                self.variable != 'pr' or 
+                self.variable != 'lsp' or 
+                self.variable != 'cp' or 
+                self.variable != 'tp'
+            ):
+                self.checkpoint_file = os.path.join(
+                    file_path,
+                    (
+                        f"checkpoint_{self.variable}_{self.stat_freq}_"
+                        f"{self.output_freq}_mean.pkl"
+                    ),
+                )
+            else: 
+                self.checkpoint_file = os.path.join(
+                    file_path,
+                    (
+                        f"checkpoint_{self.variable}_{self.stat_freq}_"
+                        f"{self.output_freq}_sum.pkl"
+                    ),
+                )
 
         else:
             self.checkpoint_file = os.path.join(
@@ -477,8 +493,16 @@ class Opa:
             
             # also need to get raw data to pass 
             self.__setattr__("raw_data_for_bc", value)
-            # also going to need the daily means 
-            self.__setattr__("mean_cum", value)
+            # also going to need the daily means or sums if precipitation
+            if (
+                self.variable != 'pr' or 
+                self.variable != 'lsp' or 
+                self.variable != 'cp' or 
+                self.variable != 'tp'
+            ):
+                self.__setattr__("mean_cum", value)
+            else: 
+                self.__setattr__("sum_cum", value)
 
         # return
 
@@ -1395,12 +1419,19 @@ class Opa:
 
             # TODO: check you need the differnence with bias_correction
             if self.stat == "bias_correction":
-                if hasattr(self.mean_cum, "chunks"):
-                    ds = ds.compute()
-                    # here we have extracted the underlying np array, /
-                    ds_values = np.reshape(ds, self.array_length) 
+                if (
+                    self.variable != 'pr' or 
+                    self.variable != 'lsp' or 
+                    self.variable != 'cp' or 
+                    self.variable != 'tp'
+                ):
+                    if hasattr(self.mean_cum, "chunks"):
+                        # extracting the underlying np array
+                        ds = ds.compute()
                 else: 
-                    ds_values = np.reshape(ds, self.array_length) 
+                    if hasattr(self.sum_cum, "chunks"):
+                        ds = ds.compute()
+                ds_values = np.reshape(ds, self.array_length) 
             else: 
                 ds_values = np.reshape(ds.values, self.array_length) 
                     
@@ -1576,8 +1607,16 @@ class Opa:
         
             self._update_raw_data(ds, weight)
             
-             # want daily means
-            self._update_mean(ds, weight) 
+            if (
+                self.variable != 'pr' or 
+                self.variable != 'lsp' or 
+                self.variable != 'cp' or 
+                self.variable != 'tp'
+            ):
+                # want daily means
+                self._update_mean(ds, weight) 
+            else : 
+                self._update_sum(ds, weight) 
             
         return 
 
@@ -1656,6 +1695,7 @@ class Opa:
         #start_time = time.time()
     
         if(self.stat == "bias_correction"):
+            
             self.__setattr__("mean_cum", 
                              self.__getattribute__("mean_cum").compute()
             )
@@ -1678,12 +1718,25 @@ class Opa:
         only meta data stored as pickle"""
 
         if self.stat == "bias_correction":
-            if hasattr(self.__getattribute__("mean_cum"), "compute"):
-                # first load data into memory
-                self._load_dask()
+            if (
+                self.variable != 'pr' or 
+                self.variable != 'lsp' or 
+                self.variable != 'cp' or 
+                self.variable != 'tp'
+            ):
+                if hasattr(self.__getattribute__("mean_cum"), "compute"):
+                    # first load data into memory
+                    self._load_dask()
+                    total_size = sys.getsizeof(self.__getattribute__("mean_cum")) / (10**9)
+
+            else: 
+                if hasattr(self.__getattribute__("sum_cum"), "compute"):
+                    # first load data into memory
+                    self._load_dask()
+                    total_size = sys.getsizeof(self.__getattribute__("sum_cum")) / (10**9)
+
 
             # total size in GB
-            total_size = sys.getsizeof(self.__getattribute__("mean_cum")) / (10**9)
             total_size += sys.getsizeof(self.__getattribute__("raw_data_for_bc")) / (
                 10**9
             )
@@ -1821,16 +1874,31 @@ class Opa:
 
         # this is the flag to extract the mean value for the bias_correction
         if bc_mean:
-            final_stat = self.__getattribute__(str("mean_cum"))
-            self.data_set_attr["history"] = str(
-                str_date_time + f" OPA: "
-                + self.stat_freq + " mean calculated using one-pass algorithm"
-            )
+            
+            if (
+                self.variable != 'pr' or 
+                self.variable != 'lsp' or 
+                self.variable != 'cp' or 
+                self.variable != 'tp'
+            ):
+                
+                final_stat = self.__getattribute__(str("mean_cum"))
+                self.data_set_attr["history"] = str(
+                    str_date_time + f" OPA: "
+                    + self.stat_freq + " mean calculated using one-pass algorithm"
+                )
+            else: 
+                final_stat = self.__getattribute__(str("sum_cum"))
+                self.data_set_attr["history"] = str(
+                    str_date_time + f" OPA: "
+                    + self.stat_freq + " sum calculated using one-pass algorithm"
+                )
+                
         elif self.stat == "bias_correction":
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
             self.data_set_attr["history"] = str(
                 str_date_time + f" OPA: "
-                + f"daily means added to the monthly digest for" 
+                + f"daily aggregations added to the monthly digest for" 
                 + self.stat + f" calculated using one-pass algorithm"
             )    
         else: 
@@ -2046,10 +2114,24 @@ class Opa:
         elif self.stat == "bias_correction":
 
             if bc_mean:
-                file_name = os.path.join(
-                    self.out_filepath,
-                    f"{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc",
-                )
+                            
+                if (
+                    self.variable != 'pr' or 
+                    self.variable != 'lsp' or 
+                    self.variable != 'cp' or 
+                    self.variable != 'tp'
+                ):
+                    file_name = os.path.join(
+                        self.out_filepath,
+                        f"{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc",
+                    )
+                
+                else:
+                    file_name = os.path.join(
+                        self.out_filepath,
+                        f"{final_time_file_str}_{self.variable}_{self.stat_freq}_sum.nc",
+                    )
+                
             elif bc_raw:
                 file_name = os.path.join(
                     self.out_filepath,
