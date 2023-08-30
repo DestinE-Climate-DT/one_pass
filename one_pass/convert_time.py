@@ -16,6 +16,7 @@ times = {
     "6hourly": 6 * 60,
     "12hourly": 12 * 60,
     "daily": 24 * 60,
+    "daily_noon" : 24*60,
     "weekly": 7 * 24 * 60,
     "monthly": 24 * 60,  # NOTE: see below for minutes with monthly
     "3monthly": 24 * 60,  # NOTE: see below for minutes with 3monthly
@@ -115,6 +116,16 @@ def convert_time(time_word="daily", time_stamp_input=None):
         time_stamp_tot_append = time_stamp_input_hour
 
     elif time_word == "daily":
+        time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+        time_stamp_tot_append = time_stamp_input_day_of_month
+        
+    elif time_word == "daily_noon": 
+        
+        if time_stamp_input.hour >= 13 : 
+            time_stamp_input_hour = (time_stamp_input.hour - 13)*60 
+        else: 
+            time_stamp_input_hour = (time_stamp_input.hour + 13)*60 
+        
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         time_stamp_tot_append = time_stamp_input_day_of_month
 
