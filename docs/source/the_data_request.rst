@@ -64,8 +64,6 @@ In the case where the incoming data has only one time step (:math:`w = 1`), :mat
 Summation
 ^^^^^^^^^^^^^
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
 The summation statistic (written as ``"sum"`` in the statistic request) is calculated by:
 
 .. math::
@@ -84,33 +82,6 @@ The mean statistic calculates the arithmatic mean over the requested temporal fr
    \bar{X}_n = g(S_{n-w}, X_w) = \bar{X}_{n-w} + w\bigg(\frac{\bar{X_w} - \bar{X}_{n-w}}{n}\bigg), 
 
 where :math:`\bar{X}_n` is the updated mean of the full dataset, :math:`\bar{X}_{n-w}` is the previous rolling mean and, if :math:`w> 1, \bar{X_w}`, is the temporal mean over the incoming data computed with numpy. If :math:`w= 1, \bar{X_w} = x_n`.
-=======
-The summation statistic (written as ``sum`` in the statistic request) is calculated by:
-=======
-The summation statistic (written as ``"sum"`` in the statistic request) is calculated by:
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
-
-.. math::
-
-   \sum_{i=1}^{n}X_n = g(S_{n-w}, X_w) = \sum_{i=1}^{n-w}X_{n-w} + \sum_{i=n-w+1}^{n}X_w,
-
-where in the case of :math:`w>1, \sum_{i=n-w+1}^{n}X_w`, is calculated using numpy.
-
-Mean
-^^^^^^^^^^^
-
-The mean statistic calculates the arithmatic mean over the requested temporal frequency, using the following:  
-
-.. math::
-   
-   \bar{X}_n = g(S_{n-w}, X_w) = \bar{X}_{n-w} + w\bigg(\frac{\bar{X_w} - \bar{X}_{n-w}}{n}\bigg), 
-
-<<<<<<< HEAD:docs/source/the_data_request.rst
-where :math:`\bar{X}_n` is the updated mean of the full dataset, :math:`\bar{X}_{n-w}` is the mean of the previous data and, if :math:`w> 1, \bar{X_w}`, is the temporal mean over the incoming data computed with numpy.
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-where :math:`\bar{X}_n` is the updated mean of the full dataset, :math:`\bar{X}_{n-w}` is the previous rolling mean and, if :math:`w> 1, \bar{X_w}`, is the temporal mean over the incoming data computed with numpy. If :math:`w= 1, \bar{X_w} = x_n`.
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 Variance 
 ^^^^^^^^^^^^^
@@ -119,8 +90,6 @@ The variance (written as ``"var"``) is calculated for the incoming data stream, 
 
 .. math:: 
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
    M_{2,n} = \sum_{i = 1}^{n}(x_i - \bar{x}_n)^2.
 
 For the case where :math:`w = 1`, the one_pass definition is given by: 
@@ -128,36 +97,12 @@ For the case where :math:`w = 1`, the one_pass definition is given by:
 .. math:: 
 
    M_{2,n} = g(S_{n-1}, x_n) = M_{2,n-1} + (x_n - \bar{X}_{n-1})(x_n - \bar{X}_n), 
-=======
-   M_{2,n} = \sum_{i = 1}^{n}(x_i - \bar{x}_n)^2
-=======
-   M_{2,n} = \sum_{i = 1}^{n}(x_i - \bar{x}_n)^2.
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
-
-For the case where :math:`w = 1`, the one_pass definition is given by: 
-
-.. math:: 
-
-<<<<<<< HEAD:docs/source/the_data_request.rst
-   M_{2,n} = g(S_{n-1}, x_n) = M_{2,n-1} + (x_n - \bar{X}_{n-1})(x_n - \bar{X}_n) 
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-   M_{2,n} = g(S_{n-1}, x_n) = M_{2,n-1} + (x_n - \bar{X}_{n-1})(x_n - \bar{X}_n), 
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
    
 where :math:`\bar{X}_n` and :math:`\bar{X}_{n-1}` are given by the algorithm for the mean shown above. In the case where the incoming data has more than one time step (:math:`w > 1`), :math:`M_{2,n}` is updated by:
 
 .. math::
    
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
       M_{2,n}= g(S_{n-w}, X_w) = M_{2,n-w} + M_{2,w} + \frac{\sqrt{(\bar{X}_{n-w} - \bar{X}_{w})} (w(n-w))}{n}, 
-=======
-      M_{2,n}= g(S_{n-w}, X_w) = M_{2,n-w} + M_{2,w} + \frac{\sqrt{(\bar{X}_{n-w} - \bar{X}_{w})} (w(n-w))}{n} 
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-      M_{2,n}= g(S_{n-w}, X_w) = M_{2,n-w} + M_{2,w} + \frac{\sqrt{(\bar{X}_{n-w} - \bar{X}_{w})} (w(n-w))}{n}, 
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 where :math:`M_{2,n-w}` is sum of the squared differences of the previously seen data, :math:`M_{2,w}` is the sum of the squared differences over the incoming data block (of weight :math:`w`) and :math:`\bar{X}_{n-w}` and :math:`\bar{X}_{w}` are the means over those same periods respectively. 
 
@@ -165,15 +110,7 @@ At the end of the iterative process (when the last value is given to complete th
 
 .. math:: 
    
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
    \textrm{var}(X_n) = \frac{M_{2,n}}{n-1}.
-=======
-   \textrm{var}(X_n) = \frac{M_{2,n}}{n-1}
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-   \textrm{var}(X_n) = \frac{M_{2,n}}{n-1}.
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 See `S. Mastelini <https://www.sciencedirect.com/science/article/abs/pii/S0167865521000520>`__ for details. 
 
@@ -184,15 +121,7 @@ The standard deviation (written as ``"std"``) calculates the standard deviation 
 
 .. math:: 
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
    \textrm{std}(X_n) = \sqrt{\textrm{var}(X_n)}.
-=======
-   \textrm{std}(X_n) = \sqrt{\textrm{var}(X_n)}
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-   \textrm{std}(X_n) = \sqrt{\textrm{var}(X_n)}.
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 Minimum 
 ^^^^^^^^^^^^^^
@@ -201,27 +130,11 @@ The minimum value (written as ``"min"``) is given by:
 
 .. math:: 
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
    \textrm{min}(X_n) = g(S_{n-w}, X_w),
  
 .. math:: 
 
    \textrm{ if } \textrm{min}(X_w) < \textrm{min}(S_{n-w}), \textrm{ then }  \textrm{min}(S_{n-w}) = \textrm{min}(X_w),
-=======
-   \textrm{min}(X_n) = g(S_{n-w}, X_w)
- 
-.. math:: 
-
-   \textrm{ if } \textrm{min}(X_w) < \textrm{min}(X_{n-w}), \textrm{ then }  \textrm{min}(X_{n-w}) = \textrm{min}(X_w)
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-   \textrm{min}(X_n) = g(S_{n-w}, X_w),
- 
-.. math:: 
-
-   \textrm{ if } \textrm{min}(X_w) < \textrm{min}(S_{n-w}), \textrm{ then }  \textrm{min}(S_{n-w}) = \textrm{min}(X_w),
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 where if :math:`w > 1, \textrm{min}(X_w)` is calculated using the minimum function in numpy.
 
@@ -236,15 +149,7 @@ The maximum value (written as ``"max"``) is given by:
 
 .. math:: 
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
    \textrm{ if } \textrm{max}(X_w) > \textrm{max}(S_{n-w}), \textrm{ then }  \textrm{max}(S_{n-w}) = \textrm{max}(X_w).
-=======
-   \textrm{ if } \textrm{max}(X_w) > \textrm{max}(X_{n-w}), \textrm{ then }  \textrm{max}(X_{n-w}) = \textrm{max}(X_w)
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-   \textrm{ if } \textrm{max}(X_w) > \textrm{max}(S_{n-w}), \textrm{ then }  \textrm{max}(S_{n-w}) = \textrm{max}(X_w).
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 where if :math:`w > 1, \textrm{max}(X_w)` is calculated using the maximum function in numpy.
 
@@ -255,27 +160,11 @@ The threshold exceedance statistic (written as ``"thresh_exceed"``) requires a v
 
 .. math::
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
   \textrm{exc}(X_n) = g(S_{n-w}, X_w), 
  
 .. math:: 
 
   \textrm{ if } (X_w > \textrm{thresh exceed}), \textrm{ then } \textrm{exc}(X_{n}) = \textrm{exc}(S_{n-w}) + s
-=======
-  \textrm{exc}(X_n) = g(S_{n-w}, X_w) 
- 
-.. math:: 
-
-  \textrm{ if } (X_w > \textrm{thresh exceed}), \textrm{then} \textrm{exc}(X_{n-w}) = \textrm{exc}(X_{n-w}) + s
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-  \textrm{exc}(X_n) = g(S_{n-w}, X_w), 
- 
-.. math:: 
-
-  \textrm{ if } (X_w > \textrm{thresh exceed}), \textrm{ then } \textrm{exc}(X_{n}) = \textrm{exc}(S_{n-w}) + s
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 where :math:`s` is the number of samples in :math:`X_w` that exceeded the threshold. The variable in the final xr.Dataset output now corresponds to the number of times the data exceeded the threshold.
 
@@ -298,15 +187,7 @@ Another layer to the one_pass library is the bias-correction. This package is be
 
 1. Daily aggregations of the incoming data (either daily means or summations depending on the variable) as netCDF
 2. The raw daily data as netCDF 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
 3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
-=======
-3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be udpated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the years the model has covered. 
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 When using this statistic, make sure to set ``"stat_freq" : "daily"`` and ``"output_freq" : "daily"``.
 
@@ -334,15 +215,7 @@ Output Frequency
 
 The output frequency option (written as ``"output_freq"``) takes the same input options as ``"stat_freq"``. This option defines the frequency you want to output (or save) the xr.Dataset containing your statistic. If you set ``"output_freq"`` the same as ``"stat_freq"`` (which is the standard output) the Dataset produced by the one_pass will have a time dimension of length one, corresponding the summary statistic requested by ``"stat_freq"``. If, however, if you have requested ``"stat_freq": "hourly"`` but you set ``"output_freq": "daily"``, you will have a xr.Dataset with a time dimension of length 24, corresponding to 24 hourly statistical summaries in one file. Likewise, if you set ``"stat_freq":"daily"`` and ``"output_freq":"monthly"``, your final output will have a time dimension of 31 (if there are 31 days in that month), if you started from the first day of the month, or, if you started passing data half way through the month, it will correspond to however many days are left in that month. 
 
-<<<<<<< HEAD:docs/source/the_data_request.rst
-<<<<<<< HEAD:docs/source/the_data_request.rst
 The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one_pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``.
-=======
-The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``.
->>>>>>> ac1181b (updated documentation):docs/source/the_config_file.rst
-=======
-The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one_pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``.
->>>>>>> 075e395 (fixing typos in documentation):docs/source/the_config_file.rst
 
 Time step
 ----------------

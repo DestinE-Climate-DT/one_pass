@@ -1,21 +1,9 @@
 A note on the output
 -----------------------
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 The output ``dm`` from the one_pass, given by ``dm = opa_stat.compute(data)`` will only not be ``None`` when enough data has been passed to the Opa class to complete the statistic. For example, if you have hourly data and have requested a daily statistic, ``dm`` will return after the 24th time step has been passed. If passing a continuous data stream, ``dm`` will be overwritten when new data is given to the Opa class. Set ``"save" : True`` to save ``dm`` to disk.
 
 The output, ``dm`` will be an xr.Dataset. The dimensions will the same as the original dimensions of the input data, apart from the time dimension. The length of time dimension will be one, unless you set ``output_freq`` greater than ``stat_freq``. See the :doc:`the_data_request` for details.
-=======
-The output ``dm`` from the one_pass, given by ``dm = opa_stat.compute(ds)`` will only not be ``None`` when enough data has been passed to the Opa class to complete the statistic. For example, if you have hourly data and have requested a daily statistic, ``dm`` will return after the 24th time step has been passed. If passing a continuous data stream, ``dm`` will be overwritten when new data is given to the Opa class. Set ``"save" : True`` to save ``dm`` to disk.
-
-The output, ``dm`` will be an xr.Dataset. The dimensions will the same as the original dimensions of the input data, apart from the time dimension. The length of time dimension will be one, unless you set ``output_freq`` greater than ``stat_freq``. See the :doc:`the_config_file` for details.
->>>>>>> ac1181b (updated documentation)
-=======
-The output ``dm`` from the one_pass, given by ``dm = opa_stat.compute(data)`` will only not be ``None`` when enough data has been passed to the Opa class to complete the statistic. For example, if you have hourly data and have requested a daily statistic, ``dm`` will return after the 24th time step has been passed. If passing a continuous data stream, ``dm`` will be overwritten when new data is given to the Opa class. Set ``"save" : True`` to save ``dm`` to disk.
-
-The output, ``dm`` will be an xr.Dataset. The dimensions will the same as the original dimensions of the input data, apart from the time dimension. The length of time dimension will be one, unless you set ``output_freq`` greater than ``stat_freq``. See the :doc:`the_data_request` for details.
->>>>>>> 075e395 (fixing typos in documentation)
 
 The timestamp on the time dimension will correspond to the time stamp of the first piece of data that contributed to that statistic.
 
