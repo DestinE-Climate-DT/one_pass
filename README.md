@@ -21,7 +21,7 @@ In any platform without interent connection, we have provided installation instr
 
 ## Documentation 
 
-All the information on how to install, configure and run the one_pass package is given the documentation, found in the docs folder. Here you will find both a pdf version and the source code to build the online documentation. 
+All the information on how to install, configure and run the one_pass package is given the documentation, found in the docs folder. Here you will find the source code to build the online and pdf version of the documentation. 
 
 To build the online version of the documentation you must clone the repo (see above), make sure you've activated the `env_opa` environment and 
 
