@@ -443,3 +443,31 @@ def test_sum_monthly():
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
     
     assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
+
+
+def test_sum_daily_noon():
+
+    n_start = 40*24 + 13
+    n_data = n_start + 24 # 3*30*24 + 2*24 
+    step = 1
+    
+    pass_dic = {"stat": "sum",
+    "stat_freq": "daily_noon",
+    "output_freq": "daily_noon",
+    "percentile_list" : None,
+    "thresh_exceed" : None,
+    "time_step": 60,
+    "variable": "pr",
+    "save": False,
+    "checkpoint": True,
+    "checkpoint_filepath": "tests/",
+    "out_filepath": "tests/"}
+
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
+
+    two_pass = two_pass_sum(data_arr, n_start, n_data)
+    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
