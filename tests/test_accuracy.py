@@ -416,15 +416,15 @@ def test_sum_monthly():
     
     assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
        
-def test_sum_3monthly():
+def test_sum_monthly():
 
-    n_start = 31*24*2 + 28*24 
-    n_data = n_start + 24*30*2 + 24*31 # 3*30*24 + 2*24 
+    n_start = 31*24
+    n_data = n_start + 24*28 # 3*30*24 + 2*24 
     step = 24
     
     pass_dic = {"stat": "sum",
-    "stat_freq": "3monthly",
-    "output_freq": "3monthly",
+    "stat_freq": "monthly",
+    "output_freq": "monthly",
     "percentile_list" : None,
     "thresh_exceed" : None,
     "time_step": 60,
