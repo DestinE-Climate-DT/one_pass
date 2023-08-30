@@ -1958,6 +1958,7 @@ class Opa:
                 or self.stat_freq == "3hourly"
                 or self.stat_freq == "6hourly"
                 or self.stat_freq == "12hourly"
+                or self.stat_freq == "daily_noon"
             ):
                 final_time_file_str = self.init_time_stamp.strftime("%Y_%m_%d_T%H")
 
@@ -2193,7 +2194,8 @@ class Opa:
             return
 
         how_much_left = self._update_statistics(weight, time_stamp_list, ds)
-
+        #print('how much left', how_much_left)
+        
         if self.count == self.n_data and self.stat_freq == "continuous":
 
             dm = self._full_continuous_data(ds, how_much_left, weight)

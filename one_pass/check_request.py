@@ -30,6 +30,7 @@ stat_freq_options = {
     "6hourly",
     "12hourly",
     "daily",
+    "daily_noon",
     "weekly",
     "monthly",
     "3monthly",
@@ -44,12 +45,12 @@ output_freq_options = {
     "6hourly",
     "12hourly",
     "daily",
+    "daily_noon",
     "weekly",
     "monthly",
     "3monthly",
     "annually",
 }
-
 
 def check_request(request):
 

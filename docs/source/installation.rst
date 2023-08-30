@@ -34,6 +34,15 @@ You can clone the directory directly via Git using:
 
 This will clone the main branch of the repository. 
 
+Installation for deliverable DE340.9.1.1
+-----------------------------------------
+
+For the deliverable DE340.9.1.1 we have created v0.4 on the BSC GitHub. We have copied v0.4 over from the BSC GitLab onto the CSC GitHub. To install, please use the git clone corresponding to the CSC repo:
+
+.. code-block:: bash
+
+   git clone https://github.com/DestinE-Climate-DT/one_pass.git
+
 Environments with Conda/Mamba
 -------------------------------
 
