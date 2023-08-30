@@ -204,9 +204,9 @@ The statistic frequency (written as ``"stat_freq"``) can take the following opti
 
 .. code-block:: 
    
-   "hourly", "3hourly", "6hourly", "12hourly", "daily", "weekly", "monthly", "3monthly", "annually", "continuous"
+   "hourly", "3hourly", "6hourly", "12hourly", "daily", "daily_noon", "weekly", "monthly", "3monthly", "annually", "continuous"
 
-Each option defines the period over which you would like the statistic computed. For the frequencies ``"weekly"``, ``"monthly"``, ``"annually"``, the one_pass package uses the Gregorian calendar, e.g. ``"annually"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. For ``"monthly"`` leap years are included. ``"weekly"`` will run from Monday - Sunday.
+Each option defines the period over which you would like the statistic computed. The frequency ``"daily_noon"`` runs for a 24 hour period but starting at 13:00. For the frequencies ``"weekly"``, ``"monthly"``, ``"annually"``, the one_pass package uses the Gregorian calendar, e.g. ``"annually"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. For ``"monthly"`` leap years are included. ``"weekly"`` will run from Monday - Sunday.
 
 The option of ``"continuous"``, will start from the first piece of data that is provided and will continously update the statistic as new data is provided.
 
