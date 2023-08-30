@@ -104,6 +104,15 @@ def two_pass_sum(data, n_start, n_data):
     
     return np_sum
 
+
+def two_pass_sum(data, n_start, n_data):
+
+    ds = data.isel(time=slice(n_start, n_data)) 
+    axNum = ds.get_axis_num('time')
+    np_sum = np.sum(ds, axis = axNum, keepdims = True)
+    
+    return np_sum
+
 #################################### define opa test ###################################
 
 def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic):
@@ -405,4 +414,31 @@ def test_sum_monthly():
     two_pass = two_pass_sum(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
     
-    assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
+    assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
+       
+def test_sum_daily():
+
+    n_start = 0 
+    n_data = n_start + 24 # 3*30*24 + 2*24 
+    step = 24
+    
+    pass_dic = {"stat": "sum",
+    "stat_freq": "daily",
+    "output_freq": "daily",
+    "percentile_list" : None,
+    "thresh_exceed" : None,
+    "time_step": 60,
+    "variable": "uas",
+    "save": False,
+    "checkpoint": True,
+    "checkpoint_filepath": "tests/",
+    "out_filepath": "tests/"}
+
+    data_arr = getattr(data, pass_dic["variable"])
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
+
+    two_pass = two_pass_sum(data_arr, n_start, n_data)
+    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    
+    assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
