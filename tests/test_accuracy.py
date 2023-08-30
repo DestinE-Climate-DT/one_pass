@@ -441,4 +441,4 @@ def test_sum_daily():
     two_pass = two_pass_sum(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
     
-    assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
+    assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
