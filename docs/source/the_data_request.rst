@@ -185,7 +185,7 @@ Bias-Correction
 
 Another layer to the one_pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set ``"stat" : "bias_correction"`` you will receive three outputs, as opposed to just one. 
 
-1. Daily aggregations of the incoming data (either daily means or summations depending on the variable) as netCDF
+1. Daily aggregations of the incoming data (either daily means or summations if the variable is precipitation) as netCDF. Currently the variable names that will use summation as opposed to means are ``'pr', 'lsp', 'cp', 'tp'``.
 2. The raw daily data as netCDF 
 3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
 

@@ -1,11 +1,10 @@
 from typing import Dict
-from datetime import datetime  
-import os 
+from datetime import datetime
+import os
 import math
 import pickle
 import sys
 import time
-from typing import Dict
 
 import dask
 import dask.array as da
@@ -21,6 +20,16 @@ from one_pass import util
 from one_pass.check_request import check_request
 from one_pass.convert_time import convert_time
 
+# for the bias correction, if the variable corresponds to precipitation
+# you want daily sums as opposed to daily means, this list is for all precipitation
+# variables that should be summed
+
+precip_options = {
+    'pr',
+    'lsp',
+    'cp',
+    'tp',
+}
 
 class PicklableTDigest:
 
@@ -231,16 +240,11 @@ class Opa:
             )
 
         # if stat is bias correction, the checkpointed statistic will
-        # be the daily mean unless the variable is precipitaiton 
-        # in which case you want the daily summation 
+        # be the daily mean unless the variable is precipitaiton
+        # in which case you want the daily summation
         if self.stat == "bias_correction":
-            
-            if (
-                self.variable != 'pr' or 
-                self.variable != 'lsp' or 
-                self.variable != 'cp' or 
-                self.variable != 'tp'
-            ):
+
+            if self.variable not in precip_options:
                 self.checkpoint_file = os.path.join(
                     file_path,
                     (
@@ -248,7 +252,7 @@ class Opa:
                         f"{self.output_freq}_mean.pkl"
                     ),
                 )
-            else: 
+            else:
                 self.checkpoint_file = os.path.join(
                     file_path,
                     (
@@ -375,32 +379,32 @@ class Opa:
 
                 # self.time_append is  how many days requested:
                 # e.g. 7 days of saving with daily data
-                
+
                 #print('output_freq_min', output_freq_min)
                 #print('time_stamp_tot_append', time_stamp_tot_append)
                 #print('self.stat_freq_min', self.stat_freq_min)
-                
-                # if you're part way through the output freq you want to subtract that 
-                # time away from appending, but 
-                if time_stamp_tot_append < output_freq_min : 
+
+                # if you're part way through the output freq you want to subtract that
+                # time away from appending, but
+                if time_stamp_tot_append < output_freq_min :
                     self.time_append = np.round(
                         (output_freq_min - time_stamp_tot_append)/ self.stat_freq_min
-                        ) 
-                
-                else : 
+                        )
+
+                else :
                     self.time_append = np.round(
                         (output_freq_min)/ self.stat_freq_min
-                        ) 
-                                    
+                        )
+
                 #output_freq_min < self.stat_freq_min
-                if(self.time_append < 1 and self.stat_freq != "continuous"): 
+                if(self.time_append < 1 and self.stat_freq != "continuous"):
                     raise ValueError(
                         "Output frequency can not be less than frequency of statistic"
                     )
 
         # return
 
-    def _init_digests(self, ds_size):
+    def _init_digests(self, data_source_size):
 
         """
         Function to initalise a flat array full of empty
@@ -408,7 +412,7 @@ class Opa:
 
         Arguments
         ----------
-        ds_size = size of incoming data
+        data_source_size = size of incoming data
 
         Returns
         ---------
@@ -417,7 +421,7 @@ class Opa:
 
         """
 
-        self.array_length = np.size(ds_size)
+        self.array_length = np.size(data_source_size)
         # list of dictionaries for each grid cell, preserves order
         digest_list = [dict() for x in range(self.array_length)]
 
@@ -427,14 +431,14 @@ class Opa:
 
         self.__setattr__(str(self.stat + "_cum"), digest_list)
 
-    def _initialise_attrs(self, ds):
+    def _initialise_attrs(self, data_source):
 
         """
         Initialises data structuresfor cumulative stats
 
         Arguments
         ---------
-        ds = incoming data
+        data_source = incoming data
 
         Returns:
         --------
@@ -450,21 +454,21 @@ class Opa:
             different data outputs, this initalises the array to save
             the raw daily raw data
         """
-        ds_size = ds.tail(time=1)
+        data_source_size = data_source.tail(time=1)
 
-        if ds.chunks is None:
+        if data_source.chunks is None:
             # only using dask if incoming data is in dask
             # forcing computation in float64
-            value = np.zeros_like(ds_size, dtype=np.float64)
+            value = np.zeros_like(data_source_size, dtype=np.float64)
         else:
-            value = da.zeros_like(ds_size, dtype=np.float64)
+            value = da.zeros_like(data_source_size, dtype=np.float64)
 
         if self.stat_freq == "continuous":
             self.count_continuous = 0
 
         if self.stat != "bias_correction" and self.stat != "percentile":
 
-            ds_size = ds.tail(time=1)
+            data_source_size = data_source.tail(time=1)
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -484,38 +488,33 @@ class Opa:
                 self.__setattr__("timings", value)
 
         elif self.stat == "percentile":
-            self._init_digests(ds_size)
+            self._init_digests(data_source_size)
 
         elif self.stat == "bias_correction":
             # not ititalising the digests here, as only need to update
-            # them with daily means, would create unncessary I/O at 
-            # checkpointing 
-            
-            # also need to get raw data to pass 
+            # them with daily means, would create unncessary I/O at
+            # checkpointing
+
+            # also need to get raw data to pass
             self.__setattr__("raw_data_for_bc", value)
             # also going to need the daily means or sums if precipitation
-            if (
-                self.variable != 'pr' or 
-                self.variable != 'lsp' or 
-                self.variable != 'cp' or 
-                self.variable != 'tp'
-            ):
+            if self.variable not in precip_options:
                 self.__setattr__("mean_cum", value)
-            else: 
+            else:
                 self.__setattr__("sum_cum", value)
 
         # return
 
-    def _initialise(self, ds, time_stamp, time_stamp_min, time_stamp_tot_append):
+    def _initialise(self, data_source, time_stamp, time_stamp_min, time_stamp_tot_append):
 
-        """
+        """""
         initalises both time attributes and attributes relating
         to the statistic as well starting the count and fixing
         the class time stamp to the current time stamp
 
         Arguments
         ----------
-        ds = incoming raw data
+        data_source = incoming raw data
         time_stamp = time stamp of incoming data
         time_stamp_min = number of minutes of the incoming timestamp
             into the current requested freq
@@ -537,7 +536,7 @@ class Opa:
         self.time_stamp = time_stamp
 
         self._initialise_time(time_stamp_min, time_stamp_tot_append)
-        self._initialise_attrs(ds)
+        self._initialise_attrs(data_source)
 
         # return
 
@@ -697,22 +696,22 @@ class Opa:
         if abs(min_diff) < 2 * self.time_step:
             print(
                 f"Time gap at " + str(time_stamp) + " too large,"
-                f" there seems to be data missing, small enough to carry on"
+                " there seems to be data missing, small enough to carry on"
             )
             self.time_stamp = time_stamp
             proceed = True
 
-            return proceed 
-        
-        else: 
+            return proceed
+
+        else:
             raise ValueError(
                 f'Time gap at ' + str(time_stamp) + ' too large,'
-                f'there seems to be some data missing'
+                'there seems to be some data missing'
             )
-        
+
     def _option_four(self, min_diff, time_stamp_min, time_stamp,
                      time_stamp_tot_append, proceed):
-        
+
         """ 
         Called from compare_old_time_steps
 
@@ -889,7 +888,7 @@ class Opa:
 
         return already_seen
 
-    def _check_time_stamp(self, ds, weight):
+    def _check_time_stamp(self, data_source, weight):
 
         """
         Function to check the incoming timestamps of the data and check if it
@@ -909,7 +908,7 @@ class Opa:
 
         Arguments
         ----------
-        ds: Incoming xarray dataArray with associated timestamp(s)
+        data_source: Incoming xarray dataArray with associated timestamp(s)
         weight: the length along the time-dimension of the incoming array
 
         Returns
@@ -920,9 +919,9 @@ class Opa:
         count: how far through the statistic you are, when initalised, this will
             be set to 1
         stat_cum: will set an empty array of the correct dimensions, ready to be
-            filled with the statistic ds may change length if the time stamp
+            filled with the statistic data_source may change length if the time stamp
             corresponding to the start of the statistic corresponds to half
-            way through ds.
+            way through data_source.
 
         Optional return
         ----------------
@@ -943,7 +942,7 @@ class Opa:
         """
 
         # assuming that incoming data has a time dimension
-        time_stamp_sorted = sorted(ds.time.data)
+        time_stamp_sorted = sorted(data_source.time.data)
         time_stamp_list = [pd.to_datetime(x) for x in time_stamp_sorted]
         index = 0
         proceed = False
@@ -998,7 +997,7 @@ class Opa:
 
                 if should_init:
                     self._initialise(
-                        ds, time_stamp, time_stamp_min, time_stamp_tot_append
+                        data_source, time_stamp, time_stamp_min, time_stamp_tot_append
                     )
 
             else:  # for continuous - difference between intialising time and stats
@@ -1008,7 +1007,7 @@ class Opa:
 
                 if should_init:
                     self._initialise(
-                        ds, time_stamp, time_stamp_min, time_stamp_tot_append
+                        data_source, time_stamp, time_stamp_min, time_stamp_tot_append
                     )
                     print("initialising continuous statistic")
 
@@ -1017,9 +1016,9 @@ class Opa:
                     self.time_stamp = time_stamp
                     self._initialise_time(time_stamp_min, time_stamp_tot_append)
 
-            already_seen = self._check_have_seen(time_stamp_min) # checks count 
-            
-            if(already_seen): 
+            already_seen = self._check_have_seen(time_stamp_min) # checks count
+
+            if(already_seen):
                 print('pass on this data at', str(time_stamp), 'as already seen this data')
 
             # this will change from False to True if it's just been initalised
@@ -1038,10 +1037,10 @@ class Opa:
             index = index - 1
 
             # chops data from where it needs to start
-            ds = ds.isel(time=slice(index, weight))
+            data_source = data_source.isel(time=slice(index, weight))
             weight = weight - index
 
-        return ds, weight, already_seen, n_data_att_exist, time_stamp_list
+        return data_source, weight, already_seen, n_data_att_exist, time_stamp_list
 
     def _update_continuous_count(self, weight):
 
@@ -1063,7 +1062,7 @@ class Opa:
 
         # return
 
-    def _check_variable(self, ds):
+    def _check_variable(self, data_source):
 
         """
         Checks if the incoming data is an xarray dataArray.
@@ -1077,11 +1076,11 @@ class Opa:
 
         try:
             # this means it a data_set
-            getattr(ds, "data_vars")
+            getattr(data_source, "data_vars")
             # keeping the attributes of the full dataSet to give to the final dataSet
-            self.data_set_attr = ds.attrs
+            self.data_set_attr = data_source.attrs
             try:
-                ds = getattr(ds, self.variable)  # converts to a dataArray
+                data_source = getattr(data_source, self.variable)  # converts to a dataArray
 
             except AttributeError:
                 raise Exception(
@@ -1091,11 +1090,11 @@ class Opa:
 
         except AttributeError:
             # still extracting attributes from dataArray here
-            self.data_set_attr = ds.attrs
+            self.data_set_attr = data_source.attrs
 
-        return ds
+        return data_source
 
-    def _check_raw(self, ds, weight):
+    def _check_raw(self, data_source, weight):
 
         """
         This function is called if the user has requested stat: 'raw'.
@@ -1103,48 +1102,48 @@ class Opa:
         over any frequency, we will simply save the incoming data.
         """
 
-        final_time_file_str = self._create_raw_file_name(ds, weight)
+        final_time_file_str = self._create_raw_file_name(data_source, weight)
 
         # this will convert the dataArray back into a dataSet with the metadata
         # of the dataSet and include a new attribute saying that it's saving
         # raw data for the OPA
-        dm = self._create_raw_data_set(ds)
+        dm = self._create_raw_data_set(data_source)
 
         if self.save == True:
             self._save_output(dm, final_time_file_str)
 
         return dm
 
-    def _check_num_time_stamps(self, ds):
+    def _check_num_time_stamps(self, data_source):
 
         """
         Check how many time stamps are in the incoming data.
         It's possible that the GSV interface will have multiple messages
         """
 
-        time_num = np.size(ds.time.data)
+        time_num = np.size(data_source.time.data)
 
         return time_num
 
-    def _two_pass_mean(self, ds):
+    def _two_pass_mean(self, data_source):
 
         """computes normal mean using numpy two pass"""
 
-        ax_num = ds.get_axis_num("time")
-        temp = np.mean(ds, axis=ax_num, dtype=np.float64, keepdims=True)
+        ax_num = data_source.get_axis_num("time")
+        temp = np.mean(data_source, axis=ax_num, dtype=np.float64, keepdims=True)
 
         return temp
 
-    def _two_pass_var(self, ds):
+    def _two_pass_var(self, data_source):
 
         """computes normal variance using numpy two pass, setting ddof = 1"""
 
-        ax_num = ds.get_axis_num("time")
-        temp = np.var(ds, axis=ax_num, dtype=np.float64, keepdims=True, ddof=1)
+        ax_num = data_source.get_axis_num("time")
+        temp = np.var(data_source, axis=ax_num, dtype=np.float64, keepdims=True, ddof=1)
 
         return temp
 
-    def _update_mean(self, ds, weight):
+    def _update_mean(self, data_source, weight):
 
         """
         computes one pass mean with weight corresponding to the number
@@ -1155,19 +1154,19 @@ class Opa:
         temp_count = self._update_continuous_count(weight)
 
         if weight == 1:
-            mean_cum = self.mean_cum + weight * (ds - self.mean_cum) / (temp_count)
+            mean_cum = self.mean_cum + weight * (data_source - self.mean_cum) / (temp_count)
         else:
             # compute two pass mean first
-            temp_mean = self._two_pass_mean(ds)
+            temp_mean = self._two_pass_mean(data_source)
             mean_cum = self.mean_cum + weight * (temp_mean - self.mean_cum) / (
                 temp_count
             )
 
         self.mean_cum = mean_cum.data
 
-        return 
+        return
 
-    def _update_var(self, ds, weight):
+    def _update_var(self, data_source, weight):
 
         """
         Computes one pass variance with weight corresponding to the number
@@ -1181,14 +1180,14 @@ class Opa:
         old_mean = self.mean_cum
 
         if weight == 1 :
-            self._update_mean(ds, weight)
-            var_cum = self.var_cum + weight * (ds - old_mean) * (ds - self.mean_cum)
+            self._update_mean(data_source, weight)
+            var_cum = self.var_cum + weight * (data_source - old_mean) * (data_source - self.mean_cum)
 
         else:
             # two-pass mean
-            temp_mean = self._two_pass_mean(ds)
+            temp_mean = self._two_pass_mean(data_source)
             # two pass variance
-            temp_var = (self._two_pass_var(ds)) * (weight - 1)
+            temp_var = (self._two_pass_var(data_source)) * (weight - 1)
             # see paper Mastelini. S
             if self.stat_freq != "continuous":
                 var_cum = (
@@ -1208,7 +1207,7 @@ class Opa:
                     )
                 )
 
-            self._update_mean(ds, weight)
+            self._update_mean(data_source, weight)
 
         if self.count == self.n_data:
             # using sample variance NOT population variance
@@ -1221,7 +1220,7 @@ class Opa:
 
         # return
 
-    def _update_std(self, ds, weight):
+    def _update_std(self, data_source, weight):
 
         """
         Computes one pass standard deviation with weight corresponding
@@ -1231,47 +1230,47 @@ class Opa:
 
         """
 
-        self._update_var(ds, weight)
+        self._update_var(data_source, weight)
         self.std_cum = np.sqrt(self.var_cum)
-        
-        return 
-    
-    def _update_sum(self, ds, weight):
+
+        return
+
+    def _update_sum(self, data_source, weight):
         
         """ 
         Computes one pass summation
         
-        """ 
-        if weight > 1 : 
-            ax_num = ds.get_axis_num('time')
-            ds = np.sum(ds, axis = ax_num, dtype=np.float64, keepdims = True)
-            
-        sum_cum = np.add(self.sum_cum, ds, dtype=np.float64)
-        
+        """
+        if weight > 1 :
+            ax_num = data_source.get_axis_num('time')
+            data_source = np.sum(data_source, axis = ax_num, dtype=np.float64, keepdims = True)
+
+        sum_cum = np.add(self.sum_cum, data_source, dtype=np.float64)
+
         self.sum_cum = sum_cum.data
         self.count = self.count + weight
         self._update_continuous_count(weight)
-        
-        return 
 
-    def _update_min_internal(self, ds, ds_time):
+        return
+
+    def _update_min_internal(self, data_source, data_source_time):
 
         """ "
         Function that updates the axis of attributes min_cum
-        and timings and updates the array ds with any values
+        and timings and updates the array data_source with any values
         in min_cum that are smaller
-
         """
-        self.min_cum["time"] = ds.time
-        self.timings["time"] = ds.time
-        ds_time = ds_time.where(ds < self.min_cum, self.timings)
+        
+        self.min_cum["time"] = data_source.time
+        self.timings["time"] = data_source.time
+        data_source_time = data_source_time.where(data_source < self.min_cum, self.timings)
         # this gives the new self.min_cum number when the  condition is FALSE
         # (location at which to preserve the objects values)
-        ds = ds.where(ds < self.min_cum, self.min_cum)
+        data_source = data_source.where(data_source < self.min_cum, self.min_cum)
 
-        return ds, ds_time
+        return data_source, data_source_time
 
-    def _update_min(self, ds, weight):
+    def _update_min(self, data_source, weight):
 
         """
         Finds the cumulative minimum values of the data along with an
@@ -1280,59 +1279,64 @@ class Opa:
         """
 
         if weight == 1:
-            timestamp = np.datetime_as_string((ds.time.values[0]))
-            ds_time = xr.zeros_like(ds)
-            ds_time = ds_time.where(ds_time != 0, timestamp)
+            timestamp = np.datetime_as_string((data_source.time.values[0]))
+            data_source_time = xr.zeros_like(data_source)
+            data_source_time = data_source_time.where(data_source_time != 0, timestamp)
 
         else:
-            ax_num = ds.get_axis_num("time")
-            timings = ds.time
-            min_index = ds.argmin(axis=ax_num, keep_attrs=False)
-            ds = np.amin(ds, axis=ax_num, keepdims=True)
-            ds_time = xr.zeros_like(ds)  # now this will have dimensions 1,lat,lon
+            ax_num = data_source.get_axis_num("time")
+            timings = data_source.time
+            min_index = data_source.argmin(axis=ax_num, keep_attrs=False)
+            data_source = np.amin(data_source, axis=ax_num, keepdims=True)
+            # now this will have dimensions 1,lat,lon
+            data_source_time = xr.zeros_like(data_source)
 
             for i in range(0, weight):
                 timestamp = np.datetime_as_string((timings.values[i]))
-                ds_time = ds_time.where(min_index != i, timestamp)
+                data_source_time = data_source_time.where(min_index != i, timestamp)
 
         if self.stat_freq != "continuous":
             if self.count > 0:
-                ds, ds_time = self._update_min_internal(ds, ds_time)
+                data_source, data_source_time = self._update_min_internal(
+                    data_source, data_source_time
+                )
         else:
             if self.count_continuous > 0:
-                ds, ds_time = self._update_min_internal(ds, ds_time)
+                data_source, data_source_time = self._update_min_internal(
+                    data_source, data_source_time
+                )
 
         # convert to datetime64 for saving
-        ds_time = ds_time.astype("datetime64[ns]")
+        data_source_time = data_source_time.astype("datetime64[ns]")
 
         self.count = self.count + weight
         self._update_continuous_count(weight)
 
         # running this way around as Array type does not have the function .where,
         # this only works for data_array
-        self.min_cum = ds
-        self.timings = ds_time
+        self.min_cum = data_source
+        self.timings = data_source_time
 
         # return
 
-    def _update_max_internal(self, ds, ds_time):
+    def _update_max_internal(self, data_source, data_source_time):
 
         """ "
         Function that updates the axis of attributes max_cum
-        and timings and updates the array ds with any values
+        and timings and updates the array data_source with any values
         in max_cum that are larger
 
         """
-        self.max_cum["time"] = ds.time
-        self.timings["time"] = ds.time
-        ds_time = ds_time.where(ds > self.max_cum, self.timings)
+        self.max_cum["time"] = data_source.time
+        self.timings["time"] = data_source.time
+        data_source_time = data_source_time.where(data_source > self.max_cum, self.timings)
         # this gives the new self.max_cum number when the  condition is
         # FALSE (location at which to preserve the objects values)
-        ds = ds.where(ds > self.max_cum, self.max_cum)
+        data_source = data_source.where(data_source > self.max_cum, self.max_cum)
 
-        return ds, ds_time
+        return data_source, data_source_time
 
-    def _update_max(self, ds, weight):
+    def _update_max(self, data_source, weight):
 
         """
         Finds the cumulative maximum values of the data along with an array of
@@ -1341,40 +1345,44 @@ class Opa:
         """
 
         if weight == 1:
-            timestamp = np.datetime_as_string((ds.time.values[0]))
-            ds_time = xr.zeros_like(ds)
-            ds_time = ds_time.where(ds_time != 0, timestamp)
+            timestamp = np.datetime_as_string((data_source.time.values[0]))
+            data_source_time = xr.zeros_like(data_source)
+            data_source_time = data_source_time.where(data_source_time != 0, timestamp)
         else:
-            ax_num = ds.get_axis_num("time")
-            timings = ds.time
-            max_index = ds.argmax(axis=ax_num, keep_attrs=False)
+            ax_num = data_source.get_axis_num("time")
+            timings = data_source.time
+            max_index = data_source.argmax(axis=ax_num, keep_attrs=False)
             self.max_index = max_index
-            ds = np.amax(ds, axis=ax_num, keepdims=True)
+            data_source = np.amax(data_source, axis=ax_num, keepdims=True)
             # now this will have dimensions 1,incoming grid
-            ds_time = xr.zeros_like(ds)
+            data_source_time = xr.zeros_like(data_source)
 
             for i in range(0, weight):
                 timestamp = np.datetime_as_string((timings.values[i]))
-                ds_time = ds_time.where(max_index != i, timestamp)
+                data_source_time = data_source_time.where(max_index != i, timestamp)
 
         if self.stat_freq != "continuous":
             if self.count > 0:
-                ds, ds_time = self._update_max_internal(ds, ds_time)
+                data_source, data_source_time = self._update_max_internal(
+                    data_source, data_source_time
+                )
         else:
             if self.count_continuous > 0:
-                ds, ds_time = self._update_max_internal(ds, ds_time)
+                data_source, data_source_time = self._update_max_internal(
+                    data_source, data_source_time
+                )
 
         # convert to datetime64 for saving
-        ds_time = ds_time.astype("datetime64[ns]")
+        data_source_time = data_source_time.astype("datetime64[ns]")
 
         self.count = self.count + weight
         self._update_continuous_count(weight)
-        self.max_cum = ds
-        self.timings = ds_time
+        self.max_cum = data_source
+        self.timings = data_source_time
 
         # return
 
-    def _update_threshold(self, ds, weight):
+    def _update_threshold(self, data_source, weight):
 
         """
         Creates an array with the frequency that a threshold has
@@ -1383,29 +1391,29 @@ class Opa:
 
         if weight > 1:
 
-            ds = xr.where(ds < abs(self.thresh_exceed), 0, 1)
+            data_source = xr.where(data_source < abs(self.thresh_exceed), 0, 1)
             # try slower np version that preserves dimensions
-            ds = np.sum(ds, axis=0, keepdims=True)
-            ds = self.thresh_exceed_cum + ds
+            data_source = np.sum(data_source, axis=0, keepdims=True)
+            data_source = self.thresh_exceed_cum + data_source
 
         else:
             if self.count > 0:
-                self.thresh_exceed_cum["time"] = ds.time
+                self.thresh_exceed_cum["time"] = data_source.time
 
             # need seperate else statment for dimensions
-            ds = xr.where(
-                ds < abs(self.thresh_exceed),
+            data_source = xr.where(
+                data_source < abs(self.thresh_exceed),
                 self.thresh_exceed_cum,
                 self.thresh_exceed_cum + 1,
             )
 
         self.count = self.count + weight
         self._update_continuous_count(weight)
-        self.thresh_exceed_cum = ds
+        self.thresh_exceed_cum = data_source
 
         # return
 
-    def _update_tdigest(self, ds, weight=1):
+    def _update_tdigest(self, data_source, weight=1):
 
         """
         Sequential loop that updates the digest for each grid point.
@@ -1419,56 +1427,51 @@ class Opa:
 
             # TODO: check you need the differnence with bias_correction
             if self.stat == "bias_correction":
-                if (
-                    self.variable != 'pr' or 
-                    self.variable != 'lsp' or 
-                    self.variable != 'cp' or 
-                    self.variable != 'tp'
-                ):
+                if self.variable not in precip_options:
                     if hasattr(self.mean_cum, "chunks"):
                         # extracting the underlying np array
-                        ds = ds.compute()
+                        data_source = data_source.compute()
                 else: 
                     if hasattr(self.sum_cum, "chunks"):
-                        ds = ds.compute()
-                ds_values = np.reshape(ds, self.array_length) 
+                        data_source = data_source.compute()
+                data_source_values = np.reshape(data_source, self.array_length) 
             else: 
-                ds_values = np.reshape(ds.values, self.array_length) 
-                    
+                data_source_values = np.reshape(data_source.values, self.array_length)
+
             # this is looping through every grid cell using crick or pytdigest tqdm.tqdm(
-            for j in range(self.array_length): 
-                self.__getattribute__(str(self.stat + "_cum"))[j].update(ds_values[j])
+            for j in range(self.array_length):
+                self.__getattribute__(str(self.stat + "_cum"))[j].update(data_source_values[j])
 
         else:
-            ds_values = ds.values.reshape((weight, -1))
+            data_source_values = data_source.values.reshape((weight, -1))
 
             #tqdm.tqdm(
             for j in range(self.array_length):
                 # using crick or pytdigest
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(
-                    ds_values[:, j]
+                    data_source_values[:, j]
                 )
 
         if self.stat != "bias_correction":
             self.count = self.count + weight
             self._update_continuous_count(weight)
 
-        return 
-    
-    def _update_raw_data(self, ds, weight):
+        return
+
+    def _update_raw_data(self, data_source, weight):
 
         """Concantes all the raw data required for the bias-correction"""
-        
+
         if(self.count == 0):
-            self.raw_data_for_bc = ds.isel(time=slice(0,weight))
+            self.raw_data_for_bc = data_source.isel(time=slice(0,weight))
         else:
             self.raw_data_for_bc = xr.concat(
-                [self.raw_data_for_bc, ds.isel(time=slice(0,weight))], dim = 'time'
-            ) 
-        
-        return 
+                [self.raw_data_for_bc, data_source.isel(time=slice(0,weight))], dim = 'time'
+            )
+
+        return
     
-    def _get_percentile(self, ds):
+    def _get_percentile(self, data_source):
 
         """
         Converts digest functions into percentiles and reshapes
@@ -1491,10 +1494,10 @@ class Opa:
         self.percentile_cum = np.transpose(self.percentile_cum)
 
         # reshaping percentile cum into the correct shape
-        ds_size = ds.tail(time=1)  # will still have 1 for time dimension
+        data_source_size = data_source.tail(time=1)  # will still have 1 for time dimension
 
         # forcing computation in float64
-        value = da.zeros_like(ds_size, dtype=np.float64)
+        value = da.zeros_like(data_source_size, dtype=np.float64)
         final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
 
         # with the percentiles we add another dimension for the percentiles
@@ -1504,7 +1507,7 @@ class Opa:
 
         # return
 
-    def _get_bias_correction_tdigest(self, ds):
+    def _get_bias_correction_tdigest(self, data_source):
 
         """Converts list of t-digests back into original grid shape and makes
         them picklable"""
@@ -1517,9 +1520,9 @@ class Opa:
 
         # reshaping percentile cum into the correct shape
         # this will still have 1 for time dimension
-        ds_size = ds.tail(time=1)
+        data_source_size = data_source.tail(time=1)
 
-        value = da.zeros_like(ds_size, dtype=np.float64)
+        value = da.zeros_like(data_source_size, dtype=np.float64)
         final_size = da.concatenate([value], axis=0)
 
         self.bias_correction_cum = np.reshape(
@@ -1529,7 +1532,7 @@ class Opa:
 
         # return
 
-    def _load_or_init_digests(self, ds_size):
+    def _load_or_init_digests(self, data_source_size):
 
         """
         This function checks to see if a checkpoint file for the bias
@@ -1546,7 +1549,7 @@ class Opa:
 
         """
 
-        self.array_length = np.size(ds_size)
+        self.array_length = np.size(data_source_size)
         final_time_file_str = self._create_file_name_bc()
         self.checkpoint_file_bc = os.path.join(
             self.out_filepath,
@@ -1568,60 +1571,55 @@ class Opa:
             # you're reading from the checkpoints
             # TODO: do you need if (self.should_init_digests):
             print("initalising digests")
-            self._init_digests(ds_size)
+            self._init_digests(data_source_size)
 
         # return
 
-    def _update(self, ds, weight=1):
+    def _update(self, data_source, weight=1):
 
         """Depending on the requested statistic will send data to the correct
         function"""
 
         if self.stat == "mean":
-            self._update_mean(ds, weight)
+            self._update_mean(data_source, weight)
 
         elif self.stat == "var":
-            self._update_var(ds, weight)
+            self._update_var(data_source, weight)
 
         elif self.stat == "std":
-            self._update_std(ds, weight)
+            self._update_std(data_source, weight)
 
         elif self.stat == "min":
-            self._update_min(ds, weight)
+            self._update_min(data_source, weight)
 
         elif self.stat == "max":
-            self._update_max(ds, weight)
+            self._update_max(data_source, weight)
 
         elif self.stat == "thresh_exceed":
-            self._update_threshold(ds, weight)
+            self._update_threshold(data_source, weight)
 
         elif self.stat == "percentile":
-            self._update_tdigest(ds, weight)
-            
-        elif(self.stat == "sum"):
-            self._update_sum(ds, weight)
-            
-        elif(self.stat == "bias_correction"): 
-        # bias correction requires raw data and daily 
-        # means for each call 
-        
-            self._update_raw_data(ds, weight)
-            
-            if (
-                self.variable != 'pr' or 
-                self.variable != 'lsp' or 
-                self.variable != 'cp' or 
-                self.variable != 'tp'
-            ):
-                # want daily means
-                self._update_mean(ds, weight) 
-            else : 
-                self._update_sum(ds, weight) 
-            
-        return 
+            self._update_tdigest(data_source, weight)
 
-    def _write_pickle(self, what_to_dump, file_name = None): 
-        
+        elif(self.stat == "sum"):
+            self._update_sum(data_source, weight)
+
+        elif(self.stat == "bias_correction"):
+        # bias correction requires raw data and daily 
+        # means for each call
+
+            self._update_raw_data(data_source, weight)
+
+            if self.variable not in precip_options:
+                # want daily means
+                self._update_mean(data_source, weight)
+            else :
+                self._update_sum(data_source, weight)
+
+        return
+
+    def _write_pickle(self, what_to_dump, file_name = None):
+
         """ 
         Writes pickle file
 
@@ -1630,33 +1628,32 @@ class Opa:
         what_to_dump = the contents of what to pickle
         file_name = optional file name if different from
             self.checkpoint_file. Used for bias_correction
-        
+
         """ 
-        #start_time = time.time() 
-        
-        if (file_name): 
-            with open(file_name, 'wb') as file: 
+        #start_time = time.time()
+
+        if file_name:
+            with open(file_name, 'wb') as file:
                 pickle.dump(what_to_dump, file)
         else:
             with open(self.checkpoint_file, "wb") as file:
-                pickle.dump(what_to_dump, file)
-                
+                pickle.dump(what_to_dump, file)  
                 
         #end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to write checkpoint')
-  
-        return 
-            
-    def _write_zarr(self): 
-        
+
+        return
+
+    def _write_zarr(self):
+
         """
-        Write checkpoint file as to zarr. This will be used when 
+        Write checkpoint file as to zarr. This will be used when
         size of the checkpoint file is over 2GB. The only thing written 
         to zarr will be the summary statstic (self.stat_cum). All the meta
         Data will be pickled (included in this function)
 
         """
-
+        
         self.use_zarr = True
         compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
 
@@ -1693,21 +1690,26 @@ class Opa:
         """Computing dask lazy operations and calling data into memory"""
 
         #start_time = time.time()
-    
-        if(self.stat == "bias_correction"):
-            
-            self.__setattr__("mean_cum", 
-                             self.__getattribute__("mean_cum").compute()
-            )
-        else: 
-            self.__setattr__(str(self.stat + "_cum"), 
+
+        if self.stat == "bias_correction":
+            if self.variable not in precip_options:
+                self.__setattr__("mean_cum",
+                                self.__getattribute__("mean_cum").compute()
+                )
+            else:
+                self.__setattr__("sum_cum",
+                                self.__getattribute__("sum_cum").compute()
+                )
+
+        else:
+            self.__setattr__(str(self.stat + "_cum"),
                              self.__getattribute__(str(self.stat + "_cum")).compute()
             )
-        
+
         #end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to load dask')
-  
-        return 
+
+        return
     
     def _write_checkpoint(self):
 
@@ -1718,23 +1720,17 @@ class Opa:
         only meta data stored as pickle"""
 
         if self.stat == "bias_correction":
-            if (
-                self.variable != 'pr' or 
-                self.variable != 'lsp' or 
-                self.variable != 'cp' or 
-                self.variable != 'tp'
-            ):
+            if self.variable not in precip_options:
                 if hasattr(self.__getattribute__("mean_cum"), "compute"):
                     # first load data into memory
                     self._load_dask()
                     total_size = sys.getsizeof(self.__getattribute__("mean_cum")) / (10**9)
 
-            else: 
+            else:
                 if hasattr(self.__getattribute__("sum_cum"), "compute"):
                     # first load data into memory
                     self._load_dask()
                     total_size = sys.getsizeof(self.__getattribute__("sum_cum")) / (10**9)
-
 
             # total size in GB
             total_size += sys.getsizeof(self.__getattribute__("raw_data_for_bc")) / (
@@ -1773,7 +1769,7 @@ class Opa:
 
         # return
 
-    def _create_raw_data_set(self, ds):
+    def _create_raw_data_set(self, data_source):
 
         """
         Creates an xarray dataSet for the option of stat: "none".
@@ -1783,20 +1779,37 @@ class Opa:
 
         """
         try:
-            ds = getattr(ds, self.variable)
-            dm = ds.to_dataset(dim=None, name=self.variable)
+            data_source = getattr(data_source, self.variable)
+            dm = data_source.to_dataset(dim=None, name=self.variable)
         except AttributeError:
-            dm = ds.to_dataset(dim=None, name=ds.name)
+            dm = data_source.to_dataset(dim=None, name=data_source.name)
+
+        # for provenance logging
+        current_time = datetime.now()
+        date_time = datetime.fromtimestamp(current_time.timestamp())
+        str_date_time = date_time.strftime("%d-%m-%Y T%H:%M")
 
         raw_data_attrs = self.data_set_attr
-        raw_data_attrs["OPA"] = str(
-            f"raw data at native temporal" f" resolution saved by one-pass algorithm"
+        new_attr_str = str(
+            str_date_time +
+            " raw data at native temporal resolution saved by one_pass algorithm;\n"
         )
+        # see if it already has attribute called history
+        if 'history' in raw_data_attrs:
+            old_history = raw_data_attrs['history']
+            updated_history = f"{old_history}{new_attr_str}"
+            raw_data_attrs['history'] = updated_history
+
+        else:
+            raw_data_attrs['history'] = new_attr_str
         dm = dm.assign_attrs(raw_data_attrs)
+        
+        # removing this attribute which somehow gets attached
+        raw_data_attrs['history'] = old_history
 
         return dm
 
-    def _create_data_set(self, final_stat, final_time_stamp, ds):
+    def _create_data_set(self, final_stat, final_time_stamp, data_source):
 
         """Creates xarray dataSet object with final data
         and original metadata
@@ -1807,46 +1820,48 @@ class Opa:
         final_time_stamp = this is the time stamp for the final array
             this will be equal to the time stamp of the first piece of
             incoming data that went into the array
-        ds = original data used for sizing
+        data_source = original data used for sizing
 
         """
 
         # compress the dataset down to 1 dimension in time
-        ds = ds.tail(time=1)
+        data_source = data_source.tail(time=1)
         # re-label the time coordinate
-        ds = ds.assign_coords(time=(["time"], [final_time_stamp], ds.time.attrs))
+        data_source = data_source.assign_coords(
+            time=(["time"], [final_time_stamp], data_source.time.attrs)
+        )
 
         if self.stat == "percentile":
 
-            ds = ds.expand_dims(
+            data_source = data_source.expand_dims(
                 dim={"percentile": np.size(self.percentile_list)}, axis=1
             )
             # re-label the time coordinate
-            ds = ds.assign_coords(
+            data_source = data_source.assign_coords(
                 percentile=("percentile", np.array(self.percentile_list))
             )
 
         dm = xr.Dataset(
             data_vars=dict(
                 # need to add variable attributes
-                [(str(ds.name), (ds.dims, final_stat, self.data_set_attr))],
+                [(str(data_source.name), (data_source.dims, final_stat, self.data_set_attr))],
             ),
-            coords=dict(ds.coords),
+            coords=dict(data_source.coords),
             attrs=self.data_set_attr,
         )
 
         current_time = datetime.now()
         date_time = datetime.fromtimestamp(current_time.timestamp())
         str_date_time = date_time.strftime("%d-%m-%Y T%H:%M")
-        
+
         if(hasattr(self, 'timings')):
             timing_attrs = {
-                str_date_time + ' OPA':'time stamp of ' + str(self.stat_freq + " " + self.stat)}
-            dm = dm.assign(timings = (ds.dims, self.timings.data, timing_attrs))
+                str_date_time + ' one_pass':'time stamp of ' + str(self.stat_freq + " " + self.stat)}
+            dm = dm.assign(timings = (data_source.dims, self.timings.data, timing_attrs))
 
         return dm
 
-    def _data_output(self, ds, time_word=None, bc_mean=False):
+    def _data_output(self, data_source, time_word=None, bc_mean=False):
 
         """Gathers final data and meta data for the final xarray dataSet
         Writes data attributes of the dataSet depending on the statistic
@@ -1854,60 +1869,85 @@ class Opa:
 
         Arguments
         ----------
-        ds = original data
+        data_source = original data
         time_word = Word required to create final file name
-        bc_mean = Flag to state that the final data output is for daily means
+        bc_mean = Flag to state that the final data output is for daily aggregations
             created for the bias correction
 
         Returns
         ---------
-        dm = final dataSet created from the function create_data_set
+        dm = final Dataset created from the function create_data_set
         final_time_file_str = this is the name of the final saved netCDF file
 
         """
         # final stat will be the cummulative statistic array
         final_stat = None
-              
+
+        # for provenance logging
         current_time = datetime.now()
         date_time = datetime.fromtimestamp(current_time.timestamp())
         str_date_time = date_time.strftime("%d-%m-%Y T%H:%M")
 
         # this is the flag to extract the mean value for the bias_correction
         if bc_mean:
-            
-            if (
-                self.variable != 'pr' or 
-                self.variable != 'lsp' or 
-                self.variable != 'cp' or 
-                self.variable != 'tp'
-            ):
-                
+            if self.variable not in precip_options:
+                new_attr_str = str(
+                        str_date_time + " "
+                        + self.stat_freq + " mean calculated using one-pass algorithm;\n"
+                    )
                 final_stat = self.__getattribute__(str("mean_cum"))
-                self.data_set_attr["history"] = str(
-                    str_date_time + f" OPA: "
-                    + self.stat_freq + " mean calculated using one-pass algorithm"
-                )
-            else: 
+                # see if it already has attribute called history
+                if 'history' in self.data_set_attr:
+                    old_history = self.data_set_attr['history']
+                    updated_history = f"{old_history}{new_attr_str}"
+                    self.data_set_attr['history'] = updated_history
+                else:
+                    self.data_set_attr['history'] = new_attr_str
+
+            else:
+                new_attr_str = str(
+                        str_date_time + " "
+                        + self.stat_freq + " sum calculated using one-pass algorithm;\n"
+                    )
                 final_stat = self.__getattribute__(str("sum_cum"))
-                self.data_set_attr["history"] = str(
-                    str_date_time + f" OPA: "
-                    + self.stat_freq + " sum calculated using one-pass algorithm"
-                )
-                
+                # see if already has an attribute called history
+                if 'history' in self.data_set_attr:
+                    old_history = self.data_set_attr['history']
+                    updated_history = f"{old_history}{new_attr_str}"
+                    self.data_set_attr['history'] = updated_history
+                else:
+                    self.data_set_attr['history'] = new_attr_str
+
         elif self.stat == "bias_correction":
+            
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
-            self.data_set_attr["history"] = str(
-                str_date_time + f" OPA: "
-                + f"daily aggregations added to the monthly digest for" 
-                + self.stat + f" calculated using one-pass algorithm"
-            )    
-        else: 
-            final_stat = self.__getattribute__(str(self.stat + "_cum"))
-            self.data_set_attr["history"] = str(
-                str_date_time + f" OPA: " 
-                + self.stat_freq + " " + self.stat + 
-                f" calculated using one-pass algorithm"
+            new_attr_str = str(
+                str_date_time
+                + " daily aggregations added to the monthly digest for " 
+                + self.stat + " calculated using one_pass algorithm;\n"
             )
+            # see if already has an attribute called history
+            if 'history' in self.data_set_attr:
+                old_history = self.data_set_attr['history']
+                updated_history = f"{old_history}{new_attr_str}"
+                self.data_set_attr['history'] = updated_history
+            else:
+                self.data_set_attr['history'] = new_attr_str
+
+        else:
+            final_stat = self.__getattribute__(str(self.stat + "_cum"))
+            new_attr_str = str(
+                str_date_time + " "
+                + self.stat_freq + " " + self.stat +
+                " calculated using one_pass algorithm;\n"
+            )
+            # see if already has an attribute called history
+            if 'history' in self.data_set_attr:
+                old_history = self.data_set_attr['history']
+                updated_history = f"{old_history}{new_attr_str}"
+                self.data_set_attr['history'] = updated_history
+            else:
+                self.data_set_attr['history'] = new_attr_str
 
         if self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed":
             final_stat = final_stat.data
@@ -1922,7 +1962,7 @@ class Opa:
         # gets the final time stamp for the data array
         final_time_stamp = self._create_final_timestamp()
 
-        dm = self._create_data_set(final_stat, final_time_stamp, ds)
+        dm = self._create_data_set(final_stat, final_time_stamp, data_source)
 
         return dm, final_time_file_str
 
@@ -1952,14 +1992,14 @@ class Opa:
 
         return final_time_stamp
 
-    def _create_raw_file_name(self, ds, weight):
+    def _create_raw_file_name(self, data_source, weight):
 
         """
         Creates the final file name for the netCDF file corresponding to
         the raw data."""
 
         final_time_file_str = None
-        time_stamp_sorted = sorted(ds.time.data)
+        time_stamp_sorted = sorted(data_source.time.data)
         time_stamp_list = [pd.to_datetime(x) for x in time_stamp_sorted]
 
         if weight > 1:
@@ -2060,7 +2100,7 @@ class Opa:
 
         return final_time_file_str
 
-    def _create_and_save_outputs_for_bc(self, ds):
+    def _create_and_save_outputs_for_bc(self, data_source):
 
         """
         Called when the self.stat is complete (daily). Creates the 3
@@ -2071,20 +2111,25 @@ class Opa:
         daily mean. Then saves this data
         """
 
-        ds_size = ds.tail(time=1)
+        data_source_size = data_source.tail(time=1)
         # now want to pass daily mean into bias_corr
         # load or initalise the monthly digest file
-        self._load_or_init_digests(ds_size)
-        # update digests with daily mean
-        # we know the weight = 1 as it's the mean over that day.
-        self._update_tdigest(self.mean_cum, 1)
+        self._load_or_init_digests(data_source_size)
+
+        # update digests with daily aggregation
+        # we know the weight = 1 as it's the aggregation over that day
+        if self.variable not in precip_options:
+            self._update_tdigest(self.mean_cum, 1)
+        else:
+            self._update_tdigest(self.sum_cum, 1)
+
         # this will give the original grid back with meta data and picklable digests
-        self._get_bias_correction_tdigest(ds)
+        self._get_bias_correction_tdigest(data_source)
 
         # output raw data
         dm_raw = self._create_raw_data_set(self.raw_data_for_bc)
-        # output as dataSet
-        dm_mean, final_time_file_str_bc = self._data_output(ds, bc_mean=True)
+        # output as Dataset
+        dm_mean, final_time_file_str_bc = self._data_output(data_source, bc_mean=True)
 
         # this should never not be true as will be caught in check_request
         if self.time_append == 1:
@@ -2115,12 +2160,7 @@ class Opa:
 
             if bc_mean:
                             
-                if (
-                    self.variable != 'pr' or 
-                    self.variable != 'lsp' or 
-                    self.variable != 'cp' or 
-                    self.variable != 'tp'
-                ):
+                if self.variable not in precip_options:
                     file_name = os.path.join(
                         self.out_filepath,
                         f"{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc",
@@ -2161,17 +2201,17 @@ class Opa:
 
         # return
 
-    def _call_recursive(self, how_much_left, weight, ds):
+    def _call_recursive(self, how_much_left, weight, data_source):
 
         """if there is more data given than what is required for the statistic,
         it will make a recursive call to itself with the remaining data"""
 
-        ds = ds.isel(time=slice(how_much_left, weight))
-        Opa.compute(self, ds)
+        data_source = data_source.isel(time=slice(how_much_left, weight))
+        Opa.compute(self, data_source)
 
         # return
 
-    def _update_statistics(self, weight, time_stamp_list, ds):
+    def _update_statistics(self, weight, time_stamp_list, data_source):
 
         """
         A function to see how many more data points needed to fill the statistic.
@@ -2192,7 +2232,7 @@ class Opa:
 
             # update rolling statistic with weight
 
-            self._update(ds, weight)  
+            self._update(data_source, weight)  
 
             if self.stat_freq != "continuous":
                 if self.checkpoint == True and self.count < self.n_data:
@@ -2209,16 +2249,16 @@ class Opa:
         elif how_much_left < weight:
 
             # extracting time until the end of the statistic
-            ds_left = ds.isel(time=slice(0, how_much_left))
+            data_source_left = data_source.isel(time=slice(0, how_much_left))
             # CHECK moving the time stamp to the last of the set
             self.time_stamp = time_stamp_list[how_much_left]
             # update rolling statistic with weight of the last few days
             # still need to finish the statistic (see below)
-            self._update(ds_left, how_much_left)
+            self._update(data_source_left, how_much_left)
         
         return how_much_left
 
-    def _full_continuous_data(self, ds, how_much_left, weight):
+    def _full_continuous_data(self, data_source, how_much_left, weight):
 
         """
         Called when n_data = count but the stat_freq = continuous. So saving
@@ -2228,41 +2268,41 @@ class Opa:
         save the output if rquired and called the recursive function if required
         """
 
-        dm, final_time_file_str = self._data_output(ds, time_word=self.output_freq)
+        dm, final_time_file_str = self._data_output(data_source, time_word=self.output_freq)
         if self.save == True:
             self._save_output(dm, final_time_file_str)
 
         # if there's more to compute - call before return
         if how_much_left < weight:
-            self._call_recursive(how_much_left, weight, ds)
+            self._call_recursive(how_much_left, weight, data_source)
 
         return dm
 
     ############## defining class methods ####################
 
-    def compute(self, ds):
+    def compute(self, data_source):
 
         """Actual function call"""
 
         # convert from a data_set to a data_array if required
-        ds = self._check_variable(ds)
+        data_source = self._check_variable(data_source)
 
         # this checks if there are multiple time stamps
         # in a file and will do two pass statistic
-        weight = self._check_num_time_stamps(ds)
+        weight = self._check_num_time_stamps(data_source)
 
         if self.stat == "raw":
-            dm = self._check_raw(ds, weight)
+            dm = self._check_raw(data_source, weight)
             return dm
 
         # check the time stamp and if the data needs to be initalised
         (
-            ds,
+            data_source,
             weight,
             already_seen,
             n_data_att_exist,
             time_stamp_list,
-        ) = self._check_time_stamp(ds, weight)
+        ) = self._check_time_stamp(data_source, weight)
 
         # check if data has been 'seen', will only skip if data doesn't
         # get re-initalised
@@ -2275,12 +2315,12 @@ class Opa:
             # same here, return makes sence
             return
 
-        how_much_left = self._update_statistics(weight, time_stamp_list, ds)
+        how_much_left = self._update_statistics(weight, time_stamp_list, data_source)
         #print('how much left', how_much_left)
         
         if self.count == self.n_data and self.stat_freq == "continuous":
 
-            dm = self._full_continuous_data(ds, how_much_left, weight)
+            dm = self._full_continuous_data(data_source, how_much_left, weight)
 
             return dm
 
@@ -2289,15 +2329,15 @@ class Opa:
 
             if self.stat == "percentile":
                 # this will give self.tdigest but it's full of percentiles
-                self._get_percentile(ds)
+                self._get_percentile(data_source)
 
             if self.stat == "bias_correction":
                 # loads, updates and makes picklabe tdigests,
                 # saves daily raw and daily mean
-                dm_raw, dm_mean = self._create_and_save_outputs_for_bc(ds)
+                dm_raw, dm_mean = self._create_and_save_outputs_for_bc(data_source)
 
             # output as a dataset
-            dm, final_time_file_str = self._data_output(ds)
+            dm, final_time_file_str = self._data_output(data_source)
 
             # output_freq_min == self.stat_freq_min
             if self.time_append == 1:
@@ -2315,7 +2355,7 @@ class Opa:
 
                 # if there's more to compute - call before return
                 if how_much_left < weight:
-                    self._call_recursive(how_much_left, weight, ds)
+                    self._call_recursive(how_much_left, weight, data_source)
 
                 if self.stat != "bias_correction":
                     return dm
@@ -2338,7 +2378,7 @@ class Opa:
 
                     # if there's more to compute - call before return
                     if how_much_left < weight:
-                        self._call_recursive(how_much_left, weight, ds)
+                        self._call_recursive(how_much_left, weight, data_source)
 
                     return self.dm_append
 
@@ -2356,7 +2396,7 @@ class Opa:
 
                         # if there's more to compute - call before return
                         if how_much_left < weight:
-                            self._call_recursive(how_much_left, weight, ds)
+                            self._call_recursive(how_much_left, weight, data_source)
 
                         return self.dm_append
 
@@ -2388,6 +2428,6 @@ class Opa:
 
                         # if there's more to compute - call before return
                         if how_much_left < weight:
-                            self._call_recursive(how_much_left, weight, ds)
+                            self._call_recursive(how_much_left, weight, data_source)
 
                         return self.dm_append
