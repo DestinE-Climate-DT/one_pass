@@ -90,13 +90,11 @@ class OpaMeta:
 
     """
 
-    def __init__(self, Opa):
+    def __init__(self, Opa, blacklist):
 
-        blacklist = str(Opa.stat + "_cum")
         for key, value in Opa.__dict__.items():
             if key not in blacklist:
                 self.__setattr__(key, value)
-
 
 class Opa:
 
@@ -228,45 +226,12 @@ class Opa:
 
         # already checked if path valid if check request
         file_path = request.get("checkpoint_filepath")
-
-        # if it doesn't have zarr, all data in the pickle
-        if hasattr(self, "use_zarr"):
-            self.checkpoint_file_zarr = os.path.join(
-                file_path,
-                (
-                    f"checkpoint_{self.variable}_{self.stat_freq}_"
-                    f"{self.output_freq}_{self.stat}.zarr"
-                ),
-            )
-
-        # if stat is bias correction, the checkpointed statistic will
-        # be the daily mean unless the variable is precipitaiton
-        # in which case you want the daily summation
-        if self.stat == "bias_correction":
-
-            if self.variable not in precip_options:
-                self.checkpoint_file = os.path.join(
-                    file_path,
-                    (
-                        f"checkpoint_{self.variable}_{self.stat_freq}_"
-                        f"{self.output_freq}_mean.pkl"
-                    ),
-                )
-            else:
-                self.checkpoint_file = os.path.join(
-                    file_path,
-                    (
-                        f"checkpoint_{self.variable}_{self.stat_freq}_"
-                        f"{self.output_freq}_sum.pkl"
-                    ),
-                )
-
-        else:
-            self.checkpoint_file = os.path.join(
-                file_path,
-                f"checkpoint_{self.variable}_{self.stat_freq}_"
-                f"{self.output_freq}_{self.stat}.pkl",
-            )
+        
+        self.checkpoint_file = os.path.join(
+            file_path,
+            f"checkpoint_{self.variable}_{self.stat_freq}_"
+            f"{self.output_freq}_{self.stat}.pkl",
+        )
 
         # see if the checkpoint file exists
         if os.path.exists(self.checkpoint_file):
@@ -274,15 +239,20 @@ class Opa:
 
             # if using a zarr file
             if hasattr(self, "use_zarr"):
-                if os.path.exists(self.checkpoint_file_zarr):
-                    self.__setattr__(
-                        str(self.stat + "_cum"),
-                        zarr.load(store=self.checkpoint_file_zarr),
+                # looping through all the data that is something_cum
+                for key in self.matching_items:
+                    
+                    checkpoint_file_zarr = os.path.join(
+                        self.checkpoint_filepath,
+                        f"checkpoint_{self.variable}_"
+                        f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
                     )
-        # In Python, when a function doesn't have a return statement or
-        # has a return statement without a value, it returns None by default.
-        # so I would just remove those returns
-        # return
+
+                    if os.path.exists(checkpoint_file_zarr):
+                        self.__setattr__(
+                            key,
+                            zarr.load(store=checkpoint_file_zarr),
+                        )
 
     def _process_request(self, request):
 
@@ -303,6 +273,8 @@ class Opa:
         for key in request:
             self.__setattr__(key, request[key])
 
+        self.pickle_limit = 1.6 
+        
     ############### end if __init__ #####################
 
     def _initialise_time(self, time_stamp_min, time_stamp_tot_append):
@@ -402,8 +374,6 @@ class Opa:
                         "Output frequency can not be less than frequency of statistic"
                     )
 
-        # return
-
     def _init_digests(self, data_source_size):
 
         """
@@ -496,7 +466,7 @@ class Opa:
             # checkpointing
 
             # also need to get raw data to pass
-            self.__setattr__("raw_data_for_bc", value)
+            self.__setattr__("raw_data_for_bc_cum", value)
             # also going to need the daily means or sums if precipitation
             if self.variable not in precip_options:
                 self.__setattr__("mean_cum", value)
@@ -632,22 +602,6 @@ class Opa:
 
         return proceed, should_init_time, should_init_value
 
-    # def _should_initalise_bc(self, time_stamp_min_bc):
-
-    #     should_init_digests = False
-
-    #     digests_exist = self._check_digests_exist()
-
-    #     if(digests_exist):
-    #         pass
-
-    #     elif(time_stamp_min_bc < self.time_step):
-    #         should_init_digests = True
-
-    #     self.should_init_digests = should_init_digests
-
-    #     return
-
     def _remove_time_append(self):
 
         """removes 3 attributes relating to time_append
@@ -660,10 +614,21 @@ class Opa:
         if self.checkpoint:  # delete checkpoint file
             if os.path.isfile(self.checkpoint_file):
                 os.remove(self.checkpoint_file)
-            if os.path.isfile(self.checkpoint_file_zarr):
-                os.remove(self.checkpoint_file_zarr)
 
-        # return
+            if hasattr(self, "use_zarr"):
+                # looping through all the data that is something_cum
+                for key in self.matching_items:
+                    
+                    checkpoint_file_zarr = os.path.join(
+                        self.checkpoint_filepath,
+                        f"checkpoint_{self.variable}_"
+                        f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
+                    )
+                    if os.path.isfile(checkpoint_file_zarr):
+                        os.remove(checkpoint_file_zarr)
+
+            #if os.path.isfile(self.checkpoint_file_zarr):
+            #    os.remove(self.checkpoint_file_zarr)
 
     def _option_one(self, time_stamp, proceed):
 
@@ -1463,10 +1428,10 @@ class Opa:
         """Concantes all the raw data required for the bias-correction"""
 
         if(self.count == 0):
-            self.raw_data_for_bc = data_source.isel(time=slice(0,weight))
+            self.raw_data_for_bc_cum = data_source.isel(time=slice(0,weight))
         else:
-            self.raw_data_for_bc = xr.concat(
-                [self.raw_data_for_bc, data_source.isel(time=slice(0,weight))], dim = 'time'
+            self.raw_data_for_bc_cum = xr.concat(
+                [self.raw_data_for_bc_cum, data_source.isel(time=slice(0,weight))], dim = 'time'
             )
 
         return
@@ -1528,9 +1493,19 @@ class Opa:
         self.bias_correction_cum = np.reshape(
             self.bias_correction_cum, np.shape(final_size)
         )
-        # self.bias_correction_cum = np.expand_dims(self.bias_correction_cum, axis = 0)
 
-        # return
+    def _get_monthly_digest_filename_bc(self, final_time_file_str, total_size):
+                
+        if total_size < self.pickle_limit: 
+            self.monthly_digest_file_bc = os.path.join(
+                self.out_filepath,
+                f"month_{final_time_file_str}_{self.variable}_{self.stat}.pkl",
+            )
+        else:
+            self.monthly_digest_file_bc = os.path.join(
+                self.out_filepath,
+                f"month_{final_time_file_str}_{self.variable}_{self.stat}.zarr",
+            )
 
     def _load_or_init_digests(self, data_source_size):
 
@@ -1544,22 +1519,24 @@ class Opa:
 
         Returns
         --------
-        self.checkpoint_file_bc = The file name for the stored tDigest
+        self.monthly_digest_file_bc = The file name for the stored tDigest
         objects, corresponding to the month of the time stamp of the data.
 
         """
 
         self.array_length = np.size(data_source_size)
-        final_time_file_str = self._create_file_name_bc()
-        self.checkpoint_file_bc = os.path.join(
-            self.out_filepath,
-            f"month_{final_time_file_str}_{self.variable}_{self.stat}.pkl",
-        )
+        final_time_file_str = self._get_month_str_bc()
+        total_size = self._get_total_size(just_digests=True)
+        # sets the variable self.monthly_digest_file_bc
+        self._get_monthly_digest_filename_bc(final_time_file_str, total_size)
 
         # this is loading the t-digest class
-        if os.path.exists(self.checkpoint_file_bc):
-            temp_self = self._load_pickle_for_bc(self.checkpoint_file_bc)
-            # extracting the underlying list out of the xarray dataSet
+        if os.path.exists(self.monthly_digest_file_bc):
+            if total_size < self.pickle_limit:
+                temp_self = self._load_pickle_for_bc(self.monthly_digest_file_bc)
+            else: 
+                temp_self = zarr.load(self.monthly_digest_file_bc)
+            # extracting the underlying list out of the xr.Dataset
             self.bias_correction_cum = temp_self[self.variable].values
             self.bias_correction_cum = np.reshape(
                 self.bias_correction_cum, self.array_length
@@ -1573,7 +1550,6 @@ class Opa:
             print("initalising digests")
             self._init_digests(data_source_size)
 
-        # return
 
     def _update(self, data_source, weight=1):
 
@@ -1618,6 +1594,16 @@ class Opa:
 
         return
 
+    def _find_items_with_cum(self, dict, target_substring = 'cum'):
+        matching_items = []
+        
+        for key, value in dict.__dict__.items():
+
+            if target_substring in key:
+                matching_items.append((key))
+        
+        return matching_items
+
     def _write_pickle(self, what_to_dump, file_name = None):
 
         """ 
@@ -1644,7 +1630,18 @@ class Opa:
 
         return
 
-    def _write_zarr(self):
+    def _write_zarr_for_bc(self, dm):
+        
+        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+
+        zarr.array(
+            dm,
+            store= self.monthly_digest_file_bc,
+            compressor=compressor,
+            overwrite=True,
+        )
+
+    def _write_zarr(self, matching_items):
 
         """
         Write checkpoint file as to zarr. This will be used when
@@ -1655,102 +1652,90 @@ class Opa:
         """
         
         self.use_zarr = True
+        # setting matching items to loop through later
+        self.matching_items = matching_items
+        
         compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
 
-        if hasattr(self, "checkpoint_file_zarr"):
-            zarr.array(
-                self.__getattribute__(str(self.stat + "_cum")),
-                store=self.checkpoint_file_zarr,
-                compressor=compressor,
-                overwrite=True,
-            )
-        else:
-            self.checkpoint_file_zarr = os.path.join(
+        # looping through all the attributes with 'cum' - the big ones
+        for key in matching_items:
+
+            checkpoint_file_zarr = os.path.join(
                 self.checkpoint_filepath,
                 f"checkpoint_{self.variable}_"
-                f"{self.stat_freq}_{self.output_freq}_{self.stat}.zarr",
+                f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
             )
 
             zarr.array(
-                self.__getattribute__(str(self.stat + "_cum")),
-                store=self.checkpoint_file_zarr,
+                self.__getattribute__(key),
+                store=checkpoint_file_zarr,
                 compressor=compressor,
                 overwrite=True,
             )
-
+            
         # now just pickle the rest of the meta data
         # creates seperate class for the meta data
-        opa_meta = OpaMeta(self)
+        opa_meta = OpaMeta(self, matching_items)
         self._write_pickle(opa_meta)
 
-        # return
+    def _load_dask(self, key):
 
-    def _load_dask(self):
-
-        """Computing dask lazy operations and calling data into memory"""
+        """Computing dask lazy operations and calling data into memory
+        First, finds all attributes that actually contain data by 
+        searching for the string cum """
 
         #start_time = time.time()
 
-        if self.stat == "bias_correction":
-            if self.variable not in precip_options:
-                self.__setattr__("mean_cum",
-                                self.__getattribute__("mean_cum").compute()
-                )
-            else:
-                self.__setattr__("sum_cum",
-                                self.__getattribute__("sum_cum").compute()
-                )
-
-        else:
-            self.__setattr__(str(self.stat + "_cum"),
-                             self.__getattribute__(str(self.stat + "_cum")).compute()
-            )
-
+        self.__setattr__(key,
+                        self.__getattribute__(key).compute()
+        )
+        
         #end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to load dask')
 
         return
     
+    def _get_total_size(self, just_digests = None):
+        
+        """ loops through all the attributes with "cum" ending 
+        to calculate the total size of the class in GB 
+        """
+        
+        total_size = 0
+
+        if just_digests:
+            digest_string = 'bias_correction_cum'
+            if hasattr(self, digest_string):
+                total_size = sys.getsizeof(
+                    self.__getattribute__(digest_string)
+                ) / (10**9)
+
+        else:
+            matching_items = self._find_items_with_cum(self)
+
+            for key in matching_items:
+                total_size += sys.getsizeof(self.__getattribute__(key)) / (10**9)
+        
+        return total_size
+    
     def _write_checkpoint(self):
 
         """
         Write checkpoint file. First checks the size of the class and
-        if it can fit in memory. If it's larger than 1.6 GB (pickle
+        if it can fit in memory. If it's larger than pickle limit (1.6) GB (pickle
         limit is 2GB) it will save the main climate data to zarr with
-        only meta data stored as pickle"""
+        only meta data stored as pickle
+        """
 
-        if self.stat == "bias_correction":
-            if self.variable not in precip_options:
-                if hasattr(self.__getattribute__("mean_cum"), "compute"):
-                    # first load data into memory
-                    self._load_dask()
-                    total_size = sys.getsizeof(self.__getattribute__("mean_cum")) / (10**9)
+        matching_items = self._find_items_with_cum(self)
+        total_size = self._get_total_size()
 
-            else:
-                if hasattr(self.__getattribute__("sum_cum"), "compute"):
-                    # first load data into memory
-                    self._load_dask()
-                    total_size = sys.getsizeof(self.__getattribute__("sum_cum")) / (10**9)
-
-            # total size in GB
-            total_size += sys.getsizeof(self.__getattribute__("raw_data_for_bc")) / (
-                10**9
-            )
-
-        else:
-            if hasattr(self.__getattribute__(str(self.stat + "_cum")), "compute"):
-                self._load_dask()
-
-            total_size = sys.getsizeof(
-                self.__getattribute__(str(self.stat + "_cum"))
-            ) / (10**9)
-
-        # they have the arrays repeated
-        if self.stat == "var" or self.stat == "min" or self.stat == "max":
-            total_size *= 2
-        if self.stat == "std":
-            total_size *= 3
-
+        # looping through all the attributes with 'cum' - the big ones
+        for key in matching_items:
+            if hasattr(self.__getattribute__(key), "compute"):
+                # first load data into memory
+                self._load_dask(key)
+            
         if self.stat == "percentile":
 
             for j in range(self.array_length):  # tqdm.tqdm
@@ -1759,20 +1744,18 @@ class Opa:
                 )
 
         # limit on a pickle file is 2GB
-        if total_size < 1.6:
+        if total_size < self.pickle_limit:
             # have to include self here as the second input
             self._write_pickle(self)
 
         else:
-            # this will pickle metaData inside as welll
-            self._write_zarr()
-
-        # return
+            # this will pickle metaData inside as well
+            self._write_zarr(matching_items)
 
     def _create_raw_data_set(self, data_source):
 
         """
-        Creates an xarray dataSet for the option of stat: "none".
+        Creates an xarray Dataset for the option of stat: "none".
         Here the dataSet will be exactly the same as the
         original, but only containing the requested variable /
         variable from the config.yml
@@ -1955,7 +1938,7 @@ class Opa:
 
         # creating the final file name
         if self.stat == "bias_correction" and bc_mean == False:
-            final_time_file_str = self._create_file_name_bc()
+            final_time_file_str = self._get_month_str_bc()
         else:
             final_time_file_str = self._create_file_name(time_word=time_word)
 
@@ -2088,7 +2071,7 @@ class Opa:
 
         return final_time_file_str
 
-    def _create_file_name_bc(self):
+    def _get_month_str_bc(self):
 
         """
         Function to extract the month of the time stamp. This month
@@ -2127,7 +2110,7 @@ class Opa:
         self._get_bias_correction_tdigest(data_source)
 
         # output raw data
-        dm_raw = self._create_raw_data_set(self.raw_data_for_bc)
+        dm_raw = self._create_raw_data_set(self.raw_data_for_bc_cum)
         # output as Dataset
         dm_mean, final_time_file_str_bc = self._data_output(data_source, bc_mean=True)
 
@@ -2149,7 +2132,7 @@ class Opa:
     def _save_output(self, dm, final_time_file_str, bc_raw=False, bc_mean=False):
 
         """
-        Function that creates final file name and path and saves final dataSet"""
+        Function that creates final file name and path and saves final Dataset"""
 
         if self.stat == "raw":
             file_name = os.path.join(
@@ -2193,8 +2176,14 @@ class Opa:
 
         # want to save the final TDigest files for the bias correction as pickle files
         else:
-            # TODO: check total size and if too big, save as zarr
-            self._write_pickle(dm, self.checkpoint_file_bc)
+            final_time_file_str = self._get_month_str_bc()
+            total_size = self._get_total_size(just_digests=True)
+            # sets the variable self.monthly_digest_file_bc
+            self._get_monthly_digest_filename_bc(final_time_file_str, total_size)
+            if total_size < self.pickle_limit: 
+                self._write_pickle(dm, self.monthly_digest_file_bc)
+            else: 
+                self._write_zarr_for_bc(dm)
 
         end_time = time.time() - start_time
         # print('finished saving tdigest files in', np.round(end_time,4) ,'s')
@@ -2350,8 +2339,15 @@ class Opa:
                         os.remove(self.checkpoint_file)
 
                     if hasattr(self, "use_zarr"):
-                        if os.path.isfile(self.checkpoint_file_zarr):
-                            os.remove(self.checkpoint_file_zarr)
+                        # looping through all the data that is something_cum
+                        for key in self.matching_items:
+                            checkpoint_file_zarr = os.path.join(
+                                self.checkpoint_filepath,
+                                f"checkpoint_{self.variable}_"
+                                f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
+                            )
+                            if os.path.isfile(checkpoint_file_zarr):
+                                os.remove(checkpoint_file_zarr)
 
                 # if there's more to compute - call before return
                 if how_much_left < weight:
@@ -2414,8 +2410,15 @@ class Opa:
                                 os.remove(self.checkpoint_file)
 
                             if hasattr(self, "use_zarr"):
-                                if os.path.isfile(self.checkpoint_file_zarr):
-                                    os.remove(self.checkpoint_file_zarr)
+                                # looping through all the data that is something_cum
+                                for key in self.matching_items:
+                                    checkpoint_file_zarr = os.path.join(
+                                        self.checkpoint_filepath,
+                                        f"checkpoint_{self.variable}_"
+                                        f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
+                                    )
+                                    if os.path.isfile(checkpoint_file_zarr):
+                                        os.remove(checkpoint_file_zarr)
 
                         self.count_append = 0
 
