@@ -29,6 +29,9 @@ precip_options = {
     'lsp',
     'cp',
     'tp',
+    'pre',
+    'precip',
+    'rain'
 }
 
 class PicklableTDigest:
@@ -226,6 +229,23 @@ class Opa:
 
         # already checked if path valid if check request
         file_path = request.get("checkpoint_filepath")
+
+        # if it doesn't have zarr, all data in the pickle
+        if hasattr(self, 'use_zarr'):  
+            self.checkpoint_file_zarr = os.path.join(
+                file_path, 
+                (f'checkpoint_{self.variable}_{self.stat_freq}_'
+                f'{self.output_freq}_{self.stat}.zarr')
+            )
+
+        # if stat is bias correction, the checkpointed statistic will 
+        # be the daily mean
+        if self.stat == "bias_correction":
+            self.checkpoint_file = os.path.join(
+                file_path, 
+                (f'checkpoint_{self.variable}_{self.stat_freq}_'
+                f'{self.output_freq}_mean.pkl')
+            )
         
         self.checkpoint_file = os.path.join(
             file_path,
@@ -374,13 +394,149 @@ class Opa:
                         "Output frequency can not be less than frequency of statistic"
                     )
 
-    def _init_digests(self, data_source_size):
+        return 
+
+    def _duration_pick(self, durations):
 
         """
-        Function to initalise a flat array full of empty
-        tDigest objects.
+        Function to remove any duration window 
+        that is lower than the time step 
+        
+        """
+        # loop over duration windows that fall in the range of the time step
+        durations = [d for d in durations if d >= self.time_step] 
 
-        Arguments
+        # only select whole numbers
+        for d in durations:
+            if d%self.time_step != 0: 
+                durations.remove(d)  
+
+        # creates integer list        
+        durations = list(map(int, durations)) 
+
+        return durations
+
+
+    def _init_ndata_durations(self, value, data_source): 
+        
+        """
+        This function is going to pick the longest duration window
+        and create a NaN array with one dimension equal to the length 
+        of the maximum duration divided by the time step
+        
+        Returns 
+        ----------
+        n_data_duration = number of time steps for each duration that 
+            need to be stored 
+        rolling_data = empty array to store the maximum value of n_data_duration
+        count_duration = count to know how far through the rolling window 
+            we are 
+        """
+        
+        #print('ndata durations init')
+        
+        n_data_duration = np.empty(np.size(self.durations))
+        # loop to calculate n data for each duration period 
+        for i in range(np.size(self.durations)):
+            # calculate n_data_duration for each duration period 
+            n_data_duration[i] = int((self.durations[i])/self.time_step) 
+            
+        # set attribute containing list all n_data_durations             
+        self.__setattr__(str("n_data_durations"), n_data_duration)
+         # set count at 0 for each duration, each count in a list
+        self.__setattr__(str("count_durations"), np.zeros(np.size(self.durations)))
+        # setting count_durations_full = 0, this is do count + full_length
+        self.__setattr__(
+            str("count_durations_full"), np.zeros(np.size(self.durations))
+            )
+            
+        # create empty array to store the maximum number of time steps we need
+        # using the last (max) value of n_data_duration        
+        new_shape = (int(n_data_duration[-1]), np.shape(value)[1:])
+        # unpack the nested tuple
+        new_shape_whole = (new_shape[0], *new_shape[1])
+        
+        # set up array 
+        if data_source.chunks is None: 
+            self.rolling_data = np.zeros(new_shape_whole)
+        else:
+            self.rolling_data = np.zeros(new_shape_whole) 
+            #, chunks = (168, *new_shape[1]))
+    
+    def _duration_pick(self, durations):
+        
+        """
+        Function to remove any duration window 
+        that is lower than the time step 
+        
+        """
+        # loop over duration windows that fall in the range of the time step
+        durations = [d for d in durations if d >= self.time_step] 
+        
+        # only select whole numbers
+        for d in durations:
+            if d%self.time_step != 0: 
+                durations.remove(d)  
+        
+        # creates integer list        
+        durations = list(map(int, durations)) 
+        
+        return durations
+
+
+    def _init_ndata_durations(self, value, ds): 
+        
+        """
+        This function is going to pick the longest duration window
+        and create a NaN array with one dimension equal to the length 
+        of the maximum duration divided by the time step
+        
+        Returns 
+        ----------
+        n_data_duration = number of time steps for each duration that 
+            need to be stored 
+        rolling_data = empty array to store the maximum value of n_data_duration
+        count_duration = count to know how far through the rolling window 
+            we are 
+        """
+        
+        #print('ndata durations init')
+        
+        n_data_duration = np.empty(np.size(self.durations))
+        # loop to calculate n data for each duration period 
+        for i in range(np.size(self.durations)):
+            # calculate n_data_duration for each duration period 
+            n_data_duration[i] = int((self.durations[i])/self.time_step) 
+            
+        # set attribute containing list all n_data_durations             
+        self.__setattr__(str("n_data_durations"), n_data_duration)
+         # set count at 0 for each duration, each count in a list
+        self.__setattr__(str("count_durations"), np.zeros(np.size(self.durations)))
+        # setting count_durations_full = 0, this is do count + full_length
+        self.__setattr__(
+            str("count_durations_full"), np.zeros(np.size(self.durations))
+            )
+            
+        # create empty array to store the maximum number of time steps we need
+        # using the last (max) value of n_data_duration        
+        new_shape = (int(n_data_duration[-1]), np.shape(value)[1:])
+        # unpack the nested tuple
+        new_shape_whole = (new_shape[0], *new_shape[1])
+        
+        # set up array 
+        if ds.chunks is None: 
+            self.rolling_data = np.zeros(new_shape_whole)
+        else:
+            self.rolling_data = np.zeros(new_shape_whole) 
+            #, chunks = (168, *new_shape[1]))
+    
+    def _init_digests(self, data_source_size):
+    
+        """ 
+        Function to initalise a flat array full of empty 
+        tDigest objects. 
+        
+        Arguments 
         ----------
         data_source_size = size of incoming data
 
@@ -436,7 +592,9 @@ class Opa:
         if self.stat_freq == "continuous":
             self.count_continuous = 0
 
-        if self.stat != "bias_correction" and self.stat != "percentile":
+        if (self.stat != "bias_correction" and 
+           self.stat != "percentile" and 
+           self.stat != 'iams'): 
 
             data_source_size = data_source.tail(time=1)
 
@@ -457,10 +615,36 @@ class Opa:
             elif self.stat == "min" or self.stat == "max":
                 self.__setattr__("timings", value)
 
+        elif self.stat == "iams":
+            
+            # list all of all possible durations 
+            durations = (5,10,15,20,30,45,60,90,120,180,240,
+                360,540,720,1080,1440,2880,4320,5760,7200,8640,10080)
+            
+            # removing durations smaller than time step and not full
+            # multiples 
+            self.durations = self._duration_pick(durations)
+            
+            # creating array to hold the max value for each duration window
+            new_shape = (np.size(self.durations), np.shape(value)[1:])
+            # unpack the nested tuple
+            new_shape_whole = (new_shape[0], *new_shape[1])
+                        
+            # set up array either as dask or numpy 
+            if data_source.chunks is None: 
+                durations_value = np.zeros(new_shape_whole)
+            else:
+                durations_value = np.zeros(new_shape_whole)
+            
+            # self.iams_cum has first dimension size of durations 
+            self.__setattr__(str(self.stat + "_cum"), durations_value)
+            
+            self._init_ndata_durations(value, data_source)
+            
         elif self.stat == "percentile":
             self._init_digests(data_source_size)
-
-        elif self.stat == "bias_correction":
+            
+        elif self.stat == "bias_correction": 
             # not ititalising the digests here, as only need to update
             # them with daily means, would create unncessary I/O at
             # checkpointing
@@ -983,7 +1167,7 @@ class Opa:
 
             already_seen = self._check_have_seen(time_stamp_min) # checks count
 
-            if(already_seen):
+            if already_seen:
                 print('pass on this data at', str(time_stamp), 'as already seen this data')
 
             # this will change from False to True if it's just been initalised
@@ -1345,8 +1529,6 @@ class Opa:
         self.max_cum = data_source
         self.timings = data_source_time
 
-        # return
-
     def _update_threshold(self, data_source, weight):
 
         """
@@ -1376,7 +1558,193 @@ class Opa:
         self._update_continuous_count(weight)
         self.thresh_exceed_cum = data_source
 
-        # return
+        return
+    
+    def _update_max_iams(self, window_sum, i, weight):
+
+        """
+        Specfically for the iams statistic as it doesn't include the 
+        timings. Updating the incoming window_sum with any values in the 
+        rolling maximum 
+        
+        """
+        # need to get compress to 1 in first dimension, taking max over
+        # this array first
+ 
+        if weight > 1 :
+            window_sum = np.nanmax(window_sum, axis=0)
+
+        # extract the rolling max for each duration
+        rolling_max = self.iams_cum[i,:]
+
+        self.iams_cum[i,:] = np.where(
+            window_sum < rolling_max, rolling_max, window_sum
+            )
+
+    def _extract_durations(self, i):
+        
+        # extract the number of data pieces requred for each duration
+        n_data_duration = int(getattr(self, str("n_data_durations"))[i])
+        # extract the current count for each duration
+        count_duration = int(getattr(self, str("count_durations"))[i])
+        # extract the current full count for each duration
+        # the comparision between self.count and duration count
+        count_duration_full = int(getattr(self, str("count_durations_full"))[i])
+        
+        return n_data_duration, count_duration, count_duration_full
+        
+    def _two_pass_iams(
+        self, data_source, weight, full_length, time_left, update_count = False
+        ):
+
+        for i in range(np.size(self.durations)):
+
+            n_data_duration, count_duration, count_duration_full = (
+                self._extract_durations(i)
+            )
+
+            # compute rolling sum for overlapping duration windows
+            # the numpy version - want numpy as otherwise it takes a long time
+            # updating the rolling numpy max if this is xr
+            rolling_sum = np.cumsum(data_source, axis = 0)
+            rolling_sum[n_data_duration:] = rolling_sum[n_data_duration:] - rolling_sum[:-n_data_duration]
+            rolling_sum = rolling_sum[n_data_duration-1:]
+            rolling_sum = rolling_sum.max(axis =0, keepdims = True)
+
+            self._update_max_iams(rolling_sum, i, 1)
+
+            if update_count:
+                # update count weight new weight
+                count_duration += np.mod(weight - time_left, full_length)
+                count_duration_full += weight
+
+                getattr(self, str("count_durations"))[i] = count_duration
+                getattr(self, str("count_durations_full"))[i] = count_duration_full
+
+    def _one_pass_iams(self, weight, full_length):
+        
+        # looping through the durations
+        for i in range(np.size(self.durations)):
+
+            n_data_duration, count_duration, count_duration_full = (
+                self._extract_durations(i)
+            )
+            
+            # if weight > 1, need all rolling windows                 
+            for j in range(weight): 
+
+                # re-setting count_duration back to 0 first time it hits this
+                if count_duration >= full_length :
+                    count_duration = 0
+
+                # only sum over data that has been filled
+                if (count_duration_full + n_data_duration) <= self.count: 
+
+                    #not yet looping back to the start of the rolling data array 
+                    if (count_duration + n_data_duration) <= full_length:
+
+                        window_sum = self.rolling_data[
+                            count_duration : count_duration +
+                            n_data_duration, :
+                            ].sum(axis=0, keepdims = True)
+
+                    else:
+                        data_left = full_length - count_duration
+
+                        window_sum = self.rolling_data[
+                            count_duration:, :
+                            ].sum(axis=0, keepdims = True)
+
+                        # starting from the beginning
+                        window_sum = window_sum + self.rolling_data[
+                            0 :n_data_duration - data_left, :
+                            ].sum(axis=0, keepdims = True)
+
+                    # update count with new starting position j
+                    count_duration += 1
+                    count_duration_full += 1
+
+                # weight will be 1 here because looping through each time step
+                self._update_max_iams(window_sum, i, 1)
+
+            # end of duration loop (i)
+            getattr(self, str("count_durations"))[i] = count_duration
+            getattr(self, str("count_durations_full"))[i] = count_duration_full
+        
+    def _update_iams(self, data_source, weight): 
+        
+        """
+        This function updates the statistic iams. It starts by updating 
+        the variable self.rolling_data, which is a tempory data store 
+        of time steps with a time dimension equal to the data required 
+        for the longest duration. 
+        Once this is updated, it loop through all the durations required 
+        and take the summations over each duration from this rolling_data. 
+        If multiple time steps are passed (weight > 1), it take as many 
+        summations as possible and append them into a tempory array. e.g. if 
+        weight = 4, window_sum will have a dimension of length 4 equal to 
+        the summation over 4 windows. 
+        Window sum is then passed to a find maximum function where the max 
+        value for each duration will be updated. 
+        
+        """
+
+        # length of the rolling_data array 
+        full_length = int(self.n_data_durations[-1])
+        # remainder of full count divided by length of array 
+        # = to how far through the rolling_data you are 
+        loop_count = np.mod(self.count, full_length)
+        # how much left of this rolling_data needs to be filled 
+        # before starting from the beginning again 
+        time_left = full_length - loop_count
+        # start replacing the new values 
+        new_time = weight - time_left 
+
+        # you've been given loads of data that fills the whole array
+        # in this case doing a two-pass iams on all the data and storing
+        # the old part of the data for overlap
+        if weight > full_length:
+            
+            # don't need to do anything if it's the first time
+            if self.count > weight:
+                double_data = np.concatenate(
+                    [self.rolling_data[:,:], data_source[0:full_length,:]], axis = 0
+                    )
+                self._two_pass_iams(
+                    double_data, weight*2, full_length, time_left
+                )
+
+            # converting the incoming data into a numpy array as much faster
+            rolling_data = np.zeros(np.shape(data_source))
+            # this is the slow line I think 
+            rolling_data[:] = data_source[:]
+
+            # want to update the count of each duration in this one
+            self._two_pass_iams(
+                rolling_data, weight, full_length, time_left, update_count = True
+            )
+
+            # update rolling data with the length of the largest duration
+            self.rolling_data[:,:] = data_source[weight - full_length:, :]
+            self.count += weight
+
+        # what we expect that the incoming data will be less than the largest
+        # duration, here doing the one-pass iams
+        else:
+            # update the rolling data storage with the new incoming data
+            # always add to the first axis = 0 
+            if weight <= time_left:
+                self.rolling_data[loop_count : loop_count + weight, :] = data_source
+
+            else: # new time is positive
+                self.rolling_data[loop_count: ,:] = data_source[0:time_left]
+                # start again from the beginning
+                self.rolling_data[0: new_time,:] = data_source[time_left:]
+
+            self.count += weight
+
+            self._one_pass_iams(weight, full_length)
+
 
     def _update_tdigest(self, data_source, weight=1):
 
@@ -1579,6 +1947,9 @@ class Opa:
 
         elif(self.stat == "sum"):
             self._update_sum(data_source, weight)
+            
+        elif(self.stat == "iams"):
+            self._update_iams(data_source, weight)
 
         elif(self.stat == "bias_correction"):
         # bias correction requires raw data and daily 
@@ -1819,11 +2190,27 @@ class Opa:
             data_source = data_source.expand_dims(
                 dim={"percentile": np.size(self.percentile_list)}, axis=1
             )
-            # re-label the time coordinate
+            # name the percentile coordinate 
             data_source = data_source.assign_coords(
-                percentile=("percentile", np.array(self.percentile_list))
-            )
+                percentile = ("percentile", np.array(self.percentile_list))
+            ) 
+            
+        if (self.stat == "iams"):
 
+            # adding time dimension in final stat 
+            final_stat = np.expand_dims(
+                final_stat, axis=0
+            )
+            
+            # adding durations dimension in ds 
+            data_source = data_source.expand_dims(
+                dim={"durations": np.size(self.durations)}, axis=1
+            )
+            # name the durations co-ordinate 
+            data_source = data_source.assign_coords(
+                durations = ("durations", np.array(self.durations))
+            ) 
+            
         dm = xr.Dataset(
             data_vars=dict(
                 # need to add variable attributes
