@@ -20,6 +20,7 @@ stat_options = {
     "raw",
     "bias_correction",
     "sum",
+    "iams",
 }
 
 # list of allowed options for statistic frequency
@@ -265,9 +266,18 @@ def check_request(request):
                         'Percentiles must be between 0 and 1 or ["all"] '
                         " for the whole distribution"
                     )
+    if(request.stat =="iams"):
+        if request.stat_freq != "annually":
+            raise ValueError(
+                f'Must set stat_freq equal to annually when requesting'
+                f' iams statistic')
+        if request.output_freq != "annually":
+            raise ValueError(
+                f'Must set output_freq equal to annually when requesting'
+                f' iams statistic')
 
-    if request.stat == "bias_correction":
-        if request.stat_freq != "daily":
+    if(request.stat == "bias_correction"): 
+        if (request.stat_freq != "daily"):
             raise ValueError(
                 "Must set stat_freq equal to daily when requesting"
                 " data for bias correction"
