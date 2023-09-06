@@ -293,7 +293,7 @@ class Opa:
         for key in request:
             self.__setattr__(key, request[key])
 
-        self.pickle_limit = 1.6 
+        self.pickle_limit = 1.6
         
     ############### end if __init__ #####################
 
@@ -371,10 +371,6 @@ class Opa:
 
                 # self.time_append is  how many days requested:
                 # e.g. 7 days of saving with daily data
-
-                #print('output_freq_min', output_freq_min)
-                #print('time_stamp_tot_append', time_stamp_tot_append)
-                #print('self.stat_freq_min', self.stat_freq_min)
 
                 # if you're part way through the output freq you want to subtract that
                 # time away from appending, but
@@ -499,8 +495,6 @@ class Opa:
         count_duration = count to know how far through the rolling window 
             we are 
         """
-        
-        #print('ndata durations init')
         
         n_data_duration = np.empty(np.size(self.durations))
         # loop to calculate n data for each duration period 
@@ -949,8 +943,8 @@ class Opa:
                         # start of a stat, so deleting
                         else:
                             print(
-                                f"removing previous data in time_append as can't"
-                                f" initalise from this point"
+                                "removing previous data in time_append as can't"
+                                " initalise from this point"
                             )
                             self._remove_time_append()
 
@@ -1795,14 +1789,26 @@ class Opa:
 
         """Concantes all the raw data required for the bias-correction"""
 
-        if(self.count == 0):
+        if self.count == 0:
             self.raw_data_for_bc_cum = data_source.isel(time=slice(0,weight))
         else:
-            self.raw_data_for_bc_cum = xr.concat(
-                [self.raw_data_for_bc_cum, data_source.isel(time=slice(0,weight))], dim = 'time'
-            )
+            
+            try:
+                # if you had to save to zarr
+                getattr(self, 'raw_data_for_bc_coords')
+                self.raw_data_for_bc_cum = xr.DataArray(
+                    self.raw_data_for_bc_cum, 
+                    dims= self.raw_data_for_bc_dims, 
+                    coords=self.raw_data_for_bc_coords, 
+                    attrs=self.raw_data_for_bc_attrs)
 
-        return
+            except AttributeError: 
+                pass 
+            
+            self.raw_data_for_bc_cum = xr.concat(
+                [self.raw_data_for_bc_cum, 
+                    data_source.isel(time=slice(0,weight))], dim = 'time'
+                )
     
     def _get_percentile(self, data_source):
 
@@ -1972,6 +1978,13 @@ class Opa:
 
             if target_substring in key:
                 matching_items.append((key))
+                
+        # target_substring = 'cum_'
+        # # removing all cum_
+        # for key, value in dict.__dict__.items():
+
+        #     if target_substring in key:
+        #         matching_items.pop((key))
         
         return matching_items
 
@@ -2036,14 +2049,39 @@ class Opa:
                 f"checkpoint_{self.variable}_"
                 f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
             )
-
-            zarr.array(
-                self.__getattribute__(key),
-                store=checkpoint_file_zarr,
-                compressor=compressor,
-                overwrite=True,
-            )
             
+            try: 
+                zarr.array(
+                    self.__getattribute__(key),
+                    store=checkpoint_file_zarr,
+                    compressor=compressor,
+                    overwrite=True,
+                )
+
+            except TypeError: 
+                zarr.array(
+                    self.__getattribute__(key).values,
+                    store=checkpoint_file_zarr,
+                    compressor=compressor,
+                    overwrite=True,
+                )
+
+                # becaues you had to just save the .values and lost the metadata
+                # adding these as attributes to self
+                key_string = key[:-4]
+
+                self.__setattr__(
+                    str(key_string + '_coords'), 
+                    self.__getattribute__(key).coords)
+
+                self.__setattr__(
+                    str(key_string + '_dims'), 
+                    self.__getattribute__(key).dims)
+
+                self.__setattr__(
+                    str(key_string + '_attrs'), 
+                    self.__getattribute__(key).attrs)
+
         # now just pickle the rest of the meta data
         # creates seperate class for the meta data
         opa_meta = OpaMeta(self, matching_items)
@@ -2086,7 +2124,7 @@ class Opa:
 
             for key in matching_items:
                 total_size += sys.getsizeof(self.__getattribute__(key)) / (10**9)
-        
+
         return total_size
     
     def _write_checkpoint(self):
@@ -2099,13 +2137,14 @@ class Opa:
         """
 
         matching_items = self._find_items_with_cum(self)
-        total_size = self._get_total_size()
 
         # looping through all the attributes with 'cum' - the big ones
         for key in matching_items:
             if hasattr(self.__getattribute__(key), "compute"):
                 # first load data into memory
                 self._load_dask(key)
+
+        total_size = self._get_total_size()
             
         if self.stat == "percentile":
 
@@ -2114,6 +2153,7 @@ class Opa:
                     self.__getattribute__(str(self.stat + "_cum"))[j]
                 )
 
+        print('total_size', total_size)
         # limit on a pickle file is 2GB
         if total_size < self.pickle_limit:
             # have to include self here as the second input

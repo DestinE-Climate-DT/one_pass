@@ -259,6 +259,12 @@ def check_request(request):
                 " if you want the whole distribution, 'percentile_list' : ['all']"
             )
 
+        if request.percentile_list == None:
+            raise ValueError(
+                        'Percentiles must be between 0 and 1 or ["all"] '
+                        " for the whole distribution"
+                    )
+
         if request.percentile_list[0] != "all":
             for j in range(np.size(request.percentile_list)):
                 if request.percentile_list[j] > 1:
@@ -266,7 +272,8 @@ def check_request(request):
                         'Percentiles must be between 0 and 1 or ["all"] '
                         " for the whole distribution"
                     )
-    if(request.stat =="iams"):
+
+    if request.stat =="iams":
         if request.stat_freq != "annually":
             raise ValueError(
                 f'Must set stat_freq equal to annually when requesting'
@@ -276,8 +283,8 @@ def check_request(request):
                 f'Must set output_freq equal to annually when requesting'
                 f' iams statistic')
 
-    if(request.stat == "bias_correction"): 
-        if (request.stat_freq != "daily"):
+    if request.stat == "bias_correction": 
+        if  request.stat_freq != "daily":
             raise ValueError(
                 "Must set stat_freq equal to daily when requesting"
                 " data for bias correction"
