@@ -178,7 +178,7 @@ class Opa:
         Opa class attributes loaded from the pickle file
 
         """
-        f = open(file_path, "rb")
+        f = open(file_path, 'rb')
         temp_self = pickle.load(f)
         f.close()
 
@@ -203,7 +203,7 @@ class Opa:
 
         """
 
-        f = open(file_path, "rb")
+        f = open(file_path, 'rb')
         temp_self = pickle.load(f)
         f.close()
 
@@ -1978,14 +1978,7 @@ class Opa:
 
             if target_substring in key:
                 matching_items.append((key))
-                
-        # target_substring = 'cum_'
-        # # removing all cum_
-        # for key, value in dict.__dict__.items():
-
-        #     if target_substring in key:
-        #         matching_items.pop((key))
-        
+  
         return matching_items
 
     def _write_pickle(self, what_to_dump, file_name = None):
@@ -2005,10 +1998,13 @@ class Opa:
         if file_name:
             with open(file_name, 'wb') as file:
                 pickle.dump(what_to_dump, file)
+            file.close()
         else:
-            with open(self.checkpoint_file, "wb") as file:
+            with open(self.checkpoint_file, 'wb') as file:
                 pickle.dump(what_to_dump, file)  
-                
+            file.close()
+                #obj_byte = pickle.dumps(what_to_dump)
+                #print('obj byte', obj_byte)
         #end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to write checkpoint')
 
@@ -2034,7 +2030,7 @@ class Opa:
         Data will be pickled (included in this function)
 
         """
-        
+
         self.use_zarr = True
         # setting matching items to loop through later
         self.matching_items = matching_items
@@ -2123,8 +2119,21 @@ class Opa:
             matching_items = self._find_items_with_cum(self)
 
             for key in matching_items:
-                total_size += sys.getsizeof(self.__getattribute__(key)) / (10**9)
 
+                if hasattr(self.__getattribute__(key), 'values'):
+                    total_size += (
+                        self.__getattribute__(key).size * 
+                        self.__getattribute__(key).values.itemsize
+                        )/(10**9)
+
+                else: 
+                    total_size += (
+                        self.__getattribute__(key).size * 
+                        self.__getattribute__(key).itemsize
+                        )/ (10**9)
+
+                # total_size += sys.getsizeof(self.__getattribute__(key)) / (10**9)
+                #print('key', key, 'total_size', total_size_temp)
         return total_size
     
     def _write_checkpoint(self):
@@ -2140,6 +2149,7 @@ class Opa:
 
         # looping through all the attributes with 'cum' - the big ones
         for key in matching_items:
+            #print('key', key)
             if hasattr(self.__getattribute__(key), "compute"):
                 # first load data into memory
                 self._load_dask(key)
@@ -2153,7 +2163,7 @@ class Opa:
                     self.__getattribute__(str(self.stat + "_cum"))[j]
                 )
 
-        print('total_size', total_size)
+        #print('total_size', total_size)
         # limit on a pickle file is 2GB
         if total_size < self.pickle_limit:
             # have to include self here as the second input
@@ -2193,13 +2203,13 @@ class Opa:
             old_history = raw_data_attrs['history']
             updated_history = f"{old_history}{new_attr_str}"
             raw_data_attrs['history'] = updated_history
+            dm = dm.assign_attrs(raw_data_attrs)
+            # removing this attribute which somehow gets attached
+            raw_data_attrs['history'] = old_history
 
         else:
             raw_data_attrs['history'] = new_attr_str
-        dm = dm.assign_attrs(raw_data_attrs)
-        
-        # removing this attribute which somehow gets attached
-        raw_data_attrs['history'] = old_history
+            dm = dm.assign_attrs(raw_data_attrs)
 
         return dm
 
