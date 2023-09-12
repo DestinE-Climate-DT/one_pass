@@ -34,7 +34,6 @@ precip_options = {
     'precip',
     'rain',
     'precipitation',
-    '10u',
 }
 
 class PicklableTDigest:
@@ -1234,14 +1233,12 @@ class Opa:
         if self.stat == "bias_correction":
 
             data_source = data_source.isel(time=slice(0,weight))
-            print(data_source.time[0])
         
-        print('is save', self.save)
         # this will convert the dataArray back into a dataSet with the metadata
         # of the xr.Dataset and include a new 'history' attribute saying that it's saving
         # raw data for the OPA along with time stamps 
         dm = self._create_raw_data_set(data_source)
-        print('dm', dm)
+
         if self.save:
             if self.stat == "raw":
                 self._save_output(dm, final_time_file_str)
@@ -2545,12 +2542,12 @@ class Opa:
                 self._save_output(dm_mean, final_time_file_str_bc, bc_mean=True)
         else:
             raise AttributeError(
-                f"Cannot have stat_freq and output_freq not equal to daily"
-                f" for bias_correction"
+                "Cannot have stat_freq and output_freq not equal to daily"
+                " for bias_correction"
             )
 
         # changing the save attribute here so that the digests will always be saved 
-        self.save = True
+        #self.save = True
 
         return dm_mean
 
@@ -2764,7 +2761,7 @@ class Opa:
 
             # output_freq_min == self.stat_freq_min
             if self.time_append == 1:
-                if self.save :
+                if self.save or self.stat == "bias_correction":
                     self._save_output(dm, final_time_file_str)
 
                 # delete checkpoint file
