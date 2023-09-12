@@ -5,6 +5,7 @@ import glob
 import os
 import sys
 import unittest
+import dask
 
 import numpy as np
 import xarray as xr
@@ -114,6 +115,52 @@ def two_pass_sum(data, n_start, n_data):
     
     return np_sum
 
+def duration_pick(time_step):
+    durations  = [5,10,15,20,30,45,60,90,120,180,240,360,540,720,
+                  1080,1440,2880,4320,5760,7200,8640,10080]
+
+    durations = [d for d in durations if d >= time_step]
+    for d in durations:
+        # only select whole numbers
+        if d%time_step != 0:
+            durations.remove(d)  
+    durations = list(map(int, durations))
+
+    return durations
+
+def dm_roller(data, duration):
+
+    # compute rolling sum & select maximum
+    rolling_sum = data.rolling(time=duration, center=True).sum() 
+    rolling_sum_max = rolling_sum.max(dim='time', skipna=True)
+
+    #add coordinates to the array
+    rolling_sum_max = rolling_sum_max.expand_dims(duration = ([duration]))
+
+    return rolling_sum_max
+
+def iamser(data, durations):
+    
+    with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+        
+        dmax_list = []
+        for durs in durations:
+            dmax = dm_roller(data, durs)
+            dmax_list.append(dmax)
+        iamsfile = xr.concat(dmax_list, dim='duration')
+
+        return iamsfile
+
+def two_pass_iams(data, n_start, n_data):
+
+    sel_durs = duration_pick(60) 
+    ds = data.isel(time=slice(n_start, n_data)) 
+    pr = ds['pr'] ### select data variable for total precipitationpr
+
+    ### run functions to create intensity annual  maxima series
+    iams = iamser(pr, sel_durs)
+    
+    return iams
 #################################### define opa test ###################################
 
 def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic):
