@@ -122,7 +122,7 @@ def check_request(request):
             "config.yml must include key value pair 'output_freq' :"
             " some_freq, see docs for details"
         ) from exc
-        
+
     if output_freq == "monthly" and stat_freq == "weekly":
         raise KeyError (
             "Can not set output_freq equal to monthly if stat_freq"
@@ -196,7 +196,7 @@ def check_request(request):
             "config.yml must include key value pair 'output_file' : "
             " file/path/for/saving. If you do not want to save, and "
             " you have set save : False, here you can put None"
-        ) from exc 
+        ) from exc
 
     try:
         getattr(request, "checkpoint_filepath")
@@ -259,7 +259,7 @@ def check_request(request):
                 " if you want the whole distribution, 'percentile_list' : ['all']"
             )
 
-        if request.percentile_list == None:
+        if request.percentile_list is None:
             raise ValueError(
                         'Percentiles must be between 0 and 1 or ["all"] '
                         " for the whole distribution"
@@ -276,14 +276,14 @@ def check_request(request):
     if request.stat =="iams":
         if request.stat_freq != "annually":
             raise ValueError(
-                f'Must set stat_freq equal to annually when requesting'
-                f' iams statistic')
+                'Must set stat_freq equal to annually when requesting'
+                ' iams statistic')
         if request.output_freq != "annually":
             raise ValueError(
-                f'Must set output_freq equal to annually when requesting'
-                f' iams statistic')
+                'Must set output_freq equal to annually when requesting'
+                ' iams statistic')
 
-    if request.stat == "bias_correction": 
+    if request.stat == "bias_correction":
         if  request.stat_freq != "daily":
             raise ValueError(
                 "Must set stat_freq equal to daily when requesting"
