@@ -74,7 +74,7 @@ test:
   stage: test
   script:
     - source venv/bin/activate
-    - ./get_data.sh
+    - ./tests/get_data.sh
     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   # These artifacts are saved with every build in GitLab and can be reviewed later. If
