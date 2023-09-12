@@ -32,7 +32,9 @@ precip_options = {
     'tp',
     'pre',
     'precip',
-    'rain'
+    'rain',
+    'precipitation',
+    '10u',
 }
 
 class PicklableTDigest:
@@ -461,7 +463,6 @@ class Opa:
         durations = list(map(int, durations)) 
         
         return durations
-
 
     def _init_ndata_durations(self, value, ds): 
         
@@ -1230,15 +1231,22 @@ class Opa:
 
         final_time_file_str = self._create_raw_file_name(data_source, weight)
 
+        if self.stat == "bias_correction":
+
+            data_source = data_source.isel(time=slice(0,weight))
+            print(data_source.time[0])
+        
+        print('is save', self.save)
         # this will convert the dataArray back into a dataSet with the metadata
-        # of the dataSet and include a new 'history' attribute saying that it's saving
+        # of the xr.Dataset and include a new 'history' attribute saying that it's saving
         # raw data for the OPA along with time stamps 
         dm = self._create_raw_data_set(data_source)
-
+        print('dm', dm)
         if self.save:
             if self.stat == "raw":
                 self._save_output(dm, final_time_file_str)
             else:
+                print('saving', data_source.time[0])
                 self._save_output(dm, final_time_file_str, bc_raw = True)
 
         return dm
@@ -1614,14 +1622,14 @@ class Opa:
             for j in range(weight): 
 
                 # re-setting count_duration back to 0 first time it hits this
-                if count_duration >= full_length :
+                if count_duration >= full_length : # tried change
                     count_duration = 0
 
                 # only sum over data that has been filled
-                if (count_duration_full + n_data_duration) <= self.count: 
+                if (count_duration_full + n_data_duration) <= self.count: # TRIED CHANGE
 
                     #not yet looping back to the start of the rolling data array 
-                    if (count_duration + n_data_duration) <= full_length:
+                    if (count_duration + n_data_duration) <= full_length: # TRIED CHANGE
 
                         window_sum = self.rolling_data[
                             count_duration : count_duration +
@@ -1678,7 +1686,7 @@ class Opa:
         # before starting from the beginning again 
         time_left = full_length - loop_count
         # start replacing the new values 
-        new_time = weight - time_left 
+        new_time = weight - time_left
 
         # you've been given loads of data that fills the whole array
         # in this case doing a two-pass iams on all the data and storing
@@ -1724,7 +1732,6 @@ class Opa:
             self.count += weight
 
             self._one_pass_iams(weight, full_length)
-
 
     def _update_tdigest(self, data_source, weight=1):
 
@@ -1956,7 +1963,7 @@ class Opa:
         # bias correction requires raw data and daily 
         # means for each call
 
-            #self._update_raw_data(data_source, weight)
+            self._check_raw(data_source, weight)
 
             if self.variable not in precip_options:
                 # want daily means
@@ -2707,10 +2714,10 @@ class Opa:
         # in a file and will do two pass statistic
         weight = self._check_num_time_stamps(data_source)
 
-        if self.stat == "raw" or self.stat == "bias_correction":
+        if self.stat == "raw":
             dm = self._check_raw(data_source, weight)
-            if self.stat == "raw":
-                return dm
+            #if self.stat == "raw":
+            return dm
 
         # check the time stamp and if the data needs to be initalised
         (

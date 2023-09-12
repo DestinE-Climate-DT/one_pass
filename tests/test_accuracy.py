@@ -115,62 +115,67 @@ def two_pass_sum(data, n_start, n_data):
     
     return np_sum
 
-def duration_pick(time_step):
+def duration_pick(time_unit, time_step):
     durations  = [5,10,15,20,30,45,60,90,120,180,240,360,540,720,
-                  1080,1440,2880,4320,5760,7200,8640,10080]
+                  1080,1440,2880,4320,5760,7200,8640, 10080] 
+    
+    if time_unit != 'minutes':
+        durations = [d/60 for d in durations]
 
     durations = [d for d in durations if d >= time_step]
     for d in durations:
-        # only select whole numbers
         if d%time_step != 0:
             durations.remove(d)  
     durations = list(map(int, durations))
-
     return durations
 
-def dm_roller(data, duration):
 
-    # compute rolling sum & select maximum
+def dm_roller(data, duration): 
+
+    ### compute rolling sum & select maximum
     rolling_sum = data.rolling(time=duration, center=True).sum() 
-    rolling_sum_max = rolling_sum.max(dim='time', skipna=True)
-
-    #add coordinates to the array
-    rolling_sum_max = rolling_sum_max.expand_dims(duration = ([duration]))
-
+    rolling_sum_max = rolling_sum.max(dim='time', skipna=True) 
+    rolling_sum_max = rolling_sum_max.expand_dims(duration = ([duration])) 
+        
     return rolling_sum_max
 
-def iamser(data, durations):
-    
+def iamser(data, years, durations):
     with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-        
-        dmax_list = []
+
+        dmax_list = [] 
         for durs in durations:
-            dmax = dm_roller(data, durs)
+            dmax = dm_roller(data, durs) 
             dmax_list.append(dmax)
         iamsfile = xr.concat(dmax_list, dim='duration')
 
-        return iamsfile
+        return iamsfile 
 
-def two_pass_iams(data, n_start, n_data):
+def two_pass_iams(data):
 
-    sel_durs = duration_pick(60) 
-    ds = data.isel(time=slice(n_start, n_data)) 
-    pr = ds['pr'] ### select data variable for total precipitationpr
+    sel_durs = duration_pick('hours',1) 
+    years= [2071] 
+    iams = iamser(data, years, sel_durs)
 
-    ### run functions to create intensity annual  maxima series
-    iams = iamser(pr, sel_durs)
-    
-    return iams
+    return iams.values
+
 #################################### define opa test ###################################
 
 def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic):
 
     opa_stat = Opa(pass_dic)
 
-    for i in range(n_start, n_data, step):
+    if pass_dic["stat"] == "iams":
+        data1 = data.pr[:, 0:10, 0:10]
+        for i in range(n_start, n_data, step):
 
-        ds = data.isel(time=slice(i, i + step))
-        dm = opa_stat.compute(ds)
+            ds = data1.isel(time=slice(i, i + step))
+            dm = opa_stat.compute(ds)
+
+    else: 
+        for i in range(n_start, n_data, step):
+
+            ds = data.isel(time=slice(i, i + step))
+            dm = opa_stat.compute(ds)
 
     # dm = getattr(dm, pass_dic["variable"])
     dm = getattr(dm, pass_dic["variable"])
@@ -485,9 +490,40 @@ def test_sum_daily_noon():
 
     data_arr = getattr(data, pass_dic["variable"])
     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
-        str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place)
 
     two_pass = two_pass_sum(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
     
     assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
+
+def test_iams():
+
+    n_start = 0
+    n_data = 8760
+    step = 24
+    
+    pass_dic = {"stat": "iams",
+    "stat_freq": "annually",
+    "output_freq": "annually",
+    "percentile_list" : None,
+    "thresh_exceed" : None,
+    "time_step": 60,
+    "variable": "pr",
+    "save": False,
+    "checkpoint": True,
+    "checkpoint_filepath": "tests/",
+    "out_filepath": "tests/"}
+
+    data_arr = getattr(data, pass_dic["variable"])
+    data_arr_small = data_arr[:,0:10,0:10]
+    message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place)
+
+    two_pass = two_pass_iams(data_arr_small)
+    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+
+    assert np.allclose(
+        two_pass[0:14,:,:], one_pass.values[0,0:14,:,:], rtol = dec_place, atol = dec_place
+        ), message
+    
