@@ -443,70 +443,6 @@ class Opa:
             self.rolling_data = np.zeros(new_shape_whole) 
             #, chunks = (168, *new_shape[1]))
     
-    def _duration_pick(self, durations):
-        
-        """
-        Function to remove any duration window 
-        that is lower than the time step 
-        
-        """
-        # loop over duration windows that fall in the range of the time step
-        durations = [d for d in durations if d >= self.time_step] 
-        
-        # only select whole numbers
-        for d in durations:
-            if d%self.time_step != 0: 
-                durations.remove(d)  
-        
-        # creates integer list        
-        durations = list(map(int, durations)) 
-        
-        return durations
-
-    def _init_ndata_durations(self, value, ds): 
-        
-        """
-        This function is going to pick the longest duration window
-        and create a NaN array with one dimension equal to the length 
-        of the maximum duration divided by the time step
-        
-        Returns 
-        ----------
-        n_data_duration = number of time steps for each duration that 
-            need to be stored 
-        rolling_data = empty array to store the maximum value of n_data_duration
-        count_duration = count to know how far through the rolling window 
-            we are 
-        """
-        
-        n_data_duration = np.empty(np.size(self.durations))
-        # loop to calculate n data for each duration period 
-        for i in range(np.size(self.durations)):
-            # calculate n_data_duration for each duration period 
-            n_data_duration[i] = int((self.durations[i])/self.time_step) 
-            
-        # set attribute containing list all n_data_durations             
-        self.__setattr__(str("n_data_durations"), n_data_duration)
-         # set count at 0 for each duration, each count in a list
-        self.__setattr__(str("count_durations"), np.zeros(np.size(self.durations)))
-        # setting count_durations_full = 0, this is do count + full_length
-        self.__setattr__(
-            str("count_durations_full"), np.zeros(np.size(self.durations))
-            )
-            
-        # create empty array to store the maximum number of time steps we need
-        # using the last (max) value of n_data_duration        
-        new_shape = (int(n_data_duration[-1]), np.shape(value)[1:])
-        # unpack the nested tuple
-        new_shape_whole = (new_shape[0], *new_shape[1])
-        
-        # set up array 
-        if ds.chunks is None: 
-            self.rolling_data = np.zeros(new_shape_whole)
-        else:
-            self.rolling_data = np.zeros(new_shape_whole) 
-            #, chunks = (168, *new_shape[1]))
-    
     def _init_digests(self, data_source_size):
     
         """ 
@@ -601,12 +537,12 @@ class Opa:
             # removing durations smaller than time step and not full
             # multiples 
             self.durations = self._duration_pick(durations)
-            
+            #self.durations = [10080]
             # creating array to hold the max value for each duration window
             new_shape = (np.size(self.durations), np.shape(value)[1:])
             # unpack the nested tuple
-            new_shape_whole = (new_shape[0], *new_shape[1])
-                        
+            #new_shape_whole = (new_shape[0], *new_shape[1])       
+            new_shape_whole = (new_shape[0], *new_shape[1]) #, 8594)
             # set up array either as dask or numpy 
             if data_source.chunks is None: 
                 durations_value = np.zeros(new_shape_whole)
@@ -1231,7 +1167,6 @@ class Opa:
         final_time_file_str = self._create_raw_file_name(data_source, weight)
 
         if self.stat == "bias_correction":
-
             data_source = data_source.isel(time=slice(0,weight))
         
         # this will convert the dataArray back into a dataSet with the metadata
@@ -1455,7 +1390,7 @@ class Opa:
 
     def _update_max_internal(self, data_source, data_source_time):
 
-        """ "
+        """
         Function that updates the axis of attributes max_cum
         and timings and updates the array data_source with any values
         in max_cum that are larger
@@ -1577,85 +1512,56 @@ class Opa:
         count_duration_full = int(getattr(self, str("count_durations_full"))[i])
         
         return n_data_duration, count_duration, count_duration_full
-        
-    def _two_pass_iams(
-        self, data_source, weight, full_length, time_left, update_count = False
-        ):
+
+    def _one_pass_iams(self, full_length):
 
         for i in range(np.size(self.durations)):
-
-            n_data_duration, count_duration, count_duration_full = (
-                self._extract_durations(i)
-            )
-
-            # compute rolling sum for overlapping duration windows
-            # the numpy version - want numpy as otherwise it takes a long time
-            # updating the rolling numpy max if this is xr
-            rolling_sum = np.cumsum(data_source, axis = 0)
-            rolling_sum[n_data_duration:] = rolling_sum[n_data_duration:] - rolling_sum[:-n_data_duration]
-            rolling_sum = rolling_sum[n_data_duration-1:]
-            rolling_sum = rolling_sum.max(axis =0, keepdims = True)
-
-            self._update_max_iams(rolling_sum, i, 1)
-
-            if update_count:
-                # update count weight new weight
-                count_duration += np.mod(weight - time_left, full_length)
-                count_duration_full += weight
-
-                getattr(self, str("count_durations"))[i] = count_duration
-                getattr(self, str("count_durations_full"))[i] = count_duration_full
-
-    def _one_pass_iams(self, weight, full_length):
-        
-        # looping through the durations
-        for i in range(np.size(self.durations)):
-
-            n_data_duration, count_duration, count_duration_full = (
-                self._extract_durations(i)
-            )
-            
             # if weight > 1, need all rolling windows                 
-            for j in range(weight): 
+            # looping through the durations
 
-                # re-setting count_duration back to 0 first time it hits this
-                if count_duration >= full_length : # tried change
-                    count_duration = 0
+            n_data_duration, count_duration, count_duration_full = (
+                self._extract_durations(i)
+            )
 
-                # only sum over data that has been filled
-                if (count_duration_full + n_data_duration) <= self.count: # TRIED CHANGE
+            # re-setting count_duration back to 0 first time it hits this
+            if count_duration >= full_length : # tried change
+                count_duration = 0
 
-                    #not yet looping back to the start of the rolling data array 
-                    if (count_duration + n_data_duration) <= full_length: # TRIED CHANGE
+            # only sum over data that has been filled
+            if (count_duration_full + n_data_duration) <= self.count: # TRIED CHANGE
 
-                        window_sum = self.rolling_data[
-                            count_duration : count_duration +
-                            n_data_duration, :
-                            ].sum(axis=0, keepdims = True)
+                #not yet looping back to the start of the rolling data array 
+                if (count_duration + n_data_duration) <= full_length: # TRIED CHANGE
 
-                    else:
-                        data_left = full_length - count_duration
+                    window_sum = self.rolling_data[
+                        count_duration : count_duration +
+                        n_data_duration, :
+                        ].sum(axis=0, keepdims = True)
 
-                        window_sum = self.rolling_data[
-                            count_duration:, :
-                            ].sum(axis=0, keepdims = True)
+                else:
+                    data_left = full_length - count_duration
+                    
+                    #print('data_left', data_left)
+                    
+                    window_sum = self.rolling_data[
+                        count_duration:, :
+                        ].sum(axis=0, keepdims = True)
 
-                        # starting from the beginning
-                        window_sum = window_sum + self.rolling_data[
-                            0 :n_data_duration - data_left, :
-                            ].sum(axis=0, keepdims = True)
+                    # starting from the beginning
+                    window_sum = window_sum + self.rolling_data[
+                        0 :n_data_duration - data_left, :
+                        ].sum(axis=0, keepdims = True)
 
-                    # update count with new starting position j
-                    count_duration += 1
-                    count_duration_full += 1
-
+                count_duration += 1
+                count_duration_full += 1
+                
                 # weight will be 1 here because looping through each time step
                 self._update_max_iams(window_sum, i, 1)
 
             # end of duration loop (i)
             getattr(self, str("count_durations"))[i] = count_duration
             getattr(self, str("count_durations_full"))[i] = count_duration_full
-        
+
     def _update_iams(self, data_source, weight): 
         
         """
@@ -1681,54 +1587,13 @@ class Opa:
         loop_count = np.mod(self.count, full_length)
         # how much left of this rolling_data needs to be filled 
         # before starting from the beginning again 
-        time_left = full_length - loop_count
-        # start replacing the new values 
-        new_time = weight - time_left
 
-        # you've been given loads of data that fills the whole array
-        # in this case doing a two-pass iams on all the data and storing
-        # the old part of the data for overlap
-        if weight > full_length:
+        for j in range(weight): 
             
-            # don't need to do anything if it's the first time
-            if self.count > weight:
-                double_data = np.concatenate(
-                    [self.rolling_data[:,:], data_source[0:full_length,:]], axis = 0
-                    )
-                self._two_pass_iams(
-                    double_data, weight*2, full_length, time_left
-                )
-
-            # converting the incoming data into a numpy array as much faster
-            rolling_data = np.zeros(np.shape(data_source))
-            # this is the slow line I think 
-            rolling_data[:] = data_source[:]
-
-            # want to update the count of each duration in this one
-            self._two_pass_iams(
-                rolling_data, weight, full_length, time_left, update_count = True
-            )
-
-            # update rolling data with the length of the largest duration
-            self.rolling_data[:,:] = data_source[weight - full_length:, :]
-            self.count += weight
-
-        # what we expect that the incoming data will be less than the largest
-        # duration, here doing the one-pass iams
-        else:
-            # update the rolling data storage with the new incoming data
-            # always add to the first axis = 0 
-            if weight <= time_left:
-                self.rolling_data[loop_count : loop_count + weight, :] = data_source
-
-            else: # new time is positive
-                self.rolling_data[loop_count: ,:] = data_source[0:time_left]
-                # start again from the beginning
-                self.rolling_data[0: new_time,:] = data_source[time_left:]
-
-            self.count += weight
-
-            self._one_pass_iams(weight, full_length)
+            self.rolling_data[loop_count : loop_count + 1, :] = data_source[j:j+1,:]
+            self._one_pass_iams(full_length)
+            self.count += 1
+            loop_count = np.mod(self.count, full_length)
 
     def _update_tdigest(self, data_source, weight=1):
 
@@ -1775,31 +1640,6 @@ class Opa:
 
         return
 
-    # def _update_raw_data(self, data_source, weight):
-
-    #     """Concantes all the raw data required for the bias-correction"""
-
-    #     if self.count == 0:
-    #         self.raw_data_for_bc_cum = data_source.isel(time=slice(0,weight))
-    #     else:
-            
-    #         try:
-    #             # if you had to save to zarr
-    #             getattr(self, 'raw_data_for_bc_coords')
-    #             self.raw_data_for_bc_cum = xr.DataArray(
-    #                 self.raw_data_for_bc_cum, 
-    #                 dims= self.raw_data_for_bc_dims, 
-    #                 coords=self.raw_data_for_bc_coords, 
-    #                 attrs=self.raw_data_for_bc_attrs)
-
-    #         except AttributeError: 
-    #             pass 
-            
-    #         self.raw_data_for_bc_cum = xr.concat(
-    #             [self.raw_data_for_bc_cum, 
-    #                 data_source.isel(time=slice(0,weight))], dim = 'time'
-    #             )
-    
     def _get_percentile(self, data_source):
 
         """
@@ -1960,14 +1800,15 @@ class Opa:
         # bias correction requires raw data and daily 
         # means for each call
 
-            self._check_raw(data_source, weight)
+            dm_raw = self._check_raw(data_source, weight)
 
             if self.variable not in precip_options:
                 # want daily means
                 self._update_mean(data_source, weight)
             else :
                 self._update_sum(data_source, weight)
-
+            
+            return dm_raw
 
     def _find_items_with_cum(self, dict, target_substring = 'cum'):
         matching_items = []
@@ -2001,8 +1842,7 @@ class Opa:
             with open(self.checkpoint_file, 'wb') as file:
                 pickle.dump(what_to_dump, file)  
             file.close()
-                #obj_byte = pickle.dumps(what_to_dump)
-                #print('obj byte', obj_byte)
+
         #end_time = time.time() - start_time
         #print(np.round(end_time,4), 's to write checkpoint')
 
@@ -2177,20 +2017,20 @@ class Opa:
         raw_data_attrs = self.data_set_attr
         new_attr_str = str(
             str_date_time +
-            " raw data at native temporal resolution saved by one_pass algorithm;\n"
+            " raw data at native temporal resolution saved by one_pass algorithm\n"
         )
         # see if it already has attribute called history
-        if 'history' in raw_data_attrs:
-            old_history = raw_data_attrs['history']
-            updated_history = f"{old_history}{new_attr_str}"
-            raw_data_attrs['history'] = updated_history
-            dm = dm.assign_attrs(raw_data_attrs)
-            # removing this attribute which somehow gets attached
-            raw_data_attrs['history'] = old_history
+        # if 'history' in raw_data_attrs:
+        #     old_history = raw_data_attrs['history']
+        #     updated_history = f"{old_history}{new_attr_str}"
+        #     raw_data_attrs['history'] = updated_history
+        #     dm = dm.assign_attrs(raw_data_attrs)
+        #     # removing this attribute which somehow gets attached
+        #     raw_data_attrs['history'] = old_history
 
-        else:
-            raw_data_attrs['history'] = new_attr_str
-            dm = dm.assign_attrs(raw_data_attrs)
+        # else:
+        raw_data_attrs['history_opa'] = new_attr_str
+        dm = dm.assign_attrs(raw_data_attrs)
 
         return dm
 
@@ -2295,30 +2135,30 @@ class Opa:
             if self.variable not in precip_options:
                 new_attr_str = str(
                         str_date_time + " "
-                        + self.stat_freq + " mean calculated using one-pass algorithm;\n"
+                        + self.stat_freq + " mean calculated using one-pass algorithm\n"
                     )
                 final_stat = self.__getattribute__(str("mean_cum"))
                 # see if it already has attribute called history
-                if 'history' in self.data_set_attr:
-                    old_history = self.data_set_attr['history']
-                    updated_history = f"{old_history}{new_attr_str}"
-                    self.data_set_attr['history'] = updated_history
-                else:
-                    self.data_set_attr['history'] = new_attr_str
+                # if 'history_opa' in self.data_set_attr:
+                #     old_history = self.data_set_attr['history']
+                #     updated_history = f"{old_history}{new_attr_str}"
+                #     self.data_set_attr['history'] = updated_history
+                # else:
+                self.data_set_attr['history_opa'] = new_attr_str
 
             else:
                 new_attr_str = str(
                         str_date_time + " "
-                        + self.stat_freq + " sum calculated using one-pass algorithm;\n"
+                        + self.stat_freq + " sum calculated using one-pass algorithm\n"
                     )
                 final_stat = self.__getattribute__(str("sum_cum"))
                 # see if already has an attribute called history
-                if 'history' in self.data_set_attr:
-                    old_history = self.data_set_attr['history']
-                    updated_history = f"{old_history}{new_attr_str}"
-                    self.data_set_attr['history'] = updated_history
-                else:
-                    self.data_set_attr['history'] = new_attr_str
+                # if 'history' in self.data_set_attr:
+                #     old_history = self.data_set_attr['history']
+                #     updated_history = f"{old_history}{new_attr_str}"
+                #     self.data_set_attr['history'] = updated_history
+                # else:
+                self.data_set_attr['history_opa'] = new_attr_str
 
         elif self.stat == "bias_correction":
             
@@ -2326,30 +2166,30 @@ class Opa:
             new_attr_str = str(
                 str_date_time
                 + " daily aggregations added to the monthly digest for " 
-                + self.stat + " calculated using one_pass algorithm;\n"
+                + self.stat + " calculated using one_pass algorithm\n"
             )
             # see if already has an attribute called history
-            if 'history' in self.data_set_attr:
-                old_history = self.data_set_attr['history']
-                updated_history = f"{old_history}{new_attr_str}"
-                self.data_set_attr['history'] = updated_history
-            else:
-                self.data_set_attr['history'] = new_attr_str
+            # if 'history' in self.data_set_attr:
+            #     old_history = self.data_set_attr['history']
+            #     updated_history = f"{old_history}{new_attr_str}"
+            #     self.data_set_attr['history'] = updated_history
+            # else:
+            self.data_set_attr['history_opa'] = new_attr_str
 
         else:
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
             new_attr_str = str(
                 str_date_time + " "
                 + self.stat_freq + " " + self.stat +
-                " calculated using one_pass algorithm;\n"
+                " calculated using one_pass algorithm\n"
             )
             # see if already has an attribute called history
-            if 'history' in self.data_set_attr:
-                old_history = self.data_set_attr['history']
-                updated_history = f"{old_history}{new_attr_str}"
-                self.data_set_attr['history'] = updated_history
-            else:
-                self.data_set_attr['history'] = new_attr_str
+            # if 'history' in self.data_set_attr:
+            #     old_history = self.data_set_attr['history']
+            #     updated_history = f"{old_history}{new_attr_str}"
+            #     self.data_set_attr['history'] = updated_history
+            # else:
+            self.data_set_attr['history_opa'] = new_attr_str
 
         if self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed":
             final_stat = final_stat.data
@@ -2567,13 +2407,13 @@ class Opa:
             if self.variable not in precip_options:
                 file_name = os.path.join(
                     self.out_filepath,
-                    f"{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc",
+                    f"{final_time_file_str}_{self.variable}_mean_{self.stat_freq}.nc",
                 )
             
             else:
                 file_name = os.path.join(
                     self.out_filepath,
-                    f"{final_time_file_str}_{self.variable}_{self.stat_freq}_sum.nc",
+                    f"{final_time_file_str}_{self.variable}_sum_{self.stat_freq}.nc",
                 )
 
         else:  # normal other stats
@@ -2637,8 +2477,10 @@ class Opa:
             self.time_stamp = time_stamp_list[-1]
 
             # update rolling statistic with weight
-
-            self._update(data_source, weight)  
+            if self.stat == "bias_correction":
+                dm_raw = self._update(data_source, weight) 
+            else: 
+                self._update(data_source, weight)  
 
             if self.stat_freq != "continuous":
                 if self.checkpoint == True and self.count < self.n_data:
@@ -2660,9 +2502,15 @@ class Opa:
             self.time_stamp = time_stamp_list[how_much_left]
             # update rolling statistic with weight of the last few days
             # still need to finish the statistic (see below)
-            self._update(data_source_left, how_much_left)
-        
-        return how_much_left
+            if self.stat == "bias_correction":
+                dm_raw = self._update(data_source_left, how_much_left)
+            else: 
+                self._update(data_source_left, how_much_left)
+
+        if self.stat == "bias_correction":
+            return how_much_left, dm_raw
+        else:
+            return how_much_left
 
     def _full_continuous_data(self, data_source, how_much_left, weight):
 
@@ -2713,7 +2561,6 @@ class Opa:
 
         if self.stat == "raw":
             dm = self._check_raw(data_source, weight)
-            #if self.stat == "raw":
             return dm
 
         # check the time stamp and if the data needs to be initalised
@@ -2736,7 +2583,14 @@ class Opa:
             # same here, return makes sence
             return
 
-        how_much_left = self._update_statistics(weight, time_stamp_list, data_source)
+        if self.stat == "bias_correction":
+            how_much_left, dm_raw = self._update_statistics(
+                weight, time_stamp_list, data_source
+                )
+        else: 
+            how_much_left = self._update_statistics(
+                weight, time_stamp_list, data_source
+                )
         
         if self.count == self.n_data and self.stat_freq == "continuous":
 
@@ -2787,7 +2641,7 @@ class Opa:
                 if self.stat != "bias_correction":
                     return dm
                 else:
-                    return dm, dm_mean
+                    return dm_raw, dm_mean
 
             # output_freq_min > self.stat_freq_min
             elif self.time_append > 1:

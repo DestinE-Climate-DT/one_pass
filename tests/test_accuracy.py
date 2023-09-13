@@ -524,6 +524,6 @@ def test_iams():
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
 
     assert np.allclose(
-        two_pass[0:14,:,:], one_pass.values[0,0:14,:,:], rtol = dec_place, atol = dec_place
+        two_pass, one_pass.values[0,:], rtol = dec_place, atol = dec_place
         ), message
     
