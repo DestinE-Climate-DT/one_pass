@@ -1095,9 +1095,9 @@ class Opa:
         # through but starts from mid way through the incoming data
         if (index > 1) and (proceed):
             index = index - 1
-
             # chops data from where it needs to start
             data_source = data_source.isel(time=slice(index, weight))
+            time_stamp_list = time_stamp_list[index:]
             weight = weight - index
 
         return data_source, weight, already_seen, n_data_att_exist, time_stamp_list
