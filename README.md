@@ -17,7 +17,7 @@ git clone --depth 1 https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.gi
 If however you want to work on other branches, clone the whole repository by: 
 
 ```
-git clone --depth 1 https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
+git clone https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
 
 ```
 After cloning, set up the environment using either conda or mamba (in the command below mamba can be replaced by conda if you do not have mamba installed): 
