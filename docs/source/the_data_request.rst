@@ -209,6 +209,8 @@ The maximum of value from the set :math:`X_W` is compared to the maximum value o
 
 The two pass equivalent of the rolling summations is given by `xr.DataArray.rolling <https://docs.xarray.dev/en/stable/generated/xarray.DataArray.rolling.html>`__.  
 
+For this statistic, you must set both ``"stat_freq"`` and ``"output_freq"`` to ``"annually"``.
+
 Raw
 ^^^^^^^^^^
 
@@ -250,6 +252,8 @@ Output Frequency
 The output frequency option (written as ``"output_freq"``) takes the same input options as ``"stat_freq"``. This option defines the frequency you want to output (or save) the xr.Dataset containing your statistic. If you set ``"output_freq"`` the same as ``"stat_freq"`` (which is the standard output) the Dataset produced by the one_pass will have a time dimension of length one, corresponding the summary statistic requested by ``"stat_freq"``. If, however, if you have requested ``"stat_freq": "hourly"`` but you set ``"output_freq": "daily"``, you will have a xr.Dataset with a time dimension of length 24, corresponding to 24 hourly statistical summaries in one file. Likewise, if you set ``"stat_freq":"daily"`` and ``"output_freq":"monthly"``, your final output will have a time dimension of 31 (if there are 31 days in that month), if you started from the first day of the month, or, if you started passing data half way through the month, it will correspond to however many days are left in that month. 
 
 The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one_pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``.
+
+If you ``"set_freq"`` to ``"daily_noon"``, then you must set ``"output_freq"`` also to ``"daily_noon"`` or higher (``"monthly"`` etc). Do not set it to ``"daily"``. 
 
 Time step
 ----------------
