@@ -116,6 +116,16 @@ def convert_time(time_word="daily", time_stamp_input=None):
     elif time_word == "daily":
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         time_stamp_tot_append = time_stamp_input_day_of_month
+        
+    elif time_word == "daily_noon": 
+        
+        if time_stamp_input.hour >= 13 : 
+            time_stamp_input_hour = (time_stamp_input.hour - 13)*60 
+        else: 
+            time_stamp_input_hour = (time_stamp_input.hour + 13)*60 
+        
+        time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+        time_stamp_tot_append = time_stamp_input_day_of_month
 
     elif time_word == "daily_noon":
 
