@@ -6,7 +6,6 @@ and any setting required for certain statistics
 """
 
 import os
-
 import numpy as np
 
 # list of allowed options for statistic
@@ -21,6 +20,7 @@ stat_options = {
     "raw",
     "bias_correction",
     "sum",
+    "iams",
 }
 
 # list of allowed options for statistic frequency
@@ -76,11 +76,11 @@ def check_request(request):
                 f"valid values are: {valid_values}"
             )
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'stat' : some_stat, "
-            f"corresponding to the statistic you require see docs for details"
-        )
+            "config.yml must include key value pair 'stat' : some_stat, "
+            "corresponding to the statistic you require see docs for details"
+        ) from exc
 
     try:
         # if time_append already exisits it won't overwrite it
@@ -94,11 +94,11 @@ def check_request(request):
                 f" valid values are: {valid_values}"
             )
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'stat_freq' : "
-            f" some_freq, see docs for details"
-        )
+            "config.yml must include key value pair 'stat_freq' : "
+            " some_freq, see docs for details"
+        ) from exc
 
     try:
         getattr(request, "output_freq")
@@ -106,8 +106,8 @@ def check_request(request):
 
         if output_freq == "continuous":
             raise ValueError(
-                f"Can not put continuous as the output frequency, must specifcy "
-                f" frequency (e.g. monthly) for on-going netCDF files"
+                "Can not put continuous as the output frequency, must specifcy "
+                " frequency (e.g. monthly) for on-going netCDF files"
             )
 
         if output_freq not in output_freq_options:
@@ -117,96 +117,96 @@ def check_request(request):
                 f" is not supported, valid values are: {valid_values}"
             )
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'output_freq' :"
-            f" some_freq, see docs for details"
-        )
-        
-    if output_freq == "monthly" and stat_freq == "weekly": 
+            "config.yml must include key value pair 'output_freq' :"
+            " some_freq, see docs for details"
+        ) from exc
+
+    if output_freq == "monthly" and stat_freq == "weekly":
         raise KeyError (
-            f"Can not set output_freq equal to monthly if stat_freq"
-            f" is equal to weekly, as months are not wholly divisable by "
-            f"weeks."
+            "Can not set output_freq equal to monthly if stat_freq"
+            " is equal to weekly, as months are not wholly divisable by "
+            "weeks."
         )
 
     try:
         getattr(request, "time_step")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'time_step' : "
-            f" time_step in minutes of data, see docs for details"
-        )
+            "config.yml must include key value pair 'time_step' : "
+            " time_step in minutes of data, see docs for details"
+        ) from exc
 
     try:
         getattr(request, "variable")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'variable' : "
-            f" variable of interest, see docs for details"
-        )
+            "config.yml must include key value pair 'variable' : "
+            " variable of interest, see docs for details"
+        ) from exc
 
     try:
         getattr(request, "percentile_list")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'percentile_list' : "
-            f" list of percentiles. If not required for your statistc set "
-            f" 'percentile_list : None"
-        )
+            "config.yml must include key value pair 'percentile_list' : "
+            " list of percentiles. If not required for your statistc set "
+            " 'percentile_list : None"
+        ) from exc
 
     try:
         getattr(request, "thresh_exceed")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'thresh_exceed' : "
-            f"threshold. If not required for your statistic set "
-            f"'thresh_exceed' : None"
-        )
+            "config.yml must include key value pair 'thresh_exceed' : "
+            "threshold. If not required for your statistic set "
+            "'thresh_exceed' : None"
+        ) from exc
 
     try:
         getattr(request, "save")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'save' : "
-            f"True or False. Set to True if you want to save the "
-            f"completed statistic to netCDF"
-        )
+            "config.yml must include key value pair 'save' : "
+            "True or False. Set to True if you want to save the "
+            "completed statistic to netCDF"
+        ) from exc
 
     try:
         getattr(request, "checkpoint")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'checkpoint' : "
-            f" True or False. Highly recommended to set to True so that "
-            f" the Opa will save summaries in case of model crash"
-        )
+            "config.yml must include key value pair 'checkpoint' : "
+            " True or False. Highly recommended to set to True so that "
+            " the Opa will save summaries in case of model crash"
+        ) from exc
 
     try:
         getattr(request, "out_filepath")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'output_file' : "
-            f" file/path/for/saving. If you do not want to save, and "
-            f" you have set save : False, here you can put None"
-        )
+            "config.yml must include key value pair 'output_file' : "
+            " file/path/for/saving. If you do not want to save, and "
+            " you have set save : False, here you can put None"
+        ) from exc
 
     try:
         getattr(request, "checkpoint_filepath")
 
-    except AttributeError:
+    except AttributeError as exc:
         raise KeyError(
-            f"config.yml must include key value pair 'checkpoint_file' : "
-            f" file/path/for/checkpointing. If you do not want to checkpoint, and"
-            f" you have set checkpoint : False, here you can put None"
-        )
+            "config.yml must include key value pair 'checkpoint_file' : "
+            " file/path/for/checkpointing. If you do not want to checkpoint, and"
+            " you have set checkpoint : False, here you can put None"
+        ) from exc
 
     if request.save:
         file_path = getattr(request, "out_filepath")
@@ -216,8 +216,8 @@ def check_request(request):
                 pass
             else:
                 raise ValueError(
-                    f"Please pass a file path for saving that does "
-                    f"not include the file name as this is created dynamically"
+                    "Please pass a file path for saving that does "
+                    "not include the file name as this is created dynamically"
                 )
         else:
             if os.path.isdir(file_path):
@@ -234,9 +234,9 @@ def check_request(request):
                 pass
             else:
                 raise ValueError(
-                    f"Please pass a file path for checkpointing that "
-                    f" does not include the file name, as this is "
-                    f" created dynamically"
+                    "Please pass a file path for checkpointing that "
+                    " does not include the file name, as this is "
+                    " created dynamically"
                 )
         else:
             # if they have put a file name here it will drop it
@@ -247,37 +247,51 @@ def check_request(request):
                 raise ValueError("Please pass a valid file path for checkpointing")
 
     if request.stat == "thresh_exceed":
-        if hasattr(request, "thresh_exceed") == False:
+        if not hasattr(request, "thresh_exceed"):
             raise AttributeError("need to provide threshold of exceedance value")
 
     if request.stat == "percentile":
-        if hasattr(request, "percentile_list") == False:
+        if not hasattr(request, "percentile_list"):
             raise ValueError(
-                f"For the percentile statistic you need to provide "
-                f" a list of required percentiles, e.g. 'percentile_list' :"
-                f" [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, "
-                f" if you want the whole distribution, 'percentile_list' : ['all']"
+                "For the percentile statistic you need to provide "
+                " a list of required percentiles, e.g. 'percentile_list' :"
+                " [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, "
+                " if you want the whole distribution, 'percentile_list' : ['all']"
             )
+
+        if request.percentile_list is None:
+            raise ValueError(
+                        'Percentiles must be between 0 and 1 or ["all"] '
+                        " for the whole distribution"
+                    )
 
         if request.percentile_list[0] != "all":
             for j in range(np.size(request.percentile_list)):
                 if request.percentile_list[j] > 1:
                     raise ValueError(
-                        f'Percentiles must be between 0 and 1 or ["all"] '
-                        f" for the whole distribution"
+                        'Percentiles must be between 0 and 1 or ["all"] '
+                        " for the whole distribution"
                     )
 
-    if request.stat == "bias_correction":
-        if request.stat_freq != "daily":
+    if request.stat =="iams":
+        if request.stat_freq != "annually":
             raise ValueError(
-                f"Must set stat_freq equal to daily when requesting"
-                f" data for bias correction"
+                'Must set stat_freq equal to annually when requesting'
+                ' iams statistic')
+        if request.output_freq != "annually":
+            raise ValueError(
+                'Must set output_freq equal to annually when requesting'
+                ' iams statistic')
+
+    if request.stat == "bias_correction":
+        if  request.stat_freq != "daily":
+            raise ValueError(
+                "Must set stat_freq equal to daily when requesting"
+                " data for bias correction"
             )
 
         if request.output_freq != "daily":
             raise ValueError(
-                f"Must set output_freq equal to daily when requesting"
-                f" data for bias correction"
+                "Must set output_freq equal to daily when requesting"
+                " data for bias correction"
             )
-
-    return

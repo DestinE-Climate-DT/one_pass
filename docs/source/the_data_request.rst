@@ -48,7 +48,7 @@ The one_pass package supports the following options for ``stat`` :
 
 .. code-block:: JSON
    
-   "mean", "sum", "std", "var", "thresh_exceed", "min", "max", "percentile", "raw", "bias_correction"
+   "mean", "sum", "std", "var", "thresh_exceed", "min", "max", "iams", "percentile", "raw", "bias_correction"
 
 We use the folling definitions in the mathematical descriptions of the algorithms below: 
 
@@ -175,6 +175,40 @@ The ``"percentile"`` statistic requires a value for the key:value pair ``"percen
 
 Currently for the TDigests we have set a compression parameter at 25 (reduced from the default of 100), as we have to consider memory contraints. This value needs optimising. 
 
+Intensity annual maximum series
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The intensity annual maximum series statistic, written as ``"iams"`` computes the summations of a variable over a range of rolling time durations :math:`d` (in minutes) and then takes the maximum value. It is described by 
+
+.. math:: 
+
+   \textrm{iams}(X_n) = \textrm{max}(g(S_{n-w}), X_W),
+
+where 
+
+.. math::  
+
+   g(S_{n-w}) = \bigg\{\sum_{i=1}^{d}(x_1, x_2, \cdots , x_d), \sum_{i=2}^{d+1}(x_2, x_3, \cdots , x_{d+1}), \cdots , 
+.. math::
+   \sum_{i=n-w-d}^{n-w-1}(x_{n-w-d}, x_{n-w-d+1}, \cdots , x_{n-w-1})\bigg\}
+
+and 
+
+.. math:: 
+
+   X_W = \bigg\{\sum_{i=n-w-d+1}^{n-w}(x_{n-w-d+1}, x_{n-w-d+2}, \cdots , x_{n-w}), \cdots ,
+.. math::
+   \sum_{i=n-d}^{n-1}(x_{n-d}, \cdots , x_{n-1}), \sum_{i=n-d+1}^{n}(x_{n-d+1}, \cdots , x_{n})\bigg\}
+
+The maximum of value from the set :math:`X_W` is compared to the maximum value of the previous summations :math:`g(S_{n-w})` and the one_pass maximum statistic is used to store the maximum value between the two. The durations :math:`d` are 
+
+.. math:: 
+  
+  (5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, \\
+  720, 1080, 1440, 2880, 4320, 5760, 7200, 8640, 10080).
+
+The two pass equivalent of the rolling summations is given by `xr.DataArray.rolling <https://docs.xarray.dev/en/stable/generated/xarray.DataArray.rolling.html>`__.  
+
 Raw
 ^^^^^^^^^^
 
@@ -185,8 +219,8 @@ Bias-Correction
 
 Another layer to the one_pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set ``"stat" : "bias_correction"`` you will receive three outputs, as opposed to just one. 
 
-1. Daily aggregations of the incoming data (either daily means or summations depending on the variable) as netCDF
-2. The raw daily data as netCDF 
+1. Daily aggregations of the incoming data (either daily means or summations if the variable is precipitation) as netCDF. Currently the variable names that will use summation as opposed to means are ``'pr', 'lsp', 'cp', 'tp', 'pre', 'precip', 'rain'``.
+2. The raw data at native temporal resolution as netCDF (this is equivalent to ``"raw"`` described above).  
 3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
 
 When using this statistic, make sure to set ``"stat_freq" : "daily"`` and ``"output_freq" : "daily"``.

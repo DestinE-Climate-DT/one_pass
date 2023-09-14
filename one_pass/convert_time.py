@@ -1,8 +1,6 @@
 import numpy as np
-import pandas as pd
 
-"""
-Functions to convert time for the one pass algorithms.
+"""Functions to convert time for the one pass algorithms.
 
 times is a mapping between time words (and time stamps) and number of 
 minutes, to avoid having multiple if statements. Converts to 
@@ -57,7 +55,7 @@ def convert_time(time_word="daily", time_stamp_input=None):
         )
 
     if time_stamp_input is None:
-        raise ValueError(f"You must provide a time_stamp_input for saving frequency")
+        raise ValueError("You must provide a time_stamp_input for saving frequency")
 
     # converts word to minutes
     stat_freq_min = times.get(time_word)
@@ -67,13 +65,13 @@ def convert_time(time_word="daily", time_stamp_input=None):
     elif time_word == "3monthly":
         quarter = time_stamp_input.quarter
         if quarter == 1 :
-            if time_stamp_input.is_leap_year : 
-                stat_freq_min = stat_freq_min*(31+31+29)                
-            else:  
+            if time_stamp_input.is_leap_year :
+                stat_freq_min = stat_freq_min*(31+31+29)
+            else:
                 stat_freq_min = stat_freq_min*(31+31+28)
-        elif quarter == 2 : 
+        elif quarter == 2 :
             stat_freq_min = stat_freq_min*(30+31+30)
-        elif quarter == 3 or quarter == 4: 
+        elif quarter in (3,4):
             stat_freq_min = stat_freq_min*(31+31+30)
 
     # now looking at given time stamp
@@ -129,6 +127,16 @@ def convert_time(time_word="daily", time_stamp_input=None):
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         time_stamp_tot_append = time_stamp_input_day_of_month
 
+    elif time_word == "daily_noon":
+
+        if time_stamp_input.hour >= 13 :
+            time_stamp_input_hour = (time_stamp_input.hour - 13)*60
+        else:
+            time_stamp_input_hour = (time_stamp_input.hour + 13)*60
+
+        time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+        time_stamp_tot_append = time_stamp_input_day_of_month
+
     elif time_word == "weekly":
         time_stamp_min = (
             time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day_of_week
@@ -139,19 +147,19 @@ def convert_time(time_word="daily", time_stamp_input=None):
     elif time_word == "monthly":
 
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
-                         time_stamp_input_day_of_month 
+                         time_stamp_input_day_of_month
         time_stamp_tot_append = time_stamp_input_month
 
     if time_word == "3monthly":
-        # True for Feb, March, May, June, August, Sep, 
+        # True for Feb, March, May, June, August, Sep,
         if np.mod(time_stamp_input.month - 1, 3) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                              time_stamp_input_day_of_year #  + time_stamp_input_month
         else:
-            # for Jan, April, etc. 
+            # for Jan, April, etc.
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
-                             time_stamp_input_day_of_month  
-                             
+                             time_stamp_input_day_of_month
+
         time_stamp_tot_append = time_stamp_input_month
 
     if time_word == "annually":
