@@ -809,8 +809,8 @@ class Opa:
                 # the original time append
                 if time_stamp < self.init_time_stamp:
                     print(
-                        f"removing checkpoint as going back to before"
-                        f" original time append"
+                        "removing checkpoint as going back to before"
+                        " original time append"
                     )
                     self._remove_time_append()
 
@@ -833,8 +833,8 @@ class Opa:
                         # new time step == beginning of time append
 
                         print(
-                            f"removing checkpoint as starting from beginning"
-                            f" of time append"
+                            "removing checkpoint as starting from beginning"
+                            " of time append"
                         )
                         self._remove_time_append()
 
@@ -1178,7 +1178,7 @@ class Opa:
             if self.stat == "raw":
                 self._save_output(dm, final_time_file_str)
             else:
-                print('saving', data_source.time[0])
+                # print('saving', data_source.time[0])
                 self._save_output(dm, final_time_file_str, bc_raw = True)
 
         return dm
@@ -1674,8 +1674,6 @@ class Opa:
         # adding axis for time
         self.percentile_cum = np.expand_dims(self.percentile_cum, axis=0)
 
-        # return
-
     def _get_bias_correction_tdigest(self, data_source):
 
         """Converts list of t-digests back into original grid shape and makes
@@ -1889,7 +1887,7 @@ class Opa:
                     )
 
                 except TypeError: 
-                    print('had to save .values as zarr')
+                    #print('had to save .values as zarr')
                     zarr.array(
                         self.__getattribute__(key).values,
                         store=checkpoint_file_zarr,
@@ -1924,7 +1922,7 @@ class Opa:
         """ loops through all the attributes with "cum" ending 
         to calculate the total size of the class in GB 
         """
-        
+
         total_size = 0
 
         if just_digests:
@@ -1934,14 +1932,21 @@ class Opa:
                     self.__getattribute__(digest_string).size * 
                     self.__getattribute__(digest_string).itemsize
                     )/ (10**9)
-            
+
             #print('total size of bc cum', total_size)
         else:
             matching_items = self._find_items_with_cum(self)
 
             for key in matching_items:
 
-                if hasattr(self.__getattribute__(key), 'values'):
+                if self.stat == "percentile":
+                    for j in range(np.size(self.__getattribute__(key))):
+                        total_size += (
+                            np.size(
+                                self.__getattribute__(key)[j].get_centroids()
+                                )*8)/(10**9)
+
+                elif hasattr(self.__getattribute__(key), 'values'):
                     total_size += (
                         self.__getattribute__(key).size * 
                         self.__getattribute__(key).values.itemsize
@@ -1952,8 +1957,6 @@ class Opa:
                         self.__getattribute__(key).size * 
                         self.__getattribute__(key).itemsize
                         )/ (10**9)
-
-                #print('key', key, 'total_size', total_size)
 
         return total_size
     
@@ -1974,8 +1977,6 @@ class Opa:
             if hasattr(self.__getattribute__(key), "compute"):
                 # first load data into memory
                 self._load_dask(key)
-
-        total_size = self._get_total_size()
             
         if self.stat == "percentile":
 
@@ -1983,6 +1984,8 @@ class Opa:
                 self.percentile_cum[j] = PicklableTDigest(
                     self.__getattribute__(str(self.stat + "_cum"))[j]
                 )
+
+        total_size = self._get_total_size()
 
         #print('total_size', total_size)
         # limit on a pickle file is 2GB

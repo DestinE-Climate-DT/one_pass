@@ -1,7 +1,6 @@
 import numpy as np
 
-"""
-Functions to convert time for the one pass algorithms.
+"""Functions to convert time for the one pass algorithms.
 
 times is a mapping between time words (and time stamps) and number of 
 minutes, to avoid having multiple if statements. Converts to 
@@ -124,7 +123,7 @@ def convert_time(time_word="daily", time_stamp_input=None):
             time_stamp_input_hour = (time_stamp_input.hour - 13)*60
         else:
             time_stamp_input_hour = (time_stamp_input.hour + 13)*60
-        
+
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         time_stamp_tot_append = time_stamp_input_day_of_month
 
@@ -142,7 +141,7 @@ def convert_time(time_word="daily", time_stamp_input=None):
         time_stamp_tot_append = time_stamp_input_month
 
     if time_word == "3monthly":
-        # True for Feb, March, May, June, August, Sep, 
+        # True for Feb, March, May, June, August, Sep,
         if np.mod(time_stamp_input.month - 1, 3) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                              time_stamp_input_day_of_year #  + time_stamp_input_month
