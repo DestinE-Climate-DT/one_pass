@@ -2405,7 +2405,7 @@ class Opa:
             )
 
         # for saving the daily aggregations of the bias correction
-        if bc_mean:
+        elif bc_mean:
                         
             if self.variable not in precip_options:
                 file_name = os.path.join(
