@@ -13,5 +13,10 @@ dependencies:
   - tqdm
   - sphinx
   - sphinx-rtd-theme
+  - matplotlib
+  - netCDF4
+  - cython
+  - pip
   - pip:
     - pytdigest
+    - git+https://github.com/dask/crick.git@main

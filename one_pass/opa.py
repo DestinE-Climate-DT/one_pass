@@ -15,7 +15,7 @@ import xarray as xr
 import zarr
 from numcodecs import Blosc
 import zarr.codecs as zcodecs
-from pytdigest import TDigest
+from crick import TDigest
 
 from one_pass import util
 from one_pass.check_request import check_request
@@ -36,50 +36,50 @@ precip_options = {
     'precipitation',
 }
 
-class PicklableTDigest:
+# class PicklableTDigest:
 
-    """
-    Class to manage pickling (checkpointing) of TDigest data
+#     """
+#     Class to manage pickling (checkpointing) of TDigest data
 
-    Attributes:
-    -----------
-    tdigest : wrapped C object containing the tDigest data
-    """
+#     Attributes:
+#     -----------
+#     tdigest : wrapped C object containing the tDigest data
+#     """
 
-    def __init__(self, tdigest: TDigest) -> None:
-        self.tdigest = tdigest
+#     def __init__(self, tdigest: TDigest) -> None:
+#         self.tdigest = tdigest
 
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return getattr(self, attr)
-        return getattr(self.tdigest, attr)
+#     def __getattr__(self, attr):
+#         if attr in self.__dict__:
+#             return getattr(self, attr)
+#         return getattr(self.tdigest, attr)
 
-    def __getstate__(self):
-        """
-        Here we select what we want to serializable from TDigest.
-        We will pick only the necessary to re-create a new TDigest.
-        """
-        state = {
-            "centroids": self.tdigest.get_centroids(),
-            "compression": self.tdigest.compression,
-        }
-        return state
+#     def __getstate__(self):
+#         """
+#         Here we select what we want to serializable from TDigest.
+#         We will pick only the necessary to re-create a new TDigest.
+#         """
+#         state = {
+#             "centroids": self.tdigest.centroids(),
+#             "compression": self.tdigest.compression,
+#         }
+#         return state
 
-    def __setstate__(self, state):
-        """
-        Then here we use the data we serialized to deserialize it.
+#     def __setstate__(self, state):
+#         """
+#         Then here we use the data we serialized to deserialize it.
 
-        We use that data to create a new instance of TDigest. It has
-        some static functions to re-create or combine TDigest's.
+#         We use that data to create a new instance of TDigest. It has
+#         some static functions to re-create or combine TDigest's.
 
-        Here ``of_centroids`` is used to demonstrate how it works.
-        """
-        self.tdigest = TDigest.of_centroids(
-            centroids=state["centroids"], compression=state["compression"]
-        )
+#         Here ``of_centroids`` is used to demonstrate how it works.
+#         """
+#         self.tdigest = TDigest.of_centroids(
+#             centroids=state["centroids"], compression=state["compression"]
+#         )
 
-    def __repr__(self):
-        return repr(self.tdigest)
+#     def __repr__(self):
+#         return repr(self.tdigest)
 
 class OpaMeta:
 
@@ -443,7 +443,7 @@ class Opa:
             self.rolling_data = np.zeros(new_shape_whole) 
             #, chunks = (168, *new_shape[1]))
     
-    def _init_digests(self, data_source_size):
+    def _init_digests(self):
     
         """ 
         Function to initalise a flat array full of empty 
@@ -451,7 +451,7 @@ class Opa:
         
         Arguments 
         ----------
-        data_source_size = size of incoming data
+        data_source_tail = size of incoming data
 
         Returns
         ---------
@@ -460,13 +460,14 @@ class Opa:
 
         """
 
-        self.array_length = np.size(data_source_size)
+        self.array_length = np.size(self.data_source_tail)
         # list of dictionaries for each grid cell, preserves order
-        digest_list = [dict() for x in range(self.array_length)]
+        digest_list = [] 
+        # [dict() for x in range(self.array_length)]
 
         for j in range(self.array_length):
             # initalising digests and adding to list
-            digest_list[j] = TDigest(compression=25)
+            digest_list.append(TDigest(compression=1))
 
         self.__setattr__(str(self.stat + "_cum"), digest_list)
 
@@ -493,14 +494,14 @@ class Opa:
             different data outputs, this initalises the array to save
             the raw daily raw data
         """
-        data_source_size = data_source.tail(time=1)
+        self.data_source_tail = data_source.tail(time=1)
 
         if data_source.chunks is None:
             # only using dask if incoming data is in dask
             # forcing computation in float64
-            value = np.zeros_like(data_source_size, dtype=np.float64)
+            value = np.zeros_like(self.data_source_tail, dtype=np.float64)
         else:
-            value = da.zeros_like(data_source_size, dtype=np.float64)
+            value = da.zeros_like(self.data_source_tail, dtype=np.float64)
 
         if self.stat_freq == "continuous":
             self.count_continuous = 0
@@ -508,8 +509,6 @@ class Opa:
         if (self.stat != "bias_correction" and 
            self.stat != "percentile" and 
            self.stat != 'iams'): 
-
-            data_source_size = data_source.tail(time=1)
 
             self.__setattr__(str(self.stat + "_cum"), value)
 
@@ -555,7 +554,7 @@ class Opa:
             self._init_ndata_durations(value, data_source)
             
         elif self.stat == "percentile":
-            self._init_digests(data_source_size)
+            self._init_digests()
             
         elif self.stat == "bias_correction": 
             # not ititalising the digests here, as only need to update
@@ -1628,7 +1627,7 @@ class Opa:
             data_source_values = data_source.values.reshape((weight, -1))
 
             #tqdm.tqdm(
-            for j in range(self.array_length):
+            for j in tqdm.tqdm(range(self.array_length)):
                 # using crick or pytdigest
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(
                     data_source_values[:, j]
@@ -1640,7 +1639,7 @@ class Opa:
 
         return
 
-    def _get_percentile(self, data_source):
+    def _get_percentile(self):
 
         """
         Converts digest functions into percentiles and reshapes
@@ -1653,44 +1652,39 @@ class Opa:
 
         for j in range(self.array_length):
             # for crick
-            # self.percentile_cum[j] = self.percentile_cum[j].quantile(
-            # self.percentile_list
-            # )
-            self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(
-                self.percentile_list
+            self.percentile_cum[j] = self.percentile_cum[j].quantile(
+            self.percentile_list
             )
+            # self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(
+            #    self.percentile_list
+            # )
 
         self.percentile_cum = np.transpose(self.percentile_cum)
 
         # reshaping percentile cum into the correct shape
-        data_source_size = data_source.tail(time=1)  # will still have 1 for time dimension
 
         # forcing computation in float64
-        value = da.zeros_like(data_source_size, dtype=np.float64)
-        final_size = da.concatenate([value] * np.size(self.percentile_list), axis=0)
+        value = np.zeros_like(self.data_source_tail, dtype=np.float64)
+        final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
 
         # with the percentiles we add another dimension for the percentiles
         self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
         # adding axis for time
         self.percentile_cum = np.expand_dims(self.percentile_cum, axis=0)
 
-    def _get_bias_correction_tdigest(self, data_source):
+    def _reshape_bc_tdigest(self):
 
         """Converts list of t-digests back into original grid shape and makes
         them picklable"""
 
         self.bias_correction_cum = np.transpose(self.bias_correction_cum)
-        for j in range(self.array_length):
-            self.bias_correction_cum[j] = PicklableTDigest(
-                self.__getattribute__(str(self.stat + "_cum"))[j]
-            )
 
         # reshaping percentile cum into the correct shape
         # this will still have 1 for time dimension
-        data_source_size = data_source.tail(time=1)
 
-        value = da.zeros_like(data_source_size, dtype=np.float64)
-        final_size = da.concatenate([value], axis=0)
+        final_size = np.zeros_like(self.data_source_tail, dtype=np.float64)
+        #TODO: I think you can delete this line:
+        #final_size = da.concatenate([value], axis=0)
 
         self.bias_correction_cum = np.reshape(
             self.bias_correction_cum, np.shape(final_size)
@@ -1721,7 +1715,7 @@ class Opa:
 
         return extension
 
-    def _load_or_init_digests(self, data_source_size):
+    def _load_or_init_digests(self):
 
         """
         This function checks to see if a checkpoint file for the bias
@@ -1738,7 +1732,7 @@ class Opa:
 
         """
 
-        self.array_length = np.size(data_source_size)
+        self.array_length = np.size(self.data_source_tail)
         final_time_file_str = self._get_month_str_bc()
         # sets the variable self.monthly_digest_file_bc
         extension = self._get_monthly_digest_filename_bc(final_time_file_str)
@@ -1760,7 +1754,7 @@ class Opa:
             # this will only need to initalise for the first month after that,
             # you're reading from the checkpoints
             # print("initalising digests")
-            self._init_digests(data_source_size)
+            self._init_digests()
 
     def _update(self, data_source, weight=1):
 
@@ -1917,6 +1911,17 @@ class Opa:
 
         return
     
+    def _get_digest_total_size(self, key, total_size):
+
+        for j in range(np.size(self.__getattribute__(key))):
+            total_size += (
+                np.size(
+                    self.__getattribute__(key)[j].centroids()
+                    )*8)/(10**9)
+
+        print('total_size', total_size)
+        return total_size
+
     def _get_total_size(self, just_digests = None):
         
         """ loops through all the attributes with "cum" ending 
@@ -1926,25 +1931,16 @@ class Opa:
         total_size = 0
 
         if just_digests:
-            digest_string = 'bias_correction_cum'
-            if hasattr(self, digest_string):
-                total_size += (
-                    self.__getattribute__(digest_string).size * 
-                    self.__getattribute__(digest_string).itemsize
-                    )/ (10**9)
+            key = 'bias_correction_cum'
+            total_size = self._get_digest_total_size(key, total_size)
 
             #print('total size of bc cum', total_size)
         else:
             matching_items = self._find_items_with_cum(self)
-
             for key in matching_items:
 
-                if self.stat == "percentile":
-                    for j in range(np.size(self.__getattribute__(key))):
-                        total_size += (
-                            np.size(
-                                self.__getattribute__(key)[j].get_centroids()
-                                )*8)/(10**9)
+                if key == "percentile_cum":
+                    total_size = self._get_digest_total_size(key, total_size)
 
                 elif hasattr(self.__getattribute__(key), 'values'):
                     total_size += (
@@ -1978,12 +1974,12 @@ class Opa:
                 # first load data into memory
                 self._load_dask(key)
             
-        if self.stat == "percentile":
+        #if self.stat == "percentile":
 
-            for j in range(self.array_length):  # tqdm.tqdm
-                self.percentile_cum[j] = PicklableTDigest(
-                    self.__getattribute__(str(self.stat + "_cum"))[j]
-                )
+            #for j in range(self.array_length):  # tqdm.tqdm
+            #    self.percentile_cum[j] = PicklableTDigest(
+            #        self.__getattribute__(str(self.stat + "_cum"))[j]
+            #    )
 
         total_size = self._get_total_size()
 
@@ -2356,10 +2352,9 @@ class Opa:
         daily mean. Then saves this data
         """
 
-        data_source_size = data_source.tail(time=1)
         # now want to pass daily mean into bias_corr
         # load or initalise the monthly digest file
-        self._load_or_init_digests(data_source_size)
+        self._load_or_init_digests()
 
         # update digests with daily aggregation
         # we know the weight = 1 as it's the aggregation over that day
@@ -2369,7 +2364,7 @@ class Opa:
             self._update_tdigest(self.sum_cum, 1)
 
         # this will give the original grid back with meta data and picklable digests
-        self._get_bias_correction_tdigest(data_source)
+        self._reshape_bc_tdigest()
 
         # output raw data
         #dm_raw = self._create_raw_data_set(self.raw_data_for_bc_cum)
@@ -2389,9 +2384,6 @@ class Opa:
                 " for bias_correction"
             )
 
-        # changing the save attribute here so that the digests will always be saved 
-        #self.save = True
-
         return dm_mean
 
     def _save_output(self, dm, final_time_file_str, bc_raw=False, bc_mean=False):
@@ -2405,7 +2397,7 @@ class Opa:
             )
 
         # for saving the daily aggregations of the bias correction
-        if bc_mean:
+        elif bc_mean:
                         
             if self.variable not in precip_options:
                 file_name = os.path.join(
@@ -2606,7 +2598,7 @@ class Opa:
 
             if self.stat == "percentile":
                 # this will give self.tdigest but it's full of percentiles
-                self._get_percentile(data_source)
+                self._get_percentile()
 
             if self.stat == "bias_correction":
                 # loads, updates and makes picklabe tdigests,
