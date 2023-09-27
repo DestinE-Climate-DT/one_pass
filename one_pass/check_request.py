@@ -17,6 +17,7 @@ stat_options = {
     "min",
     "max",
     "percentile",
+    "histogram",
     "raw",
     "bias_correction",
     "sum",

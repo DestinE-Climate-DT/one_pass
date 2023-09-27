@@ -39,7 +39,7 @@ data = xr.open_dataset(fileList[0], engine='netcdf4') # , chunks = 'auto') # ope
 data = data.compute()
 data = data.astype(np.float64)
 
-dec_place = 1e-3
+dec_place = 1e-6
 dec_place_per = 2
 ############################# define functions ######################################
 

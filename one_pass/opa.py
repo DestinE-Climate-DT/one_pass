@@ -508,6 +508,7 @@ class Opa:
 
         if (self.stat != "bias_correction" and 
            self.stat != "percentile" and 
+           self.stat != "histogram" and
            self.stat != 'iams'): 
 
             self.__setattr__(str(self.stat + "_cum"), value)
@@ -553,9 +554,9 @@ class Opa:
             
             self._init_ndata_durations(value, data_source)
             
-        elif self.stat == "percentile":
+        elif self.stat == "percentile" or self.stat == "histogram":
             self._init_digests()
-            
+
         elif self.stat == "bias_correction": 
             # not ititalising the digests here, as only need to update
             # them with daily means, would create unncessary I/O at
@@ -1608,19 +1609,16 @@ class Opa:
 
             # TODO: check you need the differnence with bias_correction
             if self.stat == "bias_correction":
-                if self.variable not in precip_options:
-                    if hasattr(self.mean_cum, "chunks"):
-                        # extracting the underlying np array
-                        data_source = data_source.compute()
-                else: 
-                    if hasattr(self.sum_cum, "chunks"):
-                        data_source = data_source.compute()
+                if hasattr(data_source, "chunks"):
+                    # extracting the underlying np array
+                    data_source = data_source.compute()
+
                 data_source_values = np.reshape(data_source, self.array_length) 
             else: 
                 data_source_values = np.reshape(data_source.values, self.array_length)
-
+            
             # this is looping through every grid cell using crick or pytdigest tqdm.tqdm(
-            for j in range(self.array_length):
+            for j in tqdm.tqdm(range(self.array_length)):
                 self.__getattribute__(str(self.stat + "_cum"))[j].update(data_source_values[j])
 
         else:
@@ -1639,6 +1637,32 @@ class Opa:
 
         return
 
+    def _get_histogram(self):
+
+        """
+        Converts digest functions into percentiles and reshapes
+        the attribute percentile_cum back into the shape of the original
+        grid
+        """
+
+        for j in range(self.array_length):
+            # for crick
+            self.percentile_cum[j] = self.percentile_cum[j].quantile(
+            self.percentile_list
+            )
+
+        self.percentile_cum = np.transpose(self.percentile_cum)
+
+        # reshaping percentile cum into the correct shape
+        # forcing computation in float64
+        value = np.zeros_like(self.data_source_tail, dtype=np.float64)
+        final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
+
+        # with the percentiles we add another dimension for the percentiles
+        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
+        # adding axis for time
+        self.percentile_cum = np.expand_dims(self.percentile_cum, axis=0)
+
     def _get_percentile(self):
 
         """
@@ -1655,14 +1679,10 @@ class Opa:
             self.percentile_cum[j] = self.percentile_cum[j].quantile(
             self.percentile_list
             )
-            # self.percentile_cum[j] = self.percentile_cum[j].inverse_cdf(
-            #    self.percentile_list
-            # )
 
         self.percentile_cum = np.transpose(self.percentile_cum)
 
         # reshaping percentile cum into the correct shape
-
         # forcing computation in float64
         value = np.zeros_like(self.data_source_tail, dtype=np.float64)
         final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
@@ -1677,6 +1697,7 @@ class Opa:
         """Converts list of t-digests back into original grid shape and makes
         them picklable"""
 
+        #print(self.bias_correction_cum[0])
         self.bias_correction_cum = np.transpose(self.bias_correction_cum)
 
         # reshaping percentile cum into the correct shape
@@ -1689,6 +1710,8 @@ class Opa:
         self.bias_correction_cum = np.reshape(
             self.bias_correction_cum, np.shape(final_size)
         )
+        #print(self.bias_correction_cum[0,0])
+        #print(np.shape(self.bias_correction_cum))
 
     def _get_monthly_digest_filename_bc(self, final_time_file_str, total_size = None):
 
@@ -1779,7 +1802,7 @@ class Opa:
         elif self.stat == "thresh_exceed":
             self._update_threshold(data_source, weight)
 
-        elif self.stat == "percentile":
+        elif self.stat == "percentile" or self.stat == "histogram":
             self._update_tdigest(data_source, weight)
 
         elif(self.stat == "sum"):
@@ -1912,14 +1935,17 @@ class Opa:
         return
     
     def _get_digest_total_size(self, key, total_size):
+        for element in self.__getattribute__(key).flat:
+            #print(element)
+            #total_size += (np.size(element.centroids())*8*2)/(10**9)
+            #TODO: figure out how to get size properly        
+            total_size += (sys.getsizeof(element.centroids()))/(10**9)
+        # for j in range(np.size(self.__getattribute__(key))):
+        #     total_size += (
+        #         np.size(
+        #             self.__getattribute__(key)[j].centroids()
+        #             )*8*2)/(10**9)
 
-        for j in range(np.size(self.__getattribute__(key))):
-            total_size += (
-                np.size(
-                    self.__getattribute__(key)[j].centroids()
-                    )*8)/(10**9)
-
-        print('total_size', total_size)
         return total_size
 
     def _get_total_size(self, just_digests = None):
@@ -1934,7 +1960,7 @@ class Opa:
             key = 'bias_correction_cum'
             total_size = self._get_digest_total_size(key, total_size)
 
-            #print('total size of bc cum', total_size)
+            #print('total size of bc digests', total_size)
         else:
             matching_items = self._find_items_with_cum(self)
             for key in matching_items:
@@ -1954,6 +1980,7 @@ class Opa:
                         self.__getattribute__(key).itemsize
                         )/ (10**9)
 
+        print(total_size, key)
         return total_size
     
     def _write_checkpoint(self):
@@ -1973,13 +2000,6 @@ class Opa:
             if hasattr(self.__getattribute__(key), "compute"):
                 # first load data into memory
                 self._load_dask(key)
-            
-        #if self.stat == "percentile":
-
-            #for j in range(self.array_length):  # tqdm.tqdm
-            #    self.percentile_cum[j] = PicklableTDigest(
-            #        self.__getattribute__(str(self.stat + "_cum"))[j]
-            #    )
 
         total_size = self._get_total_size()
 
@@ -2151,28 +2171,27 @@ class Opa:
                         + self.stat_freq + " sum calculated using one-pass algorithm\n"
                     )
                 final_stat = self.__getattribute__(str("sum_cum"))
-                # see if already has an attribute called history
-                # if 'history' in self.data_set_attr:
-                #     old_history = self.data_set_attr['history']
-                #     updated_history = f"{old_history}{new_attr_str}"
-                #     self.data_set_attr['history'] = updated_history
-                # else:
                 self.data_set_attr['history_opa'] = new_attr_str
 
         elif self.stat == "bias_correction":
             
             final_stat = self.__getattribute__(str(self.stat + "_cum"))
-            new_attr_str = str(
-                str_date_time
-                + " daily aggregations added to the monthly digest for " 
-                + self.stat + " calculated using one_pass algorithm\n"
-            )
-            # see if already has an attribute called history
-            # if 'history' in self.data_set_attr:
-            #     old_history = self.data_set_attr['history']
-            #     updated_history = f"{old_history}{new_attr_str}"
-            #     self.data_set_attr['history'] = updated_history
-            # else:
+            
+            if self.variable not in precip_options:
+
+                new_attr_str = str(
+                    str_date_time
+                    + " daily means added to the monthly digest for " 
+                    + self.stat + " calculated using one_pass algorithm\n"
+                )
+
+            else:
+                new_attr_str = str(
+                    str_date_time
+                    + " daily sums added to the monthly digest for " 
+                    + self.stat + " calculated using one_pass algorithm\n"
+                )
+
             self.data_set_attr['history_opa'] = new_attr_str
 
         else:
@@ -2182,17 +2201,11 @@ class Opa:
                 + self.stat_freq + " " + self.stat +
                 " calculated using one_pass algorithm\n"
             )
-            # see if already has an attribute called history
-            # if 'history' in self.data_set_attr:
-            #     old_history = self.data_set_attr['history']
-            #     updated_history = f"{old_history}{new_attr_str}"
-            #     self.data_set_attr['history'] = updated_history
-            # else:
+
             self.data_set_attr['history_opa'] = new_attr_str
 
         if self.stat == "min" or self.stat == "max" or self.stat == "thresh_exceed":
             final_stat = final_stat.data
-        self.final_stat = final_stat
 
         # creating the final file name
         if self.stat == "bias_correction" and bc_mean == False:
@@ -2368,7 +2381,7 @@ class Opa:
 
         # output raw data
         #dm_raw = self._create_raw_data_set(self.raw_data_for_bc_cum)
-        # output as Dataset
+        # output mean or sum as Dataset
         dm_mean, final_time_file_str_bc = self._data_output(data_source, bc_mean=True)
 
         # self.timeappend will always be 1 otherwise will be caught in check_request
@@ -2427,20 +2440,22 @@ class Opa:
         # want to save the final TDigest files for the bias correction as pickle files
         else:
             final_time_file_str = self._get_month_str_bc()
+            #print('saving digest pickle')
             total_size = self._get_total_size(just_digests=True)
             # sets the variable self.monthly_digest_file_bc
             self._get_monthly_digest_filename_bc(final_time_file_str, total_size)
             
             # TODO: artificially putting this as 4 for now
-            if total_size < 4: # self.pickle_limit: 
+            if total_size < self.pickle_limit: 
                 self._write_pickle(dm, self.monthly_digest_file_bc)
+                #print('saved pickle')
             else: 
                 self._write_zarr(for_bc = True, dm = dm)
+            
+            self.__dict__.pop("bias_correction_cum", None)
 
         end_time = time.time() - start_time
         # print('finished saving tdigest files in', np.round(end_time,4) ,'s')
-
-        # return
 
     def _call_recursive(self, how_much_left, weight, data_source):
 
@@ -2597,15 +2612,17 @@ class Opa:
         if self.count == self.n_data and self.stat_freq != "continuous":
 
             if self.stat == "percentile":
-                # this will give self.tdigest but it's full of percentiles
                 self._get_percentile()
+                
+            if self.stat == "histogram":
+                self._get_histogram()
 
             if self.stat == "bias_correction":
                 # loads, updates and makes picklabe tdigests,
                 # saves daily mean
                 dm_mean = self._create_and_save_outputs_for_bc(data_source)
 
-            # output as a dataset
+            # output as a Dataset
             dm, final_time_file_str = self._data_output(data_source)
 
             # output_freq_min == self.stat_freq_min
