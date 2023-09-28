@@ -18,5 +18,4 @@ dependencies:
   - cython
   - pip
   - pip:
-    - pytdigest
     - git+https://github.com/dask/crick.git@main
