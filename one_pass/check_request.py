@@ -27,6 +27,7 @@ stat_options = {
 # list of allowed options for statistic frequency
 stat_freq_options = {
     "hourly",
+    "2hourly",
     "3hourly",
     "6hourly",
     "12hourly",
@@ -36,12 +37,14 @@ stat_freq_options = {
     "monthly",
     "3monthly",
     "annually",
+    "10annually",
     "continuous",
 }
 
 # list of allowed options for output frequency
 output_freq_options = {
     "hourly",
+    "2hourly",
     "3hourly",
     "6hourly",
     "12hourly",
@@ -51,6 +54,7 @@ output_freq_options = {
     "monthly",
     "3monthly",
     "annually",
+    "10annually",
 }
 
 def check_request(request):
@@ -150,26 +154,6 @@ def check_request(request):
         ) from exc
 
     try:
-        getattr(request, "percentile_list")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'percentile_list' : "
-            " list of percentiles. If not required for your statistc set "
-            " 'percentile_list : None"
-        ) from exc
-
-    try:
-        getattr(request, "thresh_exceed")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'thresh_exceed' : "
-            "threshold. If not required for your statistic set "
-            "'thresh_exceed' : None"
-        ) from exc
-
-    try:
         getattr(request, "save")
 
     except AttributeError as exc:
@@ -249,7 +233,23 @@ def check_request(request):
 
     if request.stat == "thresh_exceed":
         if not hasattr(request, "thresh_exceed"):
-            raise AttributeError("need to provide threshold of exceedance value")
+            raise AttributeError(
+                "For the thresh_exceed statistic you need to provide "
+                " the threshold value. This is set in a seperate key:value"
+                "pair, 'thresh_exceed' : some_value, where some_value is" 
+                "the threshold you wish to set"
+            )
+
+    if request.stat == "histogram":
+        if not hasattr(request, "bins"):
+            raise AttributeError(
+                "For the histogram statistic you have to provide "
+                "the key value pair 'bins : int or array_like',' optional"
+                "If ``bins`` is an int, it defines the number of equal width bins in"
+                "the given range. If ``bins`` is an array_like, the values define"
+                "the edges of the bins (rightmost edge inclusive), allowing for"
+                "non-uniform bin widths. If set to ``None`` it will default to 10."
+            )
 
     if request.stat == "percentile":
         if not hasattr(request, "percentile_list"):

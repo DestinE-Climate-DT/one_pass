@@ -463,9 +463,8 @@ class Opa:
         self.array_length = np.size(self.data_source_tail)
         # list of dictionaries for each grid cell, preserves order
         digest_list = [] 
-        # [dict() for x in range(self.array_length)]
 
-        for j in range(self.array_length):
+        for _ in range(self.array_length):
             # initalising digests and adding to list
             digest_list.append(TDigest(compression=1))
 
@@ -537,7 +536,6 @@ class Opa:
             # removing durations smaller than time step and not full
             # multiples 
             self.durations = self._duration_pick(durations)
-            #self.durations = [10080]
             # creating array to hold the max value for each duration window
             new_shape = (np.size(self.durations), np.shape(value)[1:])
             # unpack the nested tuple
@@ -1643,25 +1641,48 @@ class Opa:
         Converts digest functions into percentiles and reshapes
         the attribute percentile_cum back into the shape of the original
         grid
+        
+        Parameters (taken from https://github.com/dask/crick/blob/main/crick/tdigest.pyx)
+        ----------
+        self.bins : int or array_like, optional
+            If ``bins`` is an int, it defines the number of equal width bins in
+            the given range. If ``bins`` is an array_like, the values define
+            the edges of the bins (rightmost edge inclusive), allowing for
+            non-uniform bin widths. The default is 10.
+
+        self.range : (float, float), optional
+            The lower and upper bounds to use when generating bins. If not
+            provided, the digest bounds ``(t.min(), t.max())`` are used. Note
+            that this option is ignored if the bin edges are provided
+            explicitly.
         """
+        if self.bins is not None and self.range is None: 
+            for j in range(self.blahblha):
+                # for crick
+                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram(
+                self.bins
+                )
+        elif self.bins is not None and self.range is not None: 
+            for j in range(self.array_length):
+                # for crick
+                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram(
+                self.bins, self.range
+                )
+        else:
+            # will call default of bins = 10
+            for j in range(self.blahf):
+                # for crick
+                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram()
 
-        for j in range(self.array_length):
-            # for crick
-            self.percentile_cum[j] = self.percentile_cum[j].quantile(
-            self.percentile_list
-            )
-
-        self.percentile_cum = np.transpose(self.percentile_cum)
+        self.histogram_cum = np.transpose(self.histogram_cum)
 
         # reshaping percentile cum into the correct shape
         # forcing computation in float64
         value = np.zeros_like(self.data_source_tail, dtype=np.float64)
-        final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
+        final_size = np.concatenate([value] * np.size(self.bins), axis=0)
 
-        # with the percentiles we add another dimension for the percentiles
-        self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
-        # adding axis for time
-        self.percentile_cum = np.expand_dims(self.percentile_cum, axis=0)
+        self.histogram_cum = np.reshape(self.histogram_cum, np.shape(final_size))
+        self.histogram_cum = np.expand_dims(self.histogram_cum, axis=0)
 
     def _get_percentile(self):
 
@@ -1672,7 +1693,7 @@ class Opa:
         """
 
         if self.percentile_list[0] == "all":
-            self.percentile_list = (np.linspace(0, 100, 101)) / 100
+            self.percentile_list = (np.linspace(0, 99, 100)) / 100
 
         for j in range(self.array_length):
             # for crick
