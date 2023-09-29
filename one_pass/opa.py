@@ -455,8 +455,8 @@ class Opa:
 
         Returns
         ---------
-        a call attribute corresponding to a flat array of
-        empty digests matching the size of the incoming data
+        self.digests = a flat array of of the size of the incoming data
+        full of empty t digest objects
 
         """
 
@@ -464,11 +464,12 @@ class Opa:
         # list of dictionaries for each grid cell, preserves order
         digest_list = [] 
 
+        start_time = time.time()
         for _ in range(self.array_length):
             # initalising digests and adding to list
             digest_list.append(TDigest(compression=1))
-
-        self.__setattr__(str(self.stat + "_cum"), digest_list)
+        print(time.time() - start_time)
+        self.__setattr__("digests_cum", digest_list)
 
     def _initialise_attrs(self, data_source):
 
@@ -489,18 +490,15 @@ class Opa:
         Maybe Returns:
         self.count_continuous = like self.count, counts the number of
             pieces of data seen but never gets reset
-        self.raw_data_for_bias_corr = bias_correction requires three
-            different data outputs, this initalises the array to save
-            the raw daily raw data
         """
         self.data_source_tail = data_source.tail(time=1)
 
         if data_source.chunks is None:
             # only using dask if incoming data is in dask
             # forcing computation in float64
-            value = np.zeros_like(self.data_source_tail, dtype=np.float64)
+            value = np.empty(np.shape(self.data_source_tail), dtype=np.float64)
         else:
-            value = da.zeros_like(self.data_source_tail, dtype=np.float64)
+            value = da.empty(np.shape(self.data_source_tail), dtype=np.float64)
 
         if self.stat_freq == "continuous":
             self.count_continuous = 0
@@ -622,7 +620,7 @@ class Opa:
 
     def _check_digests_exist(self):
 
-        """checks if the attribute bias_correction_cum
+        """checks if the attribute digests_cum
         is already there
 
         Returns
@@ -631,7 +629,7 @@ class Opa:
 
         """
         try:
-            getattr(self, "bias_correction_cum")
+            getattr(self, "digests_cum")
             digests_exist = True
         except AttributeError:
             digests_exist = False
@@ -1617,7 +1615,7 @@ class Opa:
             
             # this is looping through every grid cell using crick or pytdigest tqdm.tqdm(
             for j in tqdm.tqdm(range(self.array_length)):
-                self.__getattribute__(str(self.stat + "_cum"))[j].update(data_source_values[j])
+                self.__getattribute__("digests_cum")[j].update(data_source_values[j])
 
         else:
             data_source_values = data_source.values.reshape((weight, -1))
@@ -1625,10 +1623,10 @@ class Opa:
             #tqdm.tqdm(
             for j in tqdm.tqdm(range(self.array_length)):
                 # using crick or pytdigest
-                self.__getattribute__(str(self.stat + "_cum"))[j].update(
+                self.__getattribute__("digests_cum")[j].update(
                     data_source_values[:, j]
                 )
-
+            print('finished update')
         if self.stat != "bias_correction":
             self.count = self.count + weight
             self._update_continuous_count(weight)
@@ -1655,34 +1653,58 @@ class Opa:
             provided, the digest bounds ``(t.min(), t.max())`` are used. Note
             that this option is ignored if the bin edges are provided
             explicitly.
-        """
-        if self.bins is not None and self.range is None: 
-            for j in range(self.blahblha):
-                # for crick
-                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram(
-                self.bins
+        """    
+
+        if hasattr(self,"bins") is False:
+            # if bins not set, setting to default
+            self.bins = 10
+
+        start_time = time.time()
+        self.histogram_count_cum = np.zeros(np.shape([self.digests_cum]*self.bins))
+        self.histogram_bin_edges_cum = np.zeros(np.shape([self.digests_cum]*(self.bins+1)))
+            # np.zeros(
+            # self.array_length, dtype=
+            # [(f'({self.bins},)','f8'), (f'({self.bins+1},)','f8')]
+            # )
+
+        print(time.time() - start_time)
+
+        if hasattr(self,"range") is False:
+            for j in tqdm.tqdm(range(self.array_length)):
+                self.histogram_count_cum[:,j], \
+                self.histogram_bin_edges_cum[:,j] = self.digests_cum[j].histogram(
+                bins = self.bins
                 )
-        elif self.bins is not None and self.range is not None: 
-            for j in range(self.array_length):
-                # for crick
-                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram(
-                self.bins, self.range
-                )
+                #self.histogram_cum[j] = (counts,bin_edges)
+                #self.histogram_count_cum[j] = (counts,bin_edges)
+                #self.histogram_bin_edges_cum[j] = (counts,bin_edges)
+
         else:
-            # will call default of bins = 10
-            for j in range(self.blahf):
-                # for crick
-                self.histogram_cum[j], self.bins_cum[j] = self.histogram_cum[j].histogram()
+            for j in tqdm.tqdm(range(self.array_length)):
+                self.histogram_count_cum[:,j], \
+                self.histogram_bin_edges_cum[:,j] = self.digests_cum[j].histogram(
+                bins = self.bins, range = self.range
+                )
+                #self.histogram_cum[j] = (counts,bin_edges)                
 
-        self.histogram_cum = np.transpose(self.histogram_cum)
+        # getting the shape of the original data but with time = 1 
+        #new_shape = ([self.bins, self.bins+1], np.shape(self.data_source_tail)[1:])
+        # new_shape = ([1,1], np.shape(self.data_source_tail)[1:])
+        # new_shape = (*new_shape[0], *new_shape[1]) 
+        # self.histogram_cum = np.zeros(new_shape, dtype=np.float64)
 
-        # reshaping percentile cum into the correct shape
-        # forcing computation in float64
-        value = np.zeros_like(self.data_source_tail, dtype=np.float64)
-        final_size = np.concatenate([value] * np.size(self.bins), axis=0)
+        # #print(np.shape(histogram_cum))       
 
-        self.histogram_cum = np.reshape(self.histogram_cum, np.shape(final_size))
-        self.histogram_cum = np.expand_dims(self.histogram_cum, axis=0)
+        # # adding axis for time
+        value = np.shape(self.data_source_tail)
+        final_size_edges = [self.bins+1, *value[1:]]
+        final_size_counts = [self.bins, *value[1:]]
+        
+        self.histogram_count_cum = np.reshape(self.histogram_count_cum, final_size_counts)
+        self.histogram_bin_edges_cum = np.reshape(self.histogram_bin_edges_cum, final_size_edges)
+
+        self.histogram_count_cum = np.expand_dims(self.histogram_count_cum, axis=0)
+        self.histogram_bin_edges_cum = np.expand_dims(self.histogram_bin_edges_cum, axis=0)
 
     def _get_percentile(self):
 
@@ -1695,9 +1717,10 @@ class Opa:
         if self.percentile_list[0] == "all":
             self.percentile_list = (np.linspace(0, 99, 100)) / 100
 
+        self.percentile_cum = np.empty(np.shape(self.digests_cum))
         for j in range(self.array_length):
             # for crick
-            self.percentile_cum[j] = self.percentile_cum[j].quantile(
+            self.percentile_cum[j] = self.digests_cum[j].quantile(
             self.percentile_list
             )
 
@@ -1705,8 +1728,11 @@ class Opa:
 
         # reshaping percentile cum into the correct shape
         # forcing computation in float64
-        value = np.zeros_like(self.data_source_tail, dtype=np.float64)
-        final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
+        #value = np.empty(np.shape(self.data_source_tail), dtype=np.float64)
+        #final_size = np.concatenate([value] * np.size(self.percentile_list), axis=0)
+        
+        value = np.shape(self.data_source_tail)
+        final_size = [np.size(self.percentile_list), *value[1:]]
 
         # with the percentiles we add another dimension for the percentiles
         self.percentile_cum = np.reshape(self.percentile_cum, np.shape(final_size))
@@ -1718,21 +1744,18 @@ class Opa:
         """Converts list of t-digests back into original grid shape and makes
         them picklable"""
 
-        #print(self.bias_correction_cum[0])
-        self.bias_correction_cum = np.transpose(self.bias_correction_cum)
+        self.digests_cum = np.transpose(self.digests_cum)
 
         # reshaping percentile cum into the correct shape
         # this will still have 1 for time dimension
+        final_size = np.empty(np.shape(self.data_source_tail), dtype=np.float64)
 
-        final_size = np.zeros_like(self.data_source_tail, dtype=np.float64)
         #TODO: I think you can delete this line:
         #final_size = da.concatenate([value], axis=0)
 
-        self.bias_correction_cum = np.reshape(
-            self.bias_correction_cum, np.shape(final_size)
+        self.digests_cum = np.reshape(
+            self.digests_cum, np.shape(final_size)
         )
-        #print(self.bias_correction_cum[0,0])
-        #print(np.shape(self.bias_correction_cum))
 
     def _get_monthly_digest_filename_bc(self, final_time_file_str, total_size = None):
 
@@ -1788,9 +1811,9 @@ class Opa:
             else: 
                 temp_self = zarr.load(self.monthly_digest_file_bc)
             # extracting the underlying list out of the xr.Dataset
-            self.bias_correction_cum = temp_self[self.variable].values
-            self.bias_correction_cum = np.reshape(
-                self.bias_correction_cum, self.array_length
+            self.digests_cum = temp_self[self.variable].values
+            self.digests_cum = np.reshape(
+                self.digests_cum, self.array_length
             )
             del temp_self
 
@@ -1978,15 +2001,16 @@ class Opa:
         total_size = 0
 
         if just_digests:
-            key = 'bias_correction_cum'
+            key = 'digests_cum'
             total_size = self._get_digest_total_size(key, total_size)
 
-            #print('total size of bc digests', total_size)
+            print(total_size, key)
+
         else:
             matching_items = self._find_items_with_cum(self)
             for key in matching_items:
 
-                if key == "percentile_cum":
+                if key == "digests_cum":
                     total_size = self._get_digest_total_size(key, total_size)
 
                 elif hasattr(self.__getattribute__(key), 'values'):
@@ -2001,7 +2025,8 @@ class Opa:
                         self.__getattribute__(key).itemsize
                         )/ (10**9)
 
-        print(total_size, key)
+            print(total_size, key)
+
         return total_size
     
     def _write_checkpoint(self):
@@ -2074,7 +2099,7 @@ class Opa:
 
         return dm
 
-    def _create_data_set(self, final_stat, final_time_stamp, data_source):
+    def _create_data_set(self, final_stat, final_time_stamp, data_source, second_hist = None):
 
         """
         Creates xarray dataSet object with final data
@@ -2105,15 +2130,26 @@ class Opa:
             # name the percentile coordinate 
             data_source = data_source.assign_coords(
                 percentile = ("percentile", np.array(self.percentile_list))
-            ) 
+            )
+
+        if self.stat == "histogram" and second_hist:
+
+            data_source = data_source.expand_dims(
+                dim={"bin_edges": np.shape(self.histogram_bin_edges_cum)[1]}, axis=1
+            )
+        elif self.stat == "histogram":
             
+            data_source = data_source.expand_dims(
+                dim={"bin_count": np.shape(self.histogram_count_cum)[0]}, axis=1
+            )
+
         if (self.stat == "iams"):
 
             # adding time dimension in final stat 
             final_stat = np.expand_dims(
                 final_stat, axis=0
             )
-            
+
             # adding durations dimension in ds 
             data_source = data_source.expand_dims(
                 dim={"durations": np.size(self.durations)}, axis=1
@@ -2122,7 +2158,7 @@ class Opa:
             data_source = data_source.assign_coords(
                 durations = ("durations", np.array(self.durations))
             ) 
-            
+
         dm = xr.Dataset(
             data_vars=dict(
                 # need to add variable attributes
@@ -2131,7 +2167,7 @@ class Opa:
             coords=dict(data_source.coords),
             attrs=self.data_set_attr,
         )
-
+        print(dm)
         current_time = datetime.now()
         date_time = datetime.fromtimestamp(current_time.timestamp())
         str_date_time = date_time.strftime("%d-%m-%Y T%H:%M")
@@ -2177,7 +2213,7 @@ class Opa:
                         str_date_time + " "
                         + self.stat_freq + " mean calculated using one-pass algorithm\n"
                     )
-                final_stat = self.__getattribute__(str("mean_cum"))
+                final_stat = self.__getattribute__("mean_cum")
                 # see if it already has attribute called history
                 # if 'history_opa' in self.data_set_attr:
                 #     old_history = self.data_set_attr['history']
@@ -2191,7 +2227,7 @@ class Opa:
                         str_date_time + " "
                         + self.stat_freq + " sum calculated using one-pass algorithm\n"
                     )
-                final_stat = self.__getattribute__(str("sum_cum"))
+                final_stat = self.__getattribute__("sum_cum")
                 self.data_set_attr['history_opa'] = new_attr_str
 
         elif self.stat == "bias_correction":
@@ -2214,9 +2250,14 @@ class Opa:
                 )
 
             self.data_set_attr['history_opa'] = new_attr_str
-
+            
         else:
-            final_stat = self.__getattribute__(str(self.stat + "_cum"))
+            if self.stat == "histogram":
+                final_stat = self.histogram_bin_edges_cum
+                final_stat2 = self.histogram_count_cum
+            else:
+                final_stat = self.__getattribute__(str(self.stat + "_cum"))
+
             new_attr_str = str(
                 str_date_time + " "
                 + self.stat_freq + " " + self.stat +
@@ -2237,9 +2278,16 @@ class Opa:
         # gets the final time stamp for the data array
         final_time_stamp = self._create_final_timestamp()
 
-        dm = self._create_data_set(final_stat, final_time_stamp, data_source)
+        if self.stat == "histogram":
+            dm, = self._create_data_set(final_stat, final_time_stamp, data_source)
+            dm2 = self._create_data_set(
+                final_stat2, final_time_stamp, data_source, second_hist= True
+                )
+            return dm, dm2, final_time_file_str
 
-        return dm, final_time_file_str
+        else: 
+            dm = self._create_data_set(final_stat, final_time_stamp, data_source)
+            return dm, final_time_file_str
 
     def _data_output_append(self, dm):
 
@@ -2380,7 +2428,7 @@ class Opa:
         """
         Called when the self.stat is complete (daily). Creates the 3
         files required for bias-correction. Will load or initalise the digests,
-        update them with the daily means and set the attr bias_correction_cum =
+        update them with the daily means and set the attr digests_cum =
         updated digests. Will put them back onto original grid and make them
         picklabe. Will also create dm_raw, the daily raw data and dm_mean the
         daily mean. Then saves this data
@@ -2420,7 +2468,9 @@ class Opa:
 
         return dm_mean
 
-    def _save_output(self, dm, final_time_file_str, bc_raw=False, bc_mean=False):
+    def _save_output(
+        self, dm, final_time_file_str, bc_raw=False, bc_mean=False, hist_second=False
+        ):
 
         """
         Function that creates final file name and path and saves final Dataset"""
@@ -2443,6 +2493,18 @@ class Opa:
                 file_name = os.path.join(
                     self.out_filepath,
                     f"{final_time_file_str}_{self.variable}_sum_{self.stat_freq}.nc",
+                )
+
+        elif self.stat == "histogram":
+            if hist_second:
+                file_name = os.path.join(
+                    self.out_filepath,
+                    f"{final_time_file_str}_histogram_bin_edges_{self.stat_freq}_{self.stat}.nc",
+                )
+            else:
+                file_name = os.path.join(
+                    self.out_filepath,
+                    f"{final_time_file_str}_histogram_bin_counts_{self.stat_freq}_{self.stat}.nc",
                 )
 
         else:  # normal other stats
@@ -2473,9 +2535,15 @@ class Opa:
             else: 
                 self._write_zarr(for_bc = True, dm = dm)
             
-            self.__dict__.pop("bias_correction_cum", None)
+            self.__dict__.pop("digests_cum", None)
 
-        end_time = time.time() - start_time
+        if self.stat_freq == "continuous":
+            if self.stat == "percentile" or self.stat == "histogram":
+                    self.__dict__.pop(
+                        self.__getattribute__(str(self.stat + "_cum")), None
+                    )
+
+        #end_time = time.time() - start_time
         # print('finished saving tdigest files in', np.round(end_time,4) ,'s')
 
     def _call_recursive(self, how_much_left, weight, data_source):
@@ -2553,7 +2621,17 @@ class Opa:
         save the output if rquired and called the recursive function if required
         """
 
-        dm, final_time_file_str = self._data_output(data_source, time_word=self.output_freq)
+        #dm, final_time_file_str = self._data_output(data_source, time_word=self.output_freq)
+        
+        if self.stat == "histogram":
+            dm, dm2, final_time_file_str = self._data_output(
+                data_source, time_word=self.output_freq
+            )
+        else:
+            dm, final_time_file_str = self._data_output(
+                data_source, time_word=self.output_freq
+            )
+
         if self.save:
             self._save_output(dm, final_time_file_str)
 
@@ -2644,12 +2722,17 @@ class Opa:
                 dm_mean = self._create_and_save_outputs_for_bc(data_source)
 
             # output as a Dataset
-            dm, final_time_file_str = self._data_output(data_source)
+            if self.stat == "histogram":
+                dm, dm2, final_time_file_str = self._data_output(data_source)
+            else:
+                dm, final_time_file_str = self._data_output(data_source)
 
             # output_freq_min == self.stat_freq_min
             if self.time_append == 1:
                 if self.save or self.stat == "bias_correction":
                     self._save_output(dm, final_time_file_str)
+                    if self.stat == "histogram":
+                        self._save_output(dm2, final_time_file_str, hist_second=True)
 
                 # delete checkpoint file
                 if self.checkpoint:
@@ -2671,10 +2754,12 @@ class Opa:
                 if how_much_left < weight:
                     self._call_recursive(how_much_left, weight, data_source)
 
-                if self.stat != "bias_correction":
-                    return dm
-                else:
+                if self.stat == "bias_correction":
                     return dm_raw, dm_mean
+                elif self.stat == "histogram":
+                    return dm, dm2 
+                else:
+                    return dm
 
             # output_freq_min > self.stat_freq_min
             elif self.time_append > 1:

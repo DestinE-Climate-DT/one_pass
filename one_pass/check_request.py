@@ -7,6 +7,7 @@ and any setting required for certain statistics
 
 import os
 import numpy as np
+import warnings
 
 # list of allowed options for statistic
 stat_options = {
@@ -242,13 +243,23 @@ def check_request(request):
 
     if request.stat == "histogram":
         if not hasattr(request, "bins"):
-            raise AttributeError(
-                "For the histogram statistic you have to provide "
+            warnings.warn(
+                "For the histogram statistic you can provide "
                 "the key value pair 'bins : int or array_like',' optional"
                 "If ``bins`` is an int, it defines the number of equal width bins in"
                 "the given range. If ``bins`` is an array_like, the values define"
                 "the edges of the bins (rightmost edge inclusive), allowing for"
                 "non-uniform bin widths. If set to ``None`` it will default to 10."
+            )
+            
+    if request.stat == "histogram":
+        if not hasattr(request, "range"):
+            warnings.warn(
+                "(float, float), optional"
+                "The lower and upper bounds to use when generating bins. If not"
+                "provided, the digest bounds ``(t.min(), t.max())`` are used. Note"
+                "that this option is ignored if the bin edges are provided"
+                "explicitly."
             )
 
     if request.stat == "percentile":
