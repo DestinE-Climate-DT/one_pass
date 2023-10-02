@@ -58,6 +58,181 @@ output_freq_options = {
     "10annually",
 }
 
+def check_stat(request):
+    
+    """ 
+    Checks for the attribute stat. 
+    If stat exists it will check it's in the list of valid statistics. 
+    If it doesn't exist it will raise a KeyError. 
+    """
+
+    try:
+        getattr(request, "stat")
+        stat = request.stat
+
+        if stat not in stat_options:
+            valid_values = ", ".join(stat_options)
+            raise ValueError(
+                f"The requested stat '{stat}' is not supported, "
+                f"valid values are: {valid_values}"
+            )
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'stat' : some_stat, "
+            "corresponding to the statistic you require see docs for details"
+        ) from exc
+
+def check_stat_freq(request):
+
+    """ 
+    Checks for the attribute stat_freq. 
+    If stat_freq exists it will check it's in the list of valid frequncies. 
+    If it doesn't exist it will raise a KeyError.
+    """
+
+    try:
+        # if time_append already exisits it won't overwrite it
+        getattr(request, "stat_freq")
+        stat_freq = request.stat_freq
+
+        if stat_freq not in stat_freq_options:
+            valid_values = ", ".join(stat_freq_options)
+            raise ValueError(
+                f"The requested stat_freq '{stat_freq}' is not supported, "
+                f" valid values are: {valid_values}"
+            )
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'stat_freq' : "
+            " some_freq, see docs for details"
+        ) from exc
+
+def check_output_freq(request, stat_freq):
+    
+    """ 
+    Checks for the attribute output_freq. 
+
+    Checks (if exists)
+    --------
+    1. Check it's in the list of valid output_freq
+        If it doesn't exist it will raise a KeyError.
+    2. Will check that the output frequency is compitable with
+        the stat_freq
+    """
+
+    try:
+        getattr(request, "output_freq")
+        output_freq = request.output_freq
+        
+        if output_freq not in output_freq_options:
+            valid_values = ", ".join(output_freq_options)
+            raise ValueError(
+                f"The requested output_freq '{output_freq}' "
+                f" is not supported, valid values are: {valid_values}"
+            )
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'output_freq' :"
+            " some_freq, see docs for details"
+        ) from exc
+
+    if output_freq == "monthly" and stat_freq == "weekly":
+        raise KeyError (
+            "Can not set output_freq equal to monthly if stat_freq"
+            " is equal to weekly, as months are not wholly divisable by "
+            "weeks."
+        )
+
+def check_time_stamp(request):
+
+    try:
+        getattr(request, "time_step")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'time_step' : "
+            " time_step in minutes of data, see docs for details"
+        ) from exc
+
+def check_variable(request):
+
+    try:
+        getattr(request, "variable")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'variable' : "
+            " variable of interest, see docs for details"
+        ) from exc
+
+def check_save(request):
+    try:
+        getattr(request, "save")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'save' : "
+            "True or False. Set to True if you want to save the "
+            "completed statistic to netCDF"
+        ) from exc
+
+def check_checkpoint(request):
+
+    try:
+        getattr(request, "checkpoint")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'checkpoint' : "
+            " True or False. Highly recommended to set to True so that "
+            " the Opa will save summaries in case of model crash"
+        ) from exc
+
+def check_output_filepath(request):
+
+    try:
+        getattr(request, "out_filepath")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'output_file' : "
+            " file/path/for/saving. If you do not want to save, and "
+            " you have set save : False, here you can put None"
+        ) from exc
+
+def check_checkpoint_filepath(request):
+
+    try:
+        getattr(request, "checkpoint_filepath")
+
+    except AttributeError as exc:
+        raise KeyError(
+            "config.yml must include key value pair 'checkpoint_file' : "
+            " file/path/for/checkpointing. If you do not want to checkpoint, and"
+            " you have set checkpoint : False, here you can put None"
+        ) from exc
+
+    if request.save:
+        file_path = getattr(request, "out_filepath")
+        if os.path.exists(os.path.dirname(file_path)):
+            # check it points to a directory
+            if os.path.isdir(file_path):
+                pass
+            else:
+                raise ValueError(
+                    "Please pass a file path for saving that does "
+                    "not include the file name as this is created dynamically"
+                )
+        else:
+            if os.path.isdir(file_path):
+                os.mkdir(os.path.dirname(file_path))
+                print("created new directory for saving")
+            else:
+                raise ValueError("Please pass a valid file path for saving")
+    
 def check_request(request):
 
     """
