@@ -20,7 +20,6 @@ from crick import TDigest
 from one_pass import util
 from one_pass.check_request import check_request
 from one_pass.convert_time import convert_time
-from one_pass.compute_statistics import compute_statistics 
 
 # for the bias correction, if the variable corresponds to precipitation
 # you want daily sums as opposed to daily means, this list is for all precipitation
@@ -113,7 +112,7 @@ class Opa:
         speficified in the config file: ['stat', 'percentile_list',
         'threshold_exceed', 'stat_freq', 'output_freq', 'time_step',
         'variable', 'save', 'checkpoint', 'checkpoint_filepath',
-        'out_filepath',]. These are set in __init__
+        'save_filepath',]. These are set in __init__
     n_data: Integer value specifiing the number of data points
         (time steps) required to complete the requested statistic.
     count: Integer value giving the current number of data points
@@ -697,31 +696,32 @@ class Opa:
 
     def _remove_time_append(self):
 
-        """removes 3 attributes relating to time_append
-        (when output_freq > stat_freq) and removes checkpoint file
+        """removes 4 attributes relating to time_append
+        (when output_freq > stat_freq) and removes any checkpoint files
         """
 
-        for attr in ("dm_append", "count_append", "time_append"):
+        for attr in ("dm_append", "dm_append2", "count_append", "time_append"):
             self.__dict__.pop(attr, None)
 
         if self.checkpoint:  # delete checkpoint file
             if os.path.isfile(self.checkpoint_file):
                 os.remove(self.checkpoint_file)
 
-            if hasattr(self, "matching_items"):
-                # looping through all the data that is something_cum
-                for key in self.matching_items:
-                    
-                    checkpoint_file_zarr = os.path.join(
-                        self.checkpoint_filepath,
-                        f"checkpoint_{self.variable}_"
-                        f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
-                    )
-                    if os.path.isfile(checkpoint_file_zarr):
-                        os.remove(checkpoint_file_zarr)
+            self._remove_zarr_checkpoints()
 
-            #if os.path.isfile(self.checkpoint_file_zarr):
-            #    os.remove(self.checkpoint_file_zarr)
+    def _remove_zarr_checkpoints(self):
+        
+        if hasattr(self, "matching_items"):
+            # looping through all the data that is something_cum
+            for key in self.matching_items:
+                
+                checkpoint_file_zarr = os.path.join(
+                    self.checkpoint_filepath,
+                    f"checkpoint_{self.variable}_"
+                    f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
+                )
+                if os.path.isfile(checkpoint_file_zarr):
+                    os.remove(checkpoint_file_zarr)
 
     def _option_one(self, time_stamp, proceed):
 
@@ -1672,7 +1672,7 @@ class Opa:
             # [(f'({self.bins},)','f8'), (f'({self.bins+1},)','f8')]
             # )
 
-        print(time.time() - start_time)
+        #print(time.time() - start_time)
 
         if hasattr(self,"range") is False:
             for j in tqdm.tqdm(range(self.array_length)):
@@ -1760,7 +1760,7 @@ class Opa:
     def _get_monthly_digest_filename_bc(self, bc_month, total_size = None):
 
         extension = ""
-        path = self.out_filepath
+        path = self.save_filepath
         name = f"month_{bc_month}_{self.variable}_{self.stat}"
         
         if total_size is not None: 
@@ -2015,6 +2015,8 @@ class Opa:
 
                     # bias_correction will not go through this as the digests are not 
                     # 'checkpointed' 
+                    print(type(self.digests_cum))
+                    print(self.digests_cum[0])
                     total_size = self._get_digest_total_size(key, total_size)
 
                 elif hasattr(self.__getattribute__(key), 'values'):
@@ -2123,7 +2125,7 @@ class Opa:
         data_source = data_source.tail(time=1)
         # re-label the time coordinate
         data_source = data_source.assign_coords(
-            time=(["time"], [final_time_stamp], data_source.time.attrs)
+            time=(["time"], [self.init_time_stamp], data_source.time.attrs)
         )
 
         if self.stat == "percentile":
@@ -2294,19 +2296,23 @@ class Opa:
             dm = self._create_data_set(final_stat, final_time_stamp, data_source)
             return dm, final_time_file_str
 
-    def _data_output_append(self, dm):
+    def _data_output_append(self, dm, dm2 = None):
 
         """
-        Appeneds final dataSet along the time dimension if stat_output
+        Appeneds final Dataset along the time dimension if stat_output
         is larger than the requested stat_freq. It also sorts along the
         time dimension to ensure data is also increasing in time
         """
 
         dm_append = xr.concat([self.dm_append, dm], "time")
         self.dm_append = dm_append.sortby("time")
-        self.count_append = self.count_append + 1
 
-        # return
+        if self.stat == "histogram":
+            
+            dm_append2 = xr.concat([self.dm_append2, dm2], "time")
+            self.dm_append2 = dm_append2.sortby("time")
+
+        self.count_append = self.count_append + 1
 
     def _create_final_timestamp(self):
 
@@ -2368,26 +2374,26 @@ class Opa:
                 self.final_time_file_str = (
                     self.final_time_file_str
                     + "_to_"
-                    + self.time_stamp.strftime("%Y_%m_%d_T%H")
+                    + self.init_time_stamp.strftime("%Y_%m_%d_T%H")
                 )
 
             elif self.stat_freq == "daily" or self.stat_freq == "weekly":
                 self.final_time_file_str = (
                     self.final_time_file_str
                     + "_to_"
-                    + self.time_stamp.strftime("%Y_%m_%d")
+                    + self.init_time_stamp.strftime("%Y_%m_%d")
                 )
 
             elif self.stat_freq == "monthly" or self.stat_freq == "3monthly":
                 self.final_time_file_str = (
                     self.final_time_file_str
                     + "_to_"
-                    + self.time_stamp.strftime("%Y_%m")
+                    + self.init_time_stamp.strftime("%Y_%m")
                 )
 
             elif self.stat_freq == "annually" or self.stat == "10annually":
                 self.final_time_file_str = (
-                    self.final_time_file_str + "_to_" + self.time_stamp.strftime("%Y")
+                    self.final_time_file_str + "_to_" + self.init_time_stamp.strftime("%Y")
                 )
         else:
             if (
@@ -2484,7 +2490,7 @@ class Opa:
 
         if self.stat == "raw" or bc_raw:
             file_name = os.path.join(
-                self.out_filepath, f"{final_time_file_str}_{self.variable}_raw_data.nc"
+                self.save_filepath, f"{final_time_file_str}_{self.variable}_raw_data.nc"
             )
 
         # for saving the daily aggregations of the bias correction
@@ -2492,31 +2498,31 @@ class Opa:
                         
             if self.variable not in precip_options:
                 file_name = os.path.join(
-                    self.out_filepath,
+                    self.save_filepath,
                     f"{final_time_file_str}_{self.variable}_mean_{self.stat_freq}.nc",
                 )
             
             else:
                 file_name = os.path.join(
-                    self.out_filepath,
+                    self.save_filepath,
                     f"{final_time_file_str}_{self.variable}_sum_{self.stat_freq}.nc",
                 )
 
         elif self.stat == "histogram":
             if hist_second:
                 file_name = os.path.join(
-                    self.out_filepath,
+                    self.save_filepath,
                     f"{final_time_file_str}_{self.stat}_bin_edges_{self.stat_freq}.nc",
                 )
             else:
                 file_name = os.path.join(
-                    self.out_filepath,
+                    self.save_filepath,
                     f"{final_time_file_str}_{self.stat}_bin_counts_{self.stat_freq}.nc",
                 )
 
         else:  # normal other stats
             file_name = os.path.join(
-                self.out_filepath,
+                self.save_filepath,
                 f"{final_time_file_str}_{self.variable}_{self.stat_freq}_{self.stat}.nc",
             )
 
@@ -2560,8 +2566,6 @@ class Opa:
 
         data_source = data_source.isel(time=slice(how_much_left, weight))
         Opa.compute(self, data_source)
-
-        # return
 
     def _update_statistics(self, weight, time_stamp_list, data_source):
 
@@ -2753,16 +2757,7 @@ class Opa:
                     if os.path.isfile(self.checkpoint_file):
                         os.remove(self.checkpoint_file)
 
-                    if hasattr(self, "matching_items"):
-                        # looping through all the data that is something_cum
-                        for key in self.matching_items:
-                            checkpoint_file_zarr = os.path.join(
-                                self.checkpoint_filepath,
-                                f"checkpoint_{self.variable}_"
-                                f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
-                            )
-                            if os.path.isfile(checkpoint_file_zarr):
-                                os.remove(checkpoint_file_zarr)
+                    self._remove_zarr_checkpoints()
 
                 # if there's more to compute - call before return
                 if how_much_left < weight:
@@ -2783,36 +2778,49 @@ class Opa:
                     self.count_append = 1
                     # storing the data_set ready for appending
                     self.dm_append = dm
+                    if self.stat == "histogram":
+                        self.dm_append2 = dm2
+
                     self.final_time_file_str = final_time_file_str
-
-                    if self.checkpoint:
-
-                        self._write_checkpoint()
 
                     # if there's more to compute - call before return
                     if how_much_left < weight:
                         self._call_recursive(how_much_left, weight, data_source)
 
-                    return self.dm_append
+                    if self.checkpoint:
+                        print('writing first checkpoint')
+                        self._write_checkpoint()
+                        
+                    if self.stat == "histogram":
+                        return self.dm_append, self.dm_append2
+                    else: 
+                        return self.dm_append
 
-                elif self.count_append < self.time_append:
+                else:
 
                     # append data array with new time outputs and update count_append
-                    self._data_output_append(dm)
+                    if self.stat == "histogram":
+                        self._data_output_append(dm, dm2)
+                    else:
+                        self._data_output_append(dm)
 
                     # if this is still true
                     if self.count_append < self.time_append:
 
-                        if self.checkpoint:
-
-                            self._write_checkpoint()
-
                         # if there's more to compute - call before return
+                        # and before checkpoint
                         if how_much_left < weight:
                             self._call_recursive(how_much_left, weight, data_source)
 
-                        return self.dm_append
+                        if self.checkpoint:
+                            print('writing second checkpoint')
+                            self._write_checkpoint()
 
+                        if self.stat == "histogram":
+                            return self.dm_append, self.dm_append2
+                        else: 
+                            return self.dm_append
+                    
                     elif self.count_append == self.time_append:
 
                         # change file name
@@ -2820,22 +2828,17 @@ class Opa:
 
                             self._create_file_name(append=True)
                             self._save_output(self.dm_append, self.final_time_file_str)
+                            if self.stat == "histogram":
+                                self._save_output(
+                                    self.dm_append2, self.final_time_file_str, hist_second=True
+                                )
 
                         # delete checkpoint file
                         if self.checkpoint:
                             if os.path.isfile(self.checkpoint_file):
                                 os.remove(self.checkpoint_file)
 
-                            if hasattr(self, "matching_items"):
-                                # looping through all the data that is something_cum
-                                for key in self.matching_items:
-                                    checkpoint_file_zarr = os.path.join(
-                                        self.checkpoint_filepath,
-                                        f"checkpoint_{self.variable}_"
-                                        f"{self.stat_freq}_{self.output_freq}_{key}.zarr",
-                                    )
-                                    if os.path.isfile(checkpoint_file_zarr):
-                                        os.remove(checkpoint_file_zarr)
+                            self._remove_zarr_checkpoints()
 
                         self.count_append = 0
 
@@ -2850,4 +2853,7 @@ class Opa:
                         if how_much_left < weight:
                             self._call_recursive(how_much_left, weight, data_source)
 
-                        return self.dm_append
+                        if self.stat == "histogram":
+                            return self.dm_append, self.dm_append2
+                        else: 
+                            return self.dm_append
