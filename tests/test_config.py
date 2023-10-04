@@ -1,6 +1,7 @@
 import glob
 import os
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -39,14 +40,12 @@ def missing_stat(data):
     pass_dic = {
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -65,14 +64,12 @@ def missing_stat_freq(data):
     pass_dic = {
         "stat": "mean",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -90,14 +87,12 @@ def missing_output_freq(data):
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -113,16 +108,15 @@ def missing_output_freq(data):
 def missing_percentile_list(data):
 
     pass_dic = {
-        "stat": "mean",
+        "stat": "percentile",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -135,19 +129,18 @@ def missing_percentile_list(data):
         dm = daily_mean.compute(ds)
 
 
-def missing_threshold_exceed(data):
+def lower_output_freq(data):
 
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
-        "output_freq": "daily",
-        "percentile_list": None,
+        "output_freq": "3hourly",
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -166,13 +159,11 @@ def missing_time_step(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list" : None,
-        "thresh_exceed" : None,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -191,13 +182,11 @@ def missing_variable(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -216,13 +205,11 @@ def missing_save(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable" : "pr",
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -236,18 +223,18 @@ def missing_save(data):
 
 
 def missing_checkpoint(data):
+    # this is missing the checkpoint true false, 
+    # will get set to True, with warning
 
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable" : "pr",
         "save": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -266,13 +253,11 @@ def missing_checkpoint_filepath(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable" : "pr",
         "save": True,
         "checkpoint": True,
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -285,14 +270,12 @@ def missing_checkpoint_filepath(data):
         dm = daily_mean.compute(ds)
 
 
-def missing_out_filepath(data):
+def missing_save_filepath(data):
 
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable" : "pr",
         "save": True,
@@ -316,14 +299,12 @@ def wrong_continuous_setting(data):
         "stat": "mean",
         "stat_freq": "continuous",
         "output_freq": "continuous",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable" : "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "output_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -342,14 +323,12 @@ def incorrect_freq(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "wrong_freq",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -368,14 +347,12 @@ def incorrect_stat(data):
         "stat": "wrong_name",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -395,14 +372,12 @@ def no_checkpointfile(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -421,14 +396,12 @@ def wrong_checkpointfile(data):
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/checkpoint.pkl",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -447,14 +420,12 @@ def daily_stat_for_bc(data):
         "stat": "bias_correction",
         "stat_freq": "monthly",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "test/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -473,14 +444,12 @@ def daily_output_for_bc(data):
         "stat": "bias_correction",
         "stat_freq": "daily",
         "output_freq": "weekly",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "test/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -514,10 +483,10 @@ def test_missing_percentile_list():
         missing_percentile_list(data)
 
 
-def test_missing_threshold_exceed():
+def test_lower_output_freq():
 
-    with pytest.raises(KeyError):
-        missing_threshold_exceed(data)
+    with pytest.raises(ValueError):
+        lower_output_freq(data)
 
 
 def test_missing_variable():
@@ -525,74 +494,60 @@ def test_missing_variable():
     with pytest.raises(KeyError):
         missing_variable(data)
 
-
 def test_missing_time_step():
 
     with pytest.raises(KeyError):
         missing_time_step(data)
 
-
 def test_missing_save():
 
-    with pytest.raises(KeyError):
+    with pytest.warns(UserWarning):
         missing_save(data)
-
 
 def test_missing_checkpoint():
 
-    with pytest.raises(KeyError):
+    with pytest.warns(UserWarning):
         missing_checkpoint(data)
 
-
-def test_missing_output_filepath():
+def test_missing_save_filepath():
 
     with pytest.raises(KeyError):
-        missing_out_filepath(data)
-
+        missing_save_filepath(data)
 
 def test_missing_checkpoint_filepath():
 
     with pytest.raises(KeyError):
         missing_checkpoint_filepath(data)
 
-
 def test_wrong_continuous_setting():
 
     with pytest.raises(ValueError):
         wrong_continuous_setting(data)
-
 
 def test_raises_stat_error():
 
     with pytest.raises(ValueError):
         incorrect_stat(data)
 
-
 def test_raises_freq_error():
 
     with pytest.raises(ValueError):
         incorrect_freq(data)
 
-
 def test_wrong_checkpointfile():
 
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         wrong_checkpointfile(data)
-        # this will flag a KeyError if the checkpoint file is not found
-        # if you give an incorrect file path however it will flag a filepath not found error
-
 
 def test_no_checkpointfile():
 
     with pytest.raises(ValueError):
         no_checkpointfile(data)
 
-
 def test_daily_stat_for_bc():
 
     with pytest.raises(ValueError):
         daily_stat_for_bc(data)
-
 
 def test_output_stat_for_bc():
 

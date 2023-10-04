@@ -14,6 +14,10 @@ import tqdm
 import xarray as xr
 import zarr
 from numcodecs import Blosc
+from numcodecs import JSON
+from numcodecs import Base64
+from numcodecs import Pickle
+import numcodecs
 import zarr.codecs as zcodecs
 from crick import TDigest
 
@@ -36,6 +40,18 @@ precip_options = {
     'precipitation',
 }
 
+# class CustomObjectCodec(numcodecs.Pickle):
+#     def __init__(self, id=None):
+#         super(CustomObjectCodec, self).__init__(id=None, name='custom_object', encoder=None, decoder=None)
+
+#     def encode(self, buf):
+#         # Serialize your objects using pickle or any other serialization method
+#         return pickle.dumps(buf)
+
+#     def decode(self, buf, out=None):
+#         # Deserialize your objects using pickle or any other deserialization method
+#         return pickle.loads(buf)
+    
 # class PicklableTDigest:
 
 #     """
@@ -161,7 +177,9 @@ class Opa:
         check_request(request=self)
 
         # if checkpointing is True
-        if request.get("checkpoint"):
+        #print('in opa', self.checkpoint)
+
+        if self.checkpoint:
             # Will check for checkpoint file and load if one exists
             self._check_checkpoint(request)
 
@@ -229,7 +247,7 @@ class Opa:
         """
 
         # already checked if path valid if check request
-        file_path = request.get("checkpoint_filepath")
+        file_path = self.checkpoint_filepath
         
         self.checkpoint_file = os.path.join(
             file_path,
@@ -277,7 +295,7 @@ class Opa:
         for key in request:
             self.__setattr__(key, request[key])
 
-        self.pickle_limit = 1.6
+        self.pickle_limit = 0.01
         
     ############### end if __init__ #####################
 
@@ -1619,7 +1637,7 @@ class Opa:
             else: 
                 data_source_values = np.reshape(data_source.values, self.array_length)
             
-            # this is looping through every grid cell using crick or pytdigest tqdm.tqdm(
+            # this is looping through every grid cell using crick
             for j in tqdm.tqdm(range(self.array_length)):
                 self.__getattribute__("digests_cum")[j].update(data_source_values[j])
 
@@ -1713,11 +1731,13 @@ class Opa:
         if self.percentile_list[0] == "all":
             self.percentile_list = (np.linspace(0, 99, 100)) / 100
 
-        print('before conversion per', type(self.digests_cum))
-        self.percentile_cum = self.digests_cum
+        #print('before conversion per', type(self.digests_cum))
+        self.percentile_cum = np.zeros(
+            np.shape([self.digests_cum]* np.shape(self.percentile_list)[0])
+            ) # self.digests_cum
         for j in range(self.array_length):
             # for crick
-            self.percentile_cum[j] = self.digests_cum[j].quantile(
+            self.percentile_cum[:,j] = self.digests_cum[j].quantile(
             self.percentile_list
             )
 
@@ -1743,6 +1763,12 @@ class Opa:
         -------
         self.digets_cum type will be numpy array
         """
+        #TODO: remove
+        # for j in range(self.array_length):
+        #     self.digests_cum[j] = PicklableTDigest(
+        #         self.digests_cum[j]
+        #     )
+        # print('now pickable')
         
         self.digests_cum = np.transpose(self.digests_cum)
 
@@ -1775,6 +1801,8 @@ class Opa:
                     if name in files[i]:
                         save_file = files[i]
                         extension = os.path.splitext(save_file)[1]
+                    else:
+                        extension = ".zarr"
 
         self.monthly_digest_file_bc = os.path.join(
             path, f"{name}{extension}",
@@ -1798,17 +1826,18 @@ class Opa:
         objects, corresponding to the month of the time stamp of the data.
 
         """
-
         self.array_length = np.size(self.data_source_tail)
         bc_month = self._get_month_str_bc()
         # sets the variable self.monthly_digest_file_bc
         extension = self._get_monthly_digest_filename_bc(bc_month)
-
+        print('bc month', bc_month)
         # this is loading the t-digest class
         if os.path.exists(self.monthly_digest_file_bc):
+            print('extension', extension)
             if extension == ".pkl":
                 temp_self = self._load_pickle_for_bc(self.monthly_digest_file_bc)
             else: 
+                print('loading zarr')
                 temp_self = zarr.load(self.monthly_digest_file_bc)
             # extracting the underlying list out of the xr.Dataset
             self.digests_cum = temp_self[self.variable].values
@@ -1920,10 +1949,13 @@ class Opa:
 
         # TODO: this currently won't work 
         if for_bc:
-
+            #custom_codec = CustomObjectCodec()
+            
             zarr.array(
                 dm.values,
                 store= self.monthly_digest_file_bc,
+                dtype=object,
+                object_codec=Base64(),
                 compressor=compressor,
                 overwrite=True,
         )
@@ -2015,7 +2047,7 @@ class Opa:
 
                     # bias_correction will not go through this as the digests are not 
                     # 'checkpointed' 
-                    print(type(self.digests_cum))
+                    #print(type(self.digests_cum))
                     print(self.digests_cum[0])
                     total_size = self._get_digest_total_size(key, total_size)
 
@@ -2529,6 +2561,7 @@ class Opa:
         start_time = time.time()
 
         if self.stat != "bias_correction" or bc_raw == True or bc_mean == True:
+            # anything other than the pickles for bc
             # will re-write the file if it is already there
             dm.to_netcdf(path=file_name, mode="w")
             dm.close()
@@ -2541,20 +2574,21 @@ class Opa:
             # sets the variable self.monthly_digest_file_bc
             self._get_monthly_digest_filename_bc(final_time_file_str, total_size)
             
-            # TODO: artificially putting this as 4 for now
             if total_size < self.pickle_limit: 
                 self._write_pickle(dm, self.monthly_digest_file_bc)
-                #print('saved pickle')
             else: 
+                self.dm = dm
                 self._write_zarr(for_bc = True, dm = dm)
             
+            # removing digests_cum here so that we don't carry it through for the next day
+            # if the time step is sub daily, we would be checkpointing and reading this data 
+            # uncessariliy, because at the end of each day we re-read it and add the lastest
+            # daily aggregation
             self.__dict__.pop("digests_cum", None)
 
         if self.stat_freq == "continuous":
             if self.stat == "percentile" or self.stat == "histogram":
-                    self.__dict__.pop(
-                        self.__getattribute__(str(self.stat + "_cum")), None
-                    )
+                delattr(self, str(self.stat + "_cum"))
 
         #end_time = time.time() - start_time
         # print('finished saving tdigest files in', np.round(end_time,4) ,'s')
@@ -2595,6 +2629,14 @@ class Opa:
             if self.stat_freq != "continuous":
                 if self.checkpoint == True and self.count < self.n_data:
                     # this will not be written when count == ndata
+                    # for histograms and percentiles we don't need to checkpoint
+                    # percentiles_cum or histogram_cum as it's already 
+                    # been converted to dm
+                    if self.time_append > 1:
+                        self.append_checkpoint_flag = False
+                        if self.stat == "percentile" or self.stat == "histogram":
+                            delattr(self, str(self.stat + "_cum"))
+
                     self._write_checkpoint()
 
             else:
@@ -2775,6 +2817,7 @@ class Opa:
 
                 # first time it appends
                 if hasattr(self, "count_append") == False or self.count_append == 0:
+                    self.append_checkpoint_flag = True
                     self.count_append = 1
                     # storing the data_set ready for appending
                     self.dm_append = dm
@@ -2787,10 +2830,17 @@ class Opa:
                     if how_much_left < weight:
                         self._call_recursive(how_much_left, weight, data_source)
 
-                    if self.checkpoint:
-                        print('writing first checkpoint')
+                    if self.checkpoint and self.append_checkpoint_flag:
+                        print('writing a checkpoint')
+                        # for histograms and percentiles we don't need to checkpoint
+                        # digest_cum, percentiles_cum or histogram_cum as it's already 
+                        # been converted to dm
+                        if self.stat == "percentile" or self.stat == "histogram":
+                            delattr(self, str(self.stat + "_cum"))
+                        self.__dict__.pop("digests_cum", None)
                         self._write_checkpoint()
-                        
+                        self.append_checkpoint_flag = False
+
                     if self.stat == "histogram":
                         return self.dm_append, self.dm_append2
                     else: 
@@ -2806,15 +2856,27 @@ class Opa:
 
                     # if this is still true
                     if self.count_append < self.time_append:
-
+                        self.append_checkpoint_flag = True
+     
                         # if there's more to compute - call before return
                         # and before checkpoint
                         if how_much_left < weight:
                             self._call_recursive(how_much_left, weight, data_source)
 
-                        if self.checkpoint:
-                            print('writing second checkpoint')
+                        # the flag is set after call recursive, meaning it will only 
+                        # checkpoint the data once after all the recursive calls are 
+                        # finished. Without, it would checkpoint but go back and checkpoint
+                        # all the previous states again
+                        if self.checkpoint and self.append_checkpoint_flag:
+                            print('writing a checkpoint')
+                            # for histograms and percentiles we don't need to checkpoint
+                            # digest_cum, percentiles_cum or histogram_cum as it's already 
+                            # been converted to dm
+                            if self.stat == "percentile" or self.stat == "histogram":
+                                delattr(self, str(self.stat + "_cum"))
+                            self.__dict__.pop("digests_cum", None)
                             self._write_checkpoint()
+                            self.append_checkpoint_flag = False
 
                         if self.stat == "histogram":
                             return self.dm_append, self.dm_append2

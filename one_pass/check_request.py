@@ -136,7 +136,7 @@ def missing_non_required_key(key, set_value):
 
     warnings.warn(
         "Data request (python dictionary or config.yml) did not include"
-        f" {key}. {key} has been set to {set_value}." 
+        f" {key}. {key} has been set to {set_value}.", UserWarning 
     )
 
 def check_key_values(request, valid_options, key):
@@ -220,12 +220,18 @@ def check_non_required_variable_key_values(request, key):
                     pass
                 else:
                     # try to reset the file_path
+                    #print(os.path.dirname(file_path))
                     request.__setattr__(key, os.path.dirname(file_path))
                     file_path = getattr(request, key)
+                    
+                    #print(key)
+                    #print(file_path)
+                    
                     if os.path.isdir(file_path):
                         warnings.warn(
                         f"Removed file name from {key}, as this"
-                        f" is created dynamically. File is path now {file_path}"
+                        f" is created dynamically. Filepath is now {file_path}", 
+                        UserWarning
                         )
                     else:
                         raise ValueError(
@@ -237,7 +243,7 @@ def check_non_required_variable_key_values(request, key):
                     os.mkdir(os.path.dirname(file_path))
                     warnings.warn(
                         f"created the new directory {file_path}"
-                        f" for {key}"
+                        f" for {key}", UserWarning
                         )
                 except:
                     raise ValueError(f"Please pass a valid file path for {key}")
@@ -251,10 +257,10 @@ def key_error_freq_mix(output_freq, stat_freq):
     Defines the KeyError raised if there is a mismatch between 
     the stat_freq and the output_freq
     """
-    raise KeyError (
+    raise ValueError (
         f"Can not set output_freq equal to {output_freq} if stat_freq"
         f" is equal to {stat_freq}. Output_freq must always be greater "
-        "than stat_freq"
+        "than stat_freq."
     )
 
 def mix_of_stat_and_output_freq(output_freq, stat_freq):
@@ -304,7 +310,8 @@ def check_histogram(request):
                 "If ``bins`` is an int, it defines the number of equal width bins in"
                 "the given range. If ``bins`` is an array_like, the values define"
                 "the edges of the bins (rightmost edge inclusive), allowing for"
-                "non-uniform bin widths. If set to ``None`` it will default to 10."
+                "non-uniform bin widths. If set to ``None`` it will default to 10.",
+                UserWarning
             )
             
         if not hasattr(request, "range"):
@@ -313,14 +320,14 @@ def check_histogram(request):
                 "The lower and upper bounds to use when generating bins. If not"
                 "provided, the digest bounds ``(t.min(), t.max())`` are used. Note"
                 "that this option is ignored if the bin edges are provided"
-                "explicitly."
+                "explicitly.", UserWarning
             )
 
 def check_percentile(request):
 
     if request.stat == "percentile":
         if not hasattr(request, "percentile_list"):
-            raise ValueError(
+            raise KeyError(
                 "For the percentile statistic you need to provide "
                 " a list of required percentiles, e.g. 'percentile_list' :"
                 " [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, "
@@ -390,7 +397,7 @@ def check_request(request):
         check_variable_key_values(request, element)
             
     for element in non_required_keys_with_set_output:
-        
+        # save, checkpoint, output_freq
         check_non_required_key_values(request, element)
         
         if element != "output_freq":
