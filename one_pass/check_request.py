@@ -148,7 +148,7 @@ def check_key_values(request, valid_options, key):
 
     """
     valid_options = globals()[valid_options]
-    
+
     try:
         passed_key = getattr(request, key)
 
@@ -276,19 +276,24 @@ def mix_of_stat_and_output_freq(output_freq, stat_freq):
         "10annually",
     ]
 
-    index_value = stat_freq_options.index(stat_freq)
-    for j in range(len(output_freq_options[0:index_value])):
-        # test that output_freq is always the same or greater than 
-        # stat_freq 
-        if output_freq in stat_freq_options[0:j]:
-            key_error_freq_mix(output_freq, stat_freq)
-
-    if stat_freq == "weekly":
-        if output_freq in output_freq_weekly_options:
-            key_error_freq_mix(output_freq, stat_freq)
     if output_freq == "continuous" and stat_freq == "continuous":
         key_error_freq_mix(output_freq, stat_freq)
+        
+    elif stat_freq == "weekly":
+        if output_freq in output_freq_weekly_options:
+            key_error_freq_mix(output_freq, stat_freq)
+    
     #TODO: include daily_noon
+    
+    index_value = stat_freq_options.index(stat_freq)
+    if stat_freq != "continuous":
+        for j in range(len(output_freq_options[0:index_value])):
+            # test that output_freq is always the same or greater than 
+            # stat_freq 
+            if output_freq in stat_freq_options[0:j]:
+                key_error_freq_mix(output_freq, stat_freq)
+
+
     
 def check_thresh_exceed(request):
                 
@@ -305,34 +310,37 @@ def check_histogram(request):
     if request.stat == "histogram":
         if not hasattr(request, "bins"):
             warnings.warn(
-                "For the histogram statistic you can provide "
-                "the key value pair 'bins : int or array_like',' optional"
-                "If ``bins`` is an int, it defines the number of equal width bins in"
-                "the given range. If ``bins`` is an array_like, the values define"
-                "the edges of the bins (rightmost edge inclusive), allowing for"
-                "non-uniform bin widths. If set to ``None`` it will default to 10.",
+                "Optional key value 'bins' : 'int' or 'array_like'. "
+                "If 'bins' is an int, it defines the number of equal width bins in "
+                "the given range. If 'bins' is an array_like, the values define "
+                "the edges of the bins (rightmost edge inclusive), allowing for "
+                "non-uniform bin widths. If set to 'None', or not included at all "
+                "it will default to 10.",
                 UserWarning
             )
-            
+
         if not hasattr(request, "range"):
             warnings.warn(
-                "(float, float), optional"
-                "The lower and upper bounds to use when generating bins. If not"
-                "provided, the digest bounds ``(t.min(), t.max())`` are used. Note"
-                "that this option is ignored if the bin edges are provided"
-                "explicitly.", UserWarning
+                "Optional key value 'range' : '[float, float]'. The lower and upper "
+                "bounds to use when generating bins. If not "
+                "provided, the digest bounds '[t.min(), t.max())]' are used. Note "
+                "that this option is ignored if the bin edges are provided "
+                "explicitly. ", UserWarning
             )
 
 def check_percentile(request):
 
     if request.stat == "percentile":
         if not hasattr(request, "percentile_list"):
-            raise KeyError(
-                "For the percentile statistic you need to provide "
-                " a list of required percentiles, e.g. 'percentile_list' :"
-                " [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, "
-                " if you want the whole distribution, 'percentile_list' : ['all']"
+            warnings.warn(
+                "key value pair 'percentile_list' has been set to ['all']."
+                " For the percentile statistic you should provide"
+                " a list of required percentiles, e.g. [0.01, 0.5, 0.99]"
+                " for the 1st, 50th and 99th percentile,"
+                " if you want the whole distribution, 'percentile_list' : ['all']",
+                UserWarning
             )
+            request.__setattr__("percentile_list", "['all']")
 
         if request.percentile_list is None:
             raise ValueError(
@@ -342,7 +350,7 @@ def check_percentile(request):
 
         if request.percentile_list[0] != "all":
             for j in range(np.size(request.percentile_list)):
-                if request.percentile_list[j] > 1:
+                if request.percentile_list[j] > 1 or request.percentile_list[j] < 0:
                     raise ValueError(
                         'Percentiles must be between 0 and 1 or ["all"] '
                         " for the whole distribution"
