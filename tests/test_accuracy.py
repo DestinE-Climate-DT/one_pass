@@ -451,13 +451,12 @@ def test_sum_monthly():
 
     data_arr = getattr(data, pass_dic["variable"])
     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
-        str(pass_dic["stat"]) + " not equal to " + str(dec_place_per)
+        str(pass_dic["stat"]) + " not equal to " + str(dec_place)
 
     two_pass = two_pass_sum(data_arr, n_start, n_data)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
     
     assert np.allclose(two_pass, one_pass, rtol = dec_place, atol = dec_place), message
-
 
 def test_sum_daily_noon():
 
