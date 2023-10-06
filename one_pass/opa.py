@@ -336,6 +336,7 @@ class Opa:
         self.init_time_stamp = self.time_stamp
 
         # calculated by MIN freq of stat / timestep min of data
+
         if (self.stat_freq_min / self.time_step).is_integer():
             if self.stat_freq != "continuous":
                 if (
@@ -1733,7 +1734,7 @@ class Opa:
         grid
         """
 
-        if self.percentile_list[0] == "all":
+        if not self.percentile_list:
             self.percentile_list = (np.linspace(0, 99, 100)) / 100
 
         #print('before conversion per', type(self.digests_cum))
@@ -2106,7 +2107,7 @@ class Opa:
             key = 'digests_cum'
             total_size = self._get_digest_total_size(key, total_size)
 
-            print(total_size, key)
+            #print(total_size, key)
 
         else:
             matching_items = self._find_items_with_cum(self)
@@ -2117,7 +2118,7 @@ class Opa:
                     # bias_correction will not go through this as the digests are not 
                     # 'checkpointed' 
                     #print(type(self.digests_cum))
-                    print(self.digests_cum[0])
+                    #print(self.digests_cum[0])
                     total_size = self._get_digest_total_size(key, total_size)
 
                 elif hasattr(self.__getattribute__(key), 'values'):
@@ -2132,7 +2133,7 @@ class Opa:
                         self.__getattribute__(key).itemsize
                         )/ (10**9)
 
-                print(total_size, key)
+                #print(total_size, key)
 
         return total_size
     

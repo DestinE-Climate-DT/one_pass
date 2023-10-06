@@ -12,6 +12,8 @@ import warnings
 required_keys_with_set_output = [
     "stat",
     "stat_freq",
+    "save",
+    "checkpoint",
 ]
 
 required_keys_with_variable_output = [
@@ -21,8 +23,6 @@ required_keys_with_variable_output = [
 
 non_required_keys_with_set_output = [
     "output_freq",
-    "save",
-    "checkpoint",
 ]
 
 non_required_keys_with_variable_output = [
@@ -31,13 +31,13 @@ non_required_keys_with_variable_output = [
 ]
 
 save_options = [
-    "True",
-    "False"
+    True,
+    False,
 ]
 
 checkpoint_options = [
-    "True",
-    "False"
+    True,
+    False,
 ]
 
 # list of allowed options for statistic
@@ -151,7 +151,6 @@ def check_key_values(request, valid_options, key):
 
     try:
         passed_key = getattr(request, key)
-
         if passed_key not in valid_options:
             missing_value(
                 key, passed_key, valid_options
@@ -207,49 +206,45 @@ def check_non_required_variable_key_values(request, key):
     these keys are not required.
     
     """
-    if getattr(request, key):
-
-    # only need the below if save or checkpoint is equal to True
-        key = f"{key}_filepath"
-        try:
-            file_path = getattr(request, key)
-            if os.path.exists(os.path.dirname(file_path)):
-            # check it points to a directory
-                if os.path.isdir(file_path):
-                    # working directory, great
-                    pass
-                else:
-                    # try to reset the file_path
-                    #print(os.path.dirname(file_path))
-                    request.__setattr__(key, os.path.dirname(file_path))
-                    file_path = getattr(request, key)
-                    
-                    #print(key)
-                    #print(file_path)
-                    
-                    if os.path.isdir(file_path):
-                        warnings.warn(
-                        f"Removed file name from {key}, as this"
-                        f" is created dynamically. Filepath is now {file_path}", 
-                        UserWarning
-                        )
-                    else:
-                        raise ValueError(
-                            f"Please pass a file path for {key} that does "
-                            "not include the file name as this is created dynamically"
-                        )
+    try:
+        file_path = getattr(request, key)
+        if os.path.exists(os.path.dirname(file_path)):
+        # check it points to a directory
+            if os.path.isdir(file_path):
+                # working directory, great
+                pass
             else:
-                try: 
-                    os.mkdir(os.path.dirname(file_path))
+                # try to reset the file_path
+                #print(os.path.dirname(file_path))
+                request.__setattr__(key, os.path.dirname(file_path))
+                file_path = getattr(request, key)
+                
+                #print(key)
+                #print(file_path)
+                
+                if os.path.isdir(file_path):
                     warnings.warn(
-                        f"created the new directory {file_path}"
-                        f" for {key}", UserWarning
-                        )
-                except:
-                    raise ValueError(f"Please pass a valid file path for {key}")
+                    f"Removed file name from {key}, as this"
+                    f" is created dynamically. Filepath is now {file_path}", 
+                    UserWarning
+                    )
+                else:
+                    raise ValueError(
+                        f"Please pass a file path for {key} that does "
+                        "not include the file name as this is created dynamically"
+                    )
+        else:
+            try: 
+                os.mkdir(os.path.dirname(file_path))
+                warnings.warn(
+                    f"created the new directory {file_path}"
+                    f" for {key}", UserWarning
+                    )
+            except:
+                raise ValueError(f"Please pass a valid file path for {key}")
 
-        except AttributeError as exc:
-            variable_missing_key(key, exc)
+    except AttributeError as exc:
+        variable_missing_key(key, exc)
       
 def key_error_freq_mix(output_freq, stat_freq):
     
@@ -301,16 +296,16 @@ def check_thresh_exceed(request):
         if not hasattr(request, "thresh_exceed"):
             raise AttributeError(
                 "For the thresh_exceed statistic you need to provide "
-                " the threshold value. This is set in a seperate key:value"
-                "pair, 'thresh_exceed' : some_value, where some_value is" 
-                "the threshold you wish to set"
+                " the threshold value. This is set in a seperate key : value"
+                " pair, 'thresh_exceed' : some_value, where some_value is" 
+                " the threshold you wish to set"
             )
 
 def check_histogram(request):
     if request.stat == "histogram":
         if not hasattr(request, "bins"):
             warnings.warn(
-                "Optional key value 'bins' : 'int' or 'array_like'. "
+                "Optional key value 'bins' : int or array_like. "
                 "If 'bins' is an int, it defines the number of equal width bins in "
                 "the given range. If 'bins' is an array_like, the values define "
                 "the edges of the bins (rightmost edge inclusive), allowing for "
@@ -318,6 +313,12 @@ def check_histogram(request):
                 "it will default to 10.",
                 UserWarning
             )
+            "Optional key value 'bins' : int or array_like. "
+            "If 'bins' is an int, it defines the number of equal width bins in "
+            "the given range. If 'bins' is an array_like, the values define "
+            "the edges of the bins (rightmost edge inclusive), allowing for "
+            "non-uniform bin widths. If set to 'None', or not included at all "
+            "it will default to 10.",
 
         if not hasattr(request, "range"):
             warnings.warn(
@@ -331,28 +332,23 @@ def check_histogram(request):
 def check_percentile(request):
 
     if request.stat == "percentile":
-        if not hasattr(request, "percentile_list"):
+        if not hasattr(request, "percentile_list") or request.percentile_list is None:
             warnings.warn(
-                "key value pair 'percentile_list' has been set to ['all']."
+                "key value pair 'percentile_list' has been set to [],"
+                " without quotations, for the whole distribution."
                 " For the percentile statistic you should provide"
                 " a list of required percentiles, e.g. [0.01, 0.5, 0.99]"
-                " for the 1st, 50th and 99th percentile,"
-                " if you want the whole distribution, 'percentile_list' : ['all']",
+                " for the 1st, 50th and 99th percentile, or"
+                " if you want the whole distribution, 'percentile_list' : [] ",
                 UserWarning
             )
-            request.__setattr__("percentile_list", "['all']")
-
-        if request.percentile_list is None:
-            raise ValueError(
-                        'Percentiles must be between 0 and 1 or ["all"] '
-                        " for the whole distribution"
-                    )
-
-        if request.percentile_list[0] != "all":
+            request.__setattr__("percentile_list", [])
+        # this is to check if it's an empty list
+        if not request.percentile_list:
             for j in range(np.size(request.percentile_list)):
                 if request.percentile_list[j] > 1 or request.percentile_list[j] < 0:
                     raise ValueError(
-                        'Percentiles must be between 0 and 1 or ["all"] '
+                        'Percentiles must be between 0 and 1 or [] '
                         " for the whole distribution"
                     )
 
@@ -405,11 +401,17 @@ def check_request(request):
         check_variable_key_values(request, element)
             
     for element in non_required_keys_with_set_output:
-        # save, checkpoint, output_freq
+        # output_freq
         check_non_required_key_values(request, element)
         
-        if element != "output_freq":
-
+    for element in non_required_keys_with_variable_output:
+        # Loop to check that save_filepath and checkpoint_filepath 
+        # are present, only if save or checkpoint is set to True 
+        
+        # here checking that the 'save' and 'checkpoint' are True
+        parts = element.split('_')
+        before = parts[0]
+        if getattr(request, before):
             check_non_required_variable_key_values(request, element)
 
     output_freq = request.output_freq

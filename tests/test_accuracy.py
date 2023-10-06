@@ -103,17 +103,7 @@ def two_pass_sum(data, n_start, n_data):
     axNum = ds.get_axis_num('time')
     np_sum = np.sum(ds, axis = axNum, keepdims = True)
     
-    return np_sum
-
-    return np_percentile
-
-def two_pass_sum(data, n_start, n_data):
-
-    ds = data.isel(time=slice(n_start, n_data)) 
-    axNum = ds.get_axis_num('time')
-    np_sum = np.sum(ds, axis = axNum, keepdims = True)
-    
-    return np_sum
+    return np_sum 
 
 def duration_pick(time_unit, time_step):
     durations  = [5,10,15,20,30,45,60,90,120,180,240,360,540,720,
@@ -129,14 +119,13 @@ def duration_pick(time_unit, time_step):
     durations = list(map(int, durations))
     return durations
 
-
 def dm_roller(data, duration): 
 
     ### compute rolling sum & select maximum
     rolling_sum = data.rolling(time=duration, center=True).sum() 
     rolling_sum_max = rolling_sum.max(dim='time', skipna=True) 
     rolling_sum_max = rolling_sum_max.expand_dims(duration = ([duration])) 
-        
+
     return rolling_sum_max
 
 def iamser(data, years, durations):
@@ -200,7 +189,6 @@ def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
 
 ####################### py tests ##############################
 
-
 def test_mean():
         
     n_start = 0 
@@ -217,7 +205,7 @@ def test_mean():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
 
@@ -252,7 +240,7 @@ def test_std():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
     
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -286,7 +274,7 @@ def test_var():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
     
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -321,7 +309,7 @@ def test_max():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -356,7 +344,7 @@ def test_min():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -390,7 +378,7 @@ def test_min_6hourly():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -417,14 +405,15 @@ def test_percentile_daily():
     pass_dic = {"stat": "percentile",
     "stat_freq": "daily",
     "output_freq": "daily",
-    "percentile_list" : ["all"],
+    "threshold_exceed" : 10,
+    "percentile_list" : [],
     "thresh_exceed" : None,
     "time_step": 60,
     "variable": "pr",
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -436,12 +425,12 @@ def test_percentile_daily():
         + str(dec_place_per)
     )
 
-    percentile_list = np.linspace(0, 100, 101)
+    percentile_list = np.linspace(0, 99, 100)
     two_pass = two_pass_percentile(data_arr, n_start, n_data, percentile_list)
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
-    
+
     assert np.allclose(two_pass, one_pass, rtol = dec_place_per, atol = dec_place_per), message
-       
+
 def test_sum_monthly():
 
     n_start = 31*24
@@ -458,7 +447,7 @@ def test_sum_monthly():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
@@ -486,7 +475,7 @@ def test_sum_daily_noon():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
@@ -513,7 +502,7 @@ def test_iams():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     data_arr_small = data_arr[:,0:10,0:10]

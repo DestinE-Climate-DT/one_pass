@@ -30,7 +30,7 @@ setup(
         "dask",
         "zarr",
         "cython",
-        "git+https://github.com/dask/crick.git@main"
+        "git+https://github.com/dask/crick.git@main",
         "pytest",
         "netcdf4",
         "cytoolz",

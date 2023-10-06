@@ -104,7 +104,30 @@ def missing_output_freq(data):
         ds = data.isel(time=slice(i, i + 1))  # extract moving window
         dm = daily_mean.compute(ds)
 
+def none_percentile_list(data):
 
+    pass_dic = {
+        "stat": "percentile",
+        "percentile_list" : None,
+        "stat_freq": "daily",
+        "output_freq": "daily",
+        "time_step": 60,
+        "variable": "pr",
+        "save": True,
+        "checkpoint": True,
+        "checkpoint_filepath": "tests/",
+        "save_filepath": "tests/",
+    }
+
+    n_start = 0
+    n_data = 1
+
+    daily_mean = Opa(pass_dic)
+
+    for i in range(n_start, n_data, 1):
+        ds = data.isel(time=slice(i, i + 1))  # extract moving window
+        dm = daily_mean.compute(ds)
+        
 def missing_percentile_list(data):
 
     pass_dic = {
@@ -470,24 +493,25 @@ def test_missing_stat():
     with pytest.raises(KeyError):
         missing_stat(data)
 
-
 def test_missing_stat_freq():
 
     with pytest.raises(KeyError):
         missing_stat_freq(data)
 
-
 def test_missing_percentile_list():
 
-    with pytest.raises(KeyError):
+    with pytest.warns(UserWarning):
         missing_percentile_list(data)
 
-
+def test_None_percentile_list():
+# raises warning
+    with pytest.warns(UserWarning):
+        none_percentile_list(data)
+        
 def test_lower_output_freq():
 
     with pytest.raises(ValueError):
         lower_output_freq(data)
-
 
 def test_missing_variable():
 
@@ -501,12 +525,12 @@ def test_missing_time_step():
 
 def test_missing_save():
 
-    with pytest.warns(UserWarning):
+    with pytest.raises(KeyError):
         missing_save(data)
 
 def test_missing_checkpoint():
 
-    with pytest.warns(UserWarning):
+    with pytest.raises(KeyError):
         missing_checkpoint(data)
 
 def test_missing_save_filepath():
