@@ -36,6 +36,6 @@ setup(
         "tqdm",
         "sphinx",
         "sphinx-rtd-theme",
-        "crick@https://github.com/dask/crick/tree/0.0.4",
+        "crick==0.0.4",
     ],
 )
