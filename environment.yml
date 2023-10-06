@@ -18,4 +18,4 @@ dependencies:
   - cython
   - pip
   - pip:
-    - git+https://github.com/dask/crick.git@main
+    - -e .[all]

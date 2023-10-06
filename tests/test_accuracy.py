@@ -79,7 +79,6 @@ def two_pass_min(data, n_start, n_data):
 
     return np_min
 
-
 def two_pass_max(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data))
@@ -87,7 +86,6 @@ def two_pass_max(data, n_start, n_data):
     np_max = np.max(ds, axis=axNum, keepdims=True)
 
     return np_max
-
 
 def two_pass_percentile(data, n_start, n_data, perc_list):
 

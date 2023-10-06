@@ -83,12 +83,12 @@ def lower_output(data):
 def bad_timestep(data):
 
     pass_dic = {
-        "stat": "mean",
+        "stat": "sum",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "time_step": 37.3,
+        "time_step": 27.4,
         "variable": "pr",
-        "save": True,
+        "save": False,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
         "save_filepath": "tests/",
@@ -102,7 +102,6 @@ def bad_timestep(data):
     for i in range(n_start, n_data, 1):
         ds = data.isel(time=slice(i, i + 1))  # extract moving window
         dm = daily_mean.compute(ds)
-
 
 def check_attributes(data):
 

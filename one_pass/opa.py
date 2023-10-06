@@ -337,29 +337,23 @@ class Opa:
 
         # calculated by MIN freq of stat / timestep min of data
 
-        if (self.stat_freq_min / self.time_step).is_integer():
-            if self.stat_freq != "continuous":
-                if (
-                    time_stamp_min == 0
-                    or (self.time_step / time_stamp_min).is_integer()
-                ):
-                    self.n_data = int(self.stat_freq_min / self.time_step)
-                else:
-                    print("WARNING: timings of input data span over new statistic")
-                    self.n_data = int(self.stat_freq_min / self.time_step)
-
+        self._check_time_step_int()
+        if self.stat_freq != "continuous":
+            if (
+                time_stamp_min == 0
+                or (self.time_step / time_stamp_min).is_integer()
+            ):
+                self.n_data = int(self.stat_freq_min / self.time_step)
             else:
-                # if continuous, can start from any point in time so
-                # n_data might not span the full output_freq (hence why
-                # we minus time_stamp_min)
-                self.n_data = math.ceil(
-                    (self.stat_freq_min - time_stamp_min) / self.time_step
-                )
+                print("WARNING: timings of input data span over new statistic")
+                self.n_data = int(self.stat_freq_min / self.time_step)
 
         else:
-            raise Exception(
-                f"Frequency of the requested statistic (e.g. daily) must"
-                f" be wholly divisible by the timestep (dt) of the input data"
+            # if continuous, can start from any point in time so
+            # n_data might not span the full output_freq (hence why
+            # we minus time_stamp_min)
+            self.n_data = math.ceil(
+                (self.stat_freq_min - time_stamp_min) / self.time_step
             )
 
         try:
@@ -441,7 +435,7 @@ class Opa:
         
         #print('ndata durations init')
         
-        n_data_duration = np.empty(np.size(self.durations))
+        n_data_duration = np.zeros(np.size(self.durations))
         # loop to calculate n data for each duration period 
         for i in range(np.size(self.durations)):
             # calculate n_data_duration for each duration period 
@@ -523,9 +517,9 @@ class Opa:
         if data_source.chunks is None:
             # only using dask if incoming data is in dask
             # forcing computation in float64
-            value = np.empty(np.shape(self.data_source_tail), dtype=np.float64)
+            value = np.zeros(np.shape(self.data_source_tail), dtype=np.float64)
         else:
-            value = da.empty(np.shape(self.data_source_tail), dtype=np.float64)
+            value = da.zeros(np.shape(self.data_source_tail), dtype=np.float64)
 
         if self.stat_freq == "continuous":
             self.count_continuous = 0
@@ -949,6 +943,16 @@ class Opa:
 
         return proceed
 
+    def _check_time_step_int(self):
+        
+        if (self.stat_freq_min / self.time_step).is_integer():
+            pass
+        else:
+            raise Exception(
+                f"Frequency of the requested statistic (stat_freq) must"
+                f" be wholly divisible by the timestep (dt) of the input data"
+            )
+
     def _check_have_seen(self, time_stamp_min):
 
         """
@@ -1094,7 +1098,7 @@ class Opa:
                     self._initialise(
                         data_source, time_stamp, time_stamp_min, time_stamp_tot_append
                     )
-                    print("initialising continuous statistic")
+                    #print("initialising continuous statistic")
 
                 elif should_init_time:
                     self.count = 0
@@ -1105,6 +1109,9 @@ class Opa:
 
             if already_seen:
                 print('pass on this data at', str(time_stamp), 'as already seen this data')
+
+            # checking that the time step input is a multiple of the stat freq
+            self._check_time_step_int()
 
             # this will change from False to True if it's just been initalised
             n_data_att_exist = self._check_n_data()
@@ -1222,6 +1229,15 @@ class Opa:
 
         return time_num
 
+    def _two_pass_sum(self, data_source):
+        
+        """computes normal mean using numpy two pass"""
+
+        ax_num = data_source.get_axis_num("time")
+        temp = np.sum(data_source, axis=ax_num, dtype=np.float64, keepdims=True)
+
+        return temp
+        
     def _two_pass_mean(self, data_source):
 
         """computes normal mean using numpy two pass"""
@@ -1335,20 +1351,25 @@ class Opa:
     def _update_sum(self, data_source, weight):
         
         """ 
-        Computes one pass summation
+        One pass summation. Will take incoming data and add to 
+        self.sum_cum along with updating weight
         
         """
-        if weight > 1 :
-            ax_num = data_source.get_axis_num('time')
-            data_source = np.sum(data_source, axis = ax_num, dtype=np.float64, keepdims = True)
 
-        sum_cum = np.add(self.sum_cum, data_source, dtype=np.float64)
-
+        if weight == 1 :
+            #sum_cum = self.sum_cum + data_source
+            sum_cum = np.add(self.sum_cum, data_source, dtype=np.float64)
+    
+        else:
+            # compute two pass mean first
+            temp_sum = self._two_pass_sum(data_source)
+            #sum_cum = self.sum_cum + temp_sum
+            sum_cum = np.add(self.sum_cum, temp_sum, dtype=np.float64)
+        
         self.sum_cum = sum_cum.data
+        
         self.count = self.count + weight
         self._update_continuous_count(weight)
-
-        return
 
     def _update_min_internal(self, data_source, data_source_time):
 
