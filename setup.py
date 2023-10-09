@@ -13,7 +13,7 @@ tests = [
 
 setup(
     name="one_pass",
-    version="0.5",
+    version="0.5.0",
     description="One Pass Algorithms",
     author="Katherine Grayson",
     author_email="katherine.grayson@bsc.es",
