@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-"""Functions to convert time for the one pass algorithms.
+"""
+Functions to convert time for the one pass algorithms.
 
 times is a mapping between time words (and time stamps) and number of 
 minutes, to avoid having multiple if statements. Converts to 
@@ -24,7 +25,7 @@ times = {
     "10annually" : 24 * 60, # NOTE: see below for dealing with leap years
 }
 
-def convert_time(time_word="daily", time_stamp_input=None, 
+def convert_time(time_word="daily", time_stamp_input=None,
                  class_obj=None
                  ):
 
@@ -54,8 +55,8 @@ def convert_time(time_word="daily", time_stamp_input=None,
     if time_word not in times:
         valid_values = ", ".join(times.keys())
         raise ValueError(
-            f"The input saving frequency '{time_word}' is not supported, \
-            valid values are: {valid_values}"
+            f"The input saving frequency '{time_word}' is not supported, "
+            f"valid values are: {valid_values}"
         )
 
     if time_stamp_input is None:
@@ -84,7 +85,7 @@ def convert_time(time_word="daily", time_stamp_input=None,
             stat_freq_min += (24 * 60)
     elif time_word == "10annually" :
         # if the 1st or second year in the 10 is a leap year then
-        # there will be 3 leap years in the 10 year period 
+        # there will be 3 leap years in the 10 year period
         # otherwise there will only be 2
         if time_stamp_input.is_leap_year :
             stat_freq_min *= (3*366 + 7*365)
@@ -150,14 +151,14 @@ def convert_time(time_word="daily", time_stamp_input=None,
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
 
         time_stamp_tot_append = time_stamp_input_day_of_month
-        
-    elif time_word == "daily_noon": 
-        
-        if time_stamp_input.hour >= 13 : 
-            time_stamp_input_hour = (time_stamp_input.hour - 13)*60 
-        else: 
-            time_stamp_input_hour = (time_stamp_input.hour + 13)*60 
-        
+
+    elif time_word == "daily_noon":
+
+        if time_stamp_input.hour >= 13 :
+            time_stamp_input_hour = (time_stamp_input.hour - 13)*60
+        else:
+            time_stamp_input_hour = (time_stamp_input.hour + 13)*60
+
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
 
         time_stamp_tot_append = time_stamp_input_day_of_month
@@ -206,11 +207,11 @@ def convert_time(time_word="daily", time_stamp_input=None,
                          time_stamp_input_day_of_year
 
         time_stamp_tot_append = time_stamp_input_year
-        
+
     if time_word == "10annually":
-        
+
         if class_obj is not None:
-            try: 
+            try:
                 getattr(class_obj, "year_for_10annual")
             except AttributeError:
                 class_obj.__setattr__("year_for_10annual", time_stamp_input.year)
@@ -227,7 +228,7 @@ def convert_time(time_word="daily", time_stamp_input=None,
                     additional_years += (366 * 24 * 60)
                 else:
                     additional_years += (365 * 24 * 60)
-                    
+       
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                              time_stamp_input_day_of_year + additional_years
 

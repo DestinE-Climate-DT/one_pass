@@ -1302,7 +1302,8 @@ class Opa:
 
         if weight == 1 :
             self._update_mean(data_source, weight)
-            var_cum = self.var_cum + weight * (data_source - old_mean) * (data_source - self.mean_cum)
+            var_cum = self.var_cum + weight * (
+                data_source - old_mean) * (data_source - self.mean_cum)
 
         else:
             # two-pass mean
@@ -2308,7 +2309,9 @@ class Opa:
 
         if(hasattr(self, 'timings')):
             timing_attrs = {
-                str_date_time + ' one_pass':'time stamp of ' + str(self.stat_freq + " " + self.stat)}
+                str_date_time + ' one_pass':'time stamp of ' + 
+                str(self.stat_freq + " " + self.stat)
+                }
             dm = dm.assign(timings = (data_source.dims, self.timings.data, timing_attrs))
 
         return dm
@@ -2880,10 +2883,10 @@ class Opa:
 
                     self._remove_zarr_checkpoints()
                 
-                    # already been converted to dm
+                    #already been converted to dm
                     matching_items = self._find_items_with_cum(self)
                     for key in matching_items:
-                            delattr(self, key)
+                        delattr(self, key)
 
                 # if there's more to compute - call before return
                 if how_much_left < weight:
@@ -2915,7 +2918,7 @@ class Opa:
                     # been converted to dm
                     matching_items = self._find_items_with_cum(self)
                     for key in matching_items:
-                            delattr(self, key)
+                        delattr(self, key)
 
                     # if there's more to compute - call before return
                     if how_much_left < weight:
