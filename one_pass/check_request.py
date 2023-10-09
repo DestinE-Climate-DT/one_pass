@@ -258,7 +258,7 @@ def key_error_freq_mix(output_freq, stat_freq):
         "than stat_freq."
     )
 
-def mix_of_stat_and_output_freq(output_freq, stat_freq):
+def mix_of_stat_and_output_freq(output_freq, stat_freq, request):
 
     """
     Function to check the combination of stat_freq and 
@@ -278,7 +278,15 @@ def mix_of_stat_and_output_freq(output_freq, stat_freq):
         if output_freq in output_freq_weekly_options:
             key_error_freq_mix(output_freq, stat_freq)
     
-    #TODO: include daily_noon
+    if stat_freq == "daily_noon":
+        if output_freq == "daily":
+            request.__setattr__(output_freq, stat_freq)
+            warnings.warn(
+                'Changed output_freq from "daily" to "daily_noon" '
+                " as stat_freq is set to daily_noon", 
+                UserWarning
+                )
+        
     
     index_value = stat_freq_options.index(stat_freq)
     if stat_freq != "continuous":
@@ -320,14 +328,14 @@ def check_histogram(request):
             "non-uniform bin widths. If set to 'None', or not included at all "
             "it will default to 10.",
 
-        if not hasattr(request, "range"):
-            warnings.warn(
-                "Optional key value 'range' : '[float, float]'. The lower and upper "
-                "bounds to use when generating bins. If not "
-                "provided, the digest bounds '[t.min(), t.max())]' are used. Note "
-                "that this option is ignored if the bin edges are provided "
-                "explicitly. ", UserWarning
-            )
+        # if not hasattr(request, "range"):
+        #     warnings.warn(
+        #         "Optional key value 'range' : '[float, float]'. The lower and upper "
+        #         "bounds to use when generating bins. If not "
+        #         "provided, the digest bounds '[t.min(), t.max())]' are used. Note "
+        #         "that this option is ignored if the bin edges are provided "
+        #         "explicitly. ", UserWarning
+        #     )
 
 def check_percentile(request):
 
@@ -416,7 +424,7 @@ def check_request(request):
 
     output_freq = request.output_freq
     stat_freq = request.stat_freq
-    mix_of_stat_and_output_freq(output_freq, stat_freq)
+    mix_of_stat_and_output_freq(output_freq, stat_freq, request)
     
     # check requirements for specific statistics
     check_thresh_exceed(request)

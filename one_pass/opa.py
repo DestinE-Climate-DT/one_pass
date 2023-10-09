@@ -5,8 +5,8 @@ import math
 import pickle
 import sys
 import time
+import warnings
 
-import dask
 import dask.array as da
 import numpy as np
 import pandas as pd
@@ -188,7 +188,7 @@ class Opa:
 
         if self.checkpoint:
             # Will check for checkpoint file and load if one exists
-            self._check_checkpoint(request)
+            self._check_checkpoint()
 
     def _load_pickle(self, file_path):
 
@@ -235,7 +235,7 @@ class Opa:
 
         return temp_self
 
-    def _check_checkpoint(self, request):
+    def _check_checkpoint(self):
 
         """
         Takes user user request and creates the file name
@@ -302,7 +302,7 @@ class Opa:
         for key in request:
             self.__setattr__(key, request[key])
 
-        self.pickle_limit = 0.013
+        self.pickle_limit = 1.8
         
     ############### end if __init__ #####################
 
@@ -345,7 +345,7 @@ class Opa:
             ):
                 self.n_data = int(self.stat_freq_min / self.time_step)
             else:
-                print("WARNING: timings of input data span over new statistic")
+                warnings.warn("Timings of input data span over new statistic")
                 self.n_data = int(self.stat_freq_min / self.time_step)
 
         else:
@@ -620,8 +620,6 @@ class Opa:
         self._initialise_time(time_stamp_min, time_stamp_tot_append)
         self._initialise_attrs(data_source)
 
-        # return
-
     def _check_n_data(self):
 
         """checks if the attribute n_data is already there
@@ -688,7 +686,8 @@ class Opa:
 
     def _should_initalise_contin(self, time_stamp_min, proceed):
 
-        """Calls should initalise and then checks if the rolling
+        """
+        Calls should initalise and then checks if the rolling
         statistic should also be initalised. When stat_freq =
         continuous, the time and count is intalised whenver the
         output_freq is complete (i.e. 1 month) but the rolling
@@ -701,6 +700,7 @@ class Opa:
         should init_value = should you start rolling stat (will
             only be true the first time the function is called)
         """
+        # checks if time_stamp_min is less than time_step
         proceed, should_init_time = self._should_initalise(time_stamp_min, proceed)
 
         should_init_value = False
@@ -804,20 +804,29 @@ class Opa:
                 time_word=self.stat_freq, time_stamp_input=self.time_stamp
             )[1]
 
-            # here it's gone back to before the stat it was previously
+            # here it's gone back to before the stat_freq it was previously
             # calculating so delete attributes
             if abs(min_diff) > time_stamp_min_old:
                 for attr in ("n_data", "count"):
                     self.__dict__.pop(attr, None)
 
-            # else: if it just goes backwards slightly in the stat you're
-            # already computing, it will either re-int later
-            # or it will be caught by 'already seen' later on
+        # else: if it just goes backwards slightly in the stat you're
+        # already computing, it will either re-int later
+        # or it will be caught by 'already seen' later on
 
         else:
-            # always delete these for continuous
-            for attr in ("n_data", "count"):
-                self.__dict__.pop(attr, None)
+            time_stamp_min_old = convert_time(
+                time_word=self.output_freq, time_stamp_input=self.time_stamp
+            )[1]
+
+            # here it's gone back to before the output_freq it was previously
+            # calculating so delete attributes
+            if abs(min_diff) > time_stamp_min_old:
+                for attr in ("n_data", "count"):
+                    self.__dict__.pop(attr, None)
+            # # always delete these for continuous
+            # for attr in ("n_data", "count"):
+            #     self.__dict__.pop(attr, None)
 
         try:
             getattr(self, "time_append")
@@ -963,7 +972,7 @@ class Opa:
         Returns
         --------
         already_seem = biary True or False flag"""
-
+        self.time_stamp_min = time_stamp_min
         try:
             getattr(self, "count")
             if (time_stamp_min / self.time_step) < self.count:
@@ -1085,6 +1094,7 @@ class Opa:
                 proceed, should_init = self._should_initalise(time_stamp_min, proceed)
 
                 if should_init:
+                    # this initialises both time and data variables
                     self._initialise(
                         data_source, time_stamp, time_stamp_min, time_stamp_tot_append
                     )
@@ -1098,7 +1108,6 @@ class Opa:
                     self._initialise(
                         data_source, time_stamp, time_stamp_min, time_stamp_tot_append
                     )
-                    #print("initialising continuous statistic")
 
                 elif should_init_time:
                     self.count = 0
@@ -1213,7 +1222,6 @@ class Opa:
             if self.stat == "raw":
                 self._save_output_nc(dm, final_time_file_str)
             else:
-                # print('saving', data_source.time[0])
                 self._save_output_nc(dm, final_time_file_str, bc_raw = True)
 
         return dm
@@ -1589,9 +1597,7 @@ class Opa:
 
                 else:
                     data_left = full_length - count_duration
-                    
-                    #print('data_left', data_left)
-                    
+                                        
                     window_sum = self.rolling_data[
                         count_duration:, :
                         ].sum(axis=0, keepdims = True)
@@ -1667,13 +1673,14 @@ class Opa:
                 data_source_values = np.reshape(data_source.values, self.array_length)
             
             # this is looping through every grid cell using crick
-            for j in tqdm.tqdm(range(self.array_length)):
+            # tqdm.tqdm(
+            for j in range(self.array_length):
                 self.__getattribute__("digests_cum")[j].update(data_source_values[j])
 
         else:
             data_source_values = data_source.values.reshape((weight, -1))
 
-            for j in tqdm.tqdm(range(self.array_length)):
+            for j in range(self.array_length):
                 # using crick or pytdigest
                 self.__getattribute__("digests_cum")[j].update(
                     data_source_values[:, j]
@@ -1712,25 +1719,27 @@ class Opa:
             self.bins = 10
 
         start_time = time.time()
-        self.histogram_count_cum = np.zeros(np.shape([self.digests_cum]*self.bins))
-        self.histogram_bin_edges_cum = np.zeros(np.shape([self.digests_cum]*(self.bins+1)))
-        print('time to create empty', time.time() - start_time)
+        self.histogram_count_cum = np.empty(
+            np.shape([self.digests_cum]*self.bins),dtype=np.int32
+            )
+        self.histogram_bin_edges_cum = np.empty(
+            np.shape([self.digests_cum]*(self.bins+1)),dtype=np.int32
+            )
+        #print('time to create empty', time.time() - start_time)
             # np.zeros(
             # self.array_length, dtype=
             # [(f'({self.bins},)','f8'), (f'({self.bins+1},)','f8')]
             # )
 
-        #print(time.time() - start_time)
-
         if hasattr(self,"range") is False:
-            for j in tqdm.tqdm(range(self.array_length)):
+            for j in range(self.array_length):
                 self.histogram_count_cum[:,j], \
                 self.histogram_bin_edges_cum[:,j] = self.digests_cum[j].histogram(
                 bins = self.bins
                 )
 
-        else:
-            for j in tqdm.tqdm(range(self.array_length)):
+        else: #tqdm.tqdm(
+            for j in range(self.array_length):
                 self.histogram_count_cum[:,j], \
                 self.histogram_bin_edges_cum[:,j] = self.digests_cum[j].histogram(
                 bins = self.bins, range = self.range
@@ -1758,7 +1767,6 @@ class Opa:
         if not self.percentile_list:
             self.percentile_list = (np.linspace(0, 99, 100)) / 100
 
-        #print('before conversion per', type(self.digests_cum))
         self.percentile_cum = np.zeros(
             np.shape([self.digests_cum]* np.shape(self.percentile_list)[0])
             ) # self.digests_cum
@@ -1873,7 +1881,6 @@ class Opa:
             getattr(self, "monthly_digest_file_bc")
             try:
                 getattr(self,"monthly_digest_file_bc_att")
-                print('loading zarr')
                 if os.path.exists(self.monthly_digest_file_bc):
                     self.digests_cum = zarr.load(self.monthly_digest_file_bc)
 
@@ -2071,7 +2078,6 @@ class Opa:
                         )
 
                     except TypeError: 
-                        #print('had to save .values as zarr')
                         zarr.array(
                             self.__getattribute__(key).values,
                             store=checkpoint_file_zarr,
@@ -2261,7 +2267,7 @@ class Opa:
             )
 
         if self.stat == "histogram" and second_hist:
-
+            #bins = np.floor(np.linspace(self.range[0], self.range[1], self.bins+1))
             data_source = data_source.expand_dims(
                 dim={"bin_edges": np.shape(self.histogram_bin_edges_cum)[1]}, axis=1
             )
@@ -2622,25 +2628,27 @@ class Opa:
             if self.variable not in precip_options:
                 file_name = os.path.join(
                     self.save_filepath,
-                    f"{final_time_file_str}_{self.variable}_mean_{self.stat_freq}.nc",
+                    f"{final_time_file_str}_{self.variable}_{self.stat_freq}_mean.nc",
                 )
             
             else:
                 file_name = os.path.join(
                     self.save_filepath,
-                    f"{final_time_file_str}_{self.variable}_sum_{self.stat_freq}.nc",
+                    f"{final_time_file_str}_{self.variable}_{self.stat_freq}_sum.nc",
                 )
 
         elif self.stat == "histogram":
             if hist_second:
                 file_name = os.path.join(
                     self.save_filepath,
-                    f"{final_time_file_str}_{self.stat}_bin_edges_{self.stat_freq}.nc",
+                    f"{final_time_file_str}_{self.variable}_{self.stat}_"
+                    f"{self.stat_freq}_bin_edges.nc",
                 )
             else:
                 file_name = os.path.join(
                     self.save_filepath,
-                    f"{final_time_file_str}_{self.stat}_bin_counts_{self.stat_freq}.nc",
+                    f"{final_time_file_str}_{self.variable}_{self.stat}_"
+                    f"{self.stat_freq}_bin_counts.nc",
                 )
 
         else:  # normal other stats
@@ -2913,7 +2921,7 @@ class Opa:
                     if how_much_left < weight:
                         self._call_recursive(how_much_left, weight, data_source)
                                 
-                    if self.checkpoint and self.append_checkpoint_flag:                    
+                    if self.checkpoint and self.append_checkpoint_flag:
                         self._write_checkpoint()
                         self.append_checkpoint_flag = False
 
@@ -2951,7 +2959,6 @@ class Opa:
                         # finished. Without, it would checkpoint but go back and checkpoint
                         # all the previous states again
                         if self.checkpoint and self.append_checkpoint_flag:
-                            print('writing a checkpoint')
                             self._write_checkpoint()
                             self.append_checkpoint_flag = False
 
