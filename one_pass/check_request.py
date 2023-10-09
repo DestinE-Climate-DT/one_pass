@@ -27,7 +27,7 @@ non_required_keys_with_set_output = [
 
 non_required_keys_with_variable_output = [
     "checkpoint_filepath",
-    "save_filepath", 
+    "save_filepath",
 ]
 
 save_options = [
@@ -90,33 +90,34 @@ output_freq_options = [
 ]
 
 def missing_value(key, passed_key, valid_values):
-    
+
     """
-    Function to define the ValueError if the requested value in any 
+    Function to define the ValueError if the requested value in any
     key : value pair is not in the supported list.
-    
+
     """
     raise ValueError(
                 f"The requested {key} : '{passed_key}' is not supported, "
                 f"valid values are: {valid_values}"
             )
-    
-def missing_key(key, valid_values, exc):        
-    
-    """ 
-    Function to define the KeyError if the one_pass request is missing 
+
+def missing_key(key, valid_values, exc):   
+
+    """
+    Function to define the KeyError if the one_pass request is missing
     a required key : value pair which has a specfic list of valid values
     """
+
     raise KeyError(
             "Data request (python dictionary or config.yml) must include"
             f" the key, value pair {key} : {valid_values}, "
             "See docs for details."
         ) from exc
-    
-def variable_missing_key(key, exc):        
-    
-    """ 
-    Function to define the KeyError if the one_pass request is missing 
+
+def variable_missing_key(key, exc):
+
+    """
+    Function to define the KeyError if the one_pass request is missing
     a required key : value pair wtihtout a set list of allowed values
     """
 
@@ -125,7 +126,7 @@ def variable_missing_key(key, exc):
             f" the key '{key}' with an appropriate value pair. "
             "See docs for details."
         ) from exc
-    
+
 def missing_non_required_key(key, set_value):
 
     """
@@ -136,15 +137,15 @@ def missing_non_required_key(key, set_value):
 
     warnings.warn(
         "Data request (python dictionary or config.yml) did not include"
-        f" {key}. {key} has been set to {set_value}.", UserWarning 
+        f" {key}. {key} has been set to {set_value}.", UserWarning
     )
 
 def check_key_values(request, valid_options, key):
-    
-    """ 
+
+    """
     Checks for the attribute stat and stat_freq.
     If they exist it will check it's in the list of valid options.
-    If they doesn't exist it will raise a KeyError. 
+    If they doesn't exist it will raise a KeyError.
 
     """
     valid_options = globals()[valid_options]
@@ -161,10 +162,10 @@ def check_key_values(request, valid_options, key):
 
 def check_variable_key_values(request, key):
 
-    """ 
-    Checks for the keys that have a variable value, given in list 
+    """
+    Checks for the keys that have a variable value, given in list
     'required_keys_with_variable_output'.
-    If they doesn't exist it will raise a KeyError. 
+    If they doesn't exist it will raise a KeyError.
     """
 
     try:
@@ -172,20 +173,20 @@ def check_variable_key_values(request, key):
 
     except AttributeError as exc:
         variable_missing_key(key, exc)
-        
+
 def check_non_required_key_values(request, key):
-    
-    """ 
-    Checks for the non-required keys in the request, given in list 
+
+    """
+    Checks for the non-required keys in the request, given in list
     'non_required_keys_with_output'.
     If they doesn't exist it will set them equal to their default
     value and raise a warning explaining this.
-    
+
     Returns
     --------
-    Potentially modified request 
+    Potentially modified request
     """
-      
+
     try:
         getattr(request, key)
     except AttributeError:
@@ -197,15 +198,16 @@ def check_non_required_key_values(request, key):
         missing_non_required_key(key, set_value)
 
 def check_non_required_variable_key_values(request, key):
-    
+
     """
     Function that checks the file paths for saving and checkpointing
-    from list 'non_required_keys_with_variable_output'. 
+    from list 'non_required_keys_with_variable_output'.
     key == save_filepath or checkpoint_filepath. These keys are required
-    if saving and checkpointing is True, but if they're set to False, 
+    if saving and checkpointing is True, but if they're set to False,
     these keys are not required.
-    
+
     """
+
     try:
         file_path = getattr(request, key)
         if os.path.exists(os.path.dirname(file_path)):
@@ -218,14 +220,11 @@ def check_non_required_variable_key_values(request, key):
                 #print(os.path.dirname(file_path))
                 request.__setattr__(key, os.path.dirname(file_path))
                 file_path = getattr(request, key)
-                
-                #print(key)
-                #print(file_path)
-                
+
                 if os.path.isdir(file_path):
                     warnings.warn(
                     f"Removed file name from {key}, as this"
-                    f" is created dynamically. Filepath is now {file_path}", 
+                    f" is created dynamically. Filepath is now {file_path}",
                     UserWarning
                     )
                 else:
@@ -245,13 +244,14 @@ def check_non_required_variable_key_values(request, key):
 
     except AttributeError as exc:
         variable_missing_key(key, exc)
-      
+
 def key_error_freq_mix(output_freq, stat_freq):
-    
-    """
-    Defines the KeyError raised if there is a mismatch between 
+
+    """""
+    Defines the KeyError raised if there is a mismatch between
     the stat_freq and the output_freq
     """
+
     raise ValueError (
         f"Can not set output_freq equal to {output_freq} if stat_freq"
         f" is equal to {stat_freq}. Output_freq must always be greater "
@@ -261,7 +261,7 @@ def key_error_freq_mix(output_freq, stat_freq):
 def mix_of_stat_and_output_freq(output_freq, stat_freq, request):
 
     """
-    Function to check the combination of stat_freq and 
+    Function to check the combination of stat_freq and
     output_freq.
     """
     output_freq_weekly_options = [
@@ -273,39 +273,36 @@ def mix_of_stat_and_output_freq(output_freq, stat_freq, request):
 
     if output_freq == "continuous" and stat_freq == "continuous":
         key_error_freq_mix(output_freq, stat_freq)
-        
+
     elif stat_freq == "weekly":
         if output_freq in output_freq_weekly_options:
             key_error_freq_mix(output_freq, stat_freq)
-    
+ 
     if stat_freq == "daily_noon":
         if output_freq == "daily":
             request.__setattr__(output_freq, stat_freq)
             warnings.warn(
                 'Changed output_freq from "daily" to "daily_noon" '
-                " as stat_freq is set to daily_noon", 
+                " as stat_freq is set to daily_noon",
                 UserWarning
-                )
-        
-    
+                )        
+
     index_value = stat_freq_options.index(stat_freq)
     if stat_freq != "continuous":
         for j in range(len(output_freq_options[0:index_value])):
-            # test that output_freq is always the same or greater than 
-            # stat_freq 
+            # test that output_freq is always the same or greater than
+            # stat_freq
             if output_freq in stat_freq_options[0:j]:
                 key_error_freq_mix(output_freq, stat_freq)
 
-
-    
 def check_thresh_exceed(request):
-                
+
     if request.stat == "thresh_exceed":
         if not hasattr(request, "thresh_exceed"):
             raise AttributeError(
                 "For the thresh_exceed statistic you need to provide "
                 " the threshold value. This is set in a seperate key : value"
-                " pair, 'thresh_exceed' : some_value, where some_value is" 
+                " pair, 'thresh_exceed' : some_value, where some_value is"
                 " the threshold you wish to set"
             )
 
@@ -321,6 +318,7 @@ def check_histogram(request):
                 "it will default to 10.",
                 UserWarning
             )
+
             "Optional key value 'bins' : int or array_like. "
             "If 'bins' is an int, it defines the number of equal width bins in "
             "the given range. If 'bins' is an array_like, the values define "
@@ -361,7 +359,7 @@ def check_percentile(request):
                     )
 
 def check_iams(request):
-    
+
     if request.stat =="iams":
         if request.stat_freq != "annually":
             raise ValueError(
@@ -373,7 +371,7 @@ def check_iams(request):
                 ' iams statistic')
 
 def check_bias_correction(request):
-    
+
     """
     Check that if bias_correction has been selected as the statistic
     then both output_freq and stat_freq are set to daily.
@@ -387,7 +385,7 @@ def check_bias_correction(request):
             )
 
 def check_request(request):
-    
+
     """
     Arguments
     ----------
@@ -398,24 +396,24 @@ def check_request(request):
     Error if there's something wrong with the request
 
     """
-    
+
     for element in required_keys_with_set_output:
 
         valid_options = f'{element}_options'
         check_key_values(request, valid_options, element)
-    
+
     for element in required_keys_with_variable_output:
 
         check_variable_key_values(request, element)
-            
+
     for element in non_required_keys_with_set_output:
         # output_freq
         check_non_required_key_values(request, element)
-        
+
     for element in non_required_keys_with_variable_output:
-        # Loop to check that save_filepath and checkpoint_filepath 
-        # are present, only if save or checkpoint is set to True 
-        
+        # Loop to check that save_filepath and checkpoint_filepath
+        # are present, only if save or checkpoint is set to True
+
         # here checking that the 'save' and 'checkpoint' are True
         parts = element.split('_')
         before = parts[0]
@@ -425,7 +423,7 @@ def check_request(request):
     output_freq = request.output_freq
     stat_freq = request.stat_freq
     mix_of_stat_and_output_freq(output_freq, stat_freq, request)
-    
+
     # check requirements for specific statistics
     check_thresh_exceed(request)
     check_histogram(request)
