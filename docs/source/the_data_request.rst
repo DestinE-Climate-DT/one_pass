@@ -6,8 +6,6 @@ As discussed in :doc:`getting_started`, all of the one_pass configuration is set
 .. code-block:: bash
 
    stat: "mean"
-   percentile_list: None
-   thresh_exceed: None
    stat_freq: "daily"
    output_freq: "daily"
    time_step: 60 
@@ -15,17 +13,15 @@ As discussed in :doc:`getting_started`, all of the one_pass configuration is set
    save: True
    checkpoint: True
    checkpoint_filepath: "/file/path/to/checkpoint/"
-   out_filepath: "/file/path/to/save/"
+   save_filepath: "/file/path/to/save/"
 
-All of the above key:value pairs must be present, even if not required for your requested statistic. In this case, keep the output as ``None``. 
+Most of the key:value pairs listed above must be present in the request. The exception is ``output_freq``, which will default to the value provided for ``stat_freq`` if it is not provided, while both ``checkpoint_filepath`` and ``save_filepath`` are not required if ``checkpoint`` and ``save`` have respectively been set to False. Other (optional) key:value pairs can be passed if required by a specific statistic. These are explained below. 
 
-The same information can also be passed directly in python as a dictionary:
+The same request can also be passed directly in python as a dictionary:
 
 .. code-block:: python
 
    pass_dic = {"stat" : "mean",
-   "percentile_list" : None,
-   "thresh_exceed" : None,
    "stat_freq": "daily",
    "output_freq": "daily",
    "time_step": 60,
@@ -33,7 +29,7 @@ The same information can also be passed directly in python as a dictionary:
    "save": True,
    "checkpoint": True,
    "checkpoint_filepath": "/file/path/to/checkpoint/",
-   "out_filepath": "/file/path/to/save/"}
+   "save_filepath": "/file/path/to/save/"}
 
 The functionality of all the keys are outlined below.
 
@@ -44,11 +40,11 @@ The functionality of all the keys are outlined below.
 Statistics
 ---------------
 
-The one_pass package supports the following options for ``stat`` : 
+The ``stat`` key defines which statistic you wish to compute on the streamed climate data. The one_pass package can only compute one statistic per request. The following options for ``stat`` are supported: 
 
 .. code-block:: JSON
    
-   "mean", "sum", "std", "var", "thresh_exceed", "min", "max", "iams", "percentile", "raw", "bias_correction"
+   "mean", "sum", "std", "var", "thresh_exceed", "min", "max", "iams", "percentile", "histogram", "raw", "bias_correction"
 
 We use the folling definitions in the mathematical descriptions of the algorithms below: 
 
@@ -64,7 +60,7 @@ In the case where the incoming data has only one time step (:math:`w = 1`), :mat
 Summation
 ^^^^^^^^^^^^^
 
-The summation statistic (written as ``"sum"`` in the statistic request) is calculated by:
+The summation statistic (written as ``"sum"`` in the statistic request) is calculated over the requested temporal frequency (see ``stat_freq``) by:
 
 .. math::
 
@@ -86,7 +82,7 @@ where :math:`\bar{X}_n` is the updated mean of the full dataset, :math:`\bar{X}_
 Variance 
 ^^^^^^^^^^^^^
 
-The variance (written as ``"var"``) is calculated for the incoming data stream, over the requested temporal frequency, by updating two estimates iteratively. Let the two-pass summary :math:`M_{2,n}` be defined as:
+The variance (written as ``"var"``) is calculated over the requested temporal frequency, by updating two estimates iteratively. Let the two-pass summary :math:`M_{2,n}` be defined as:
 
 .. math:: 
 
@@ -156,7 +152,7 @@ where if :math:`w > 1, \textrm{max}(X_w)` is calculated using the maximum functi
 Threshold Exceedance 
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The threshold exceedance statistic (written as ``"thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: some_value``, where ``some_value`` is the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calculated by: 
+The threshold exceedance statistic (written as ``"thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: some_value``, where ``some_value`` is an int or float value that defines the threshold for your chosen variable. The output of this statistic is the number of times that threshold is exceeded. It is calculated by: 
 
 .. math::
 
@@ -171,9 +167,12 @@ where :math:`s` is the number of samples in :math:`X_w` that exceeded the thresh
 Percentile
 ^^^^^^^^^^^^^
 
-The ``"percentile"`` statistic requires a value for the key:value pair ``"percentile_list" : [0.2, 0.5]`` where the list contains the requested percentiles between the values of ``[0,1]``. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from ``[0,1]``, put ``["all"]``, including the brackets ``[]``. The number of variables in the produced Dataset will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 101 variables, one for each percentile including 0 and 1. This statistic makes use of the `T-Digest algorithm <https://www.sciencedirect.com/science/article/pii/S2665963820300403>`__ using the `python implementation <https://github.com/protivinsky/pytdigest/tree/main>`__. 
+The ``"percentile"`` statistic has an optional key:value pair ``"percentile_list" : [0.2, 0.5]`` where the list contains the requested percentiles between the values of ``[0,1]``. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from ``[0,1]``, leave the list empty ``[]``. If this key:value pair is not provided, the package will default to the full distribution ``[]``. The number of variables in the produced Dataset will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 100 variables, one for each percentile from 0.01 to 1. This statistic makes use of the `T-Digest algorithm <https://www.sciencedirect.com/science/article/pii/S2665963820300403>`__ using the `implementation <https://github.com/dask/crick/tree/0.0.4>`__. 
 
-Currently for the TDigests we have set a compression parameter at 25 (reduced from the default of 100), as we have to consider memory contraints. This value needs optimising. 
+Histogram
+^^^^^^^^^^^^
+
+The ``"histogram"`` statistic uses the same t-digest algorithm as given in the percentiles statistic. This statistic has the optional key:value pair ``"bins" : int``, which sets the number of bins you would like. If this is not set, or set to None, the one_pass will default to 10. Unlike the other statistics, ``"histogram"`` will provide two output files, both in memory and saved to disk if ``"save" : True``. The first will be a netCDF of the bin counts, so the number of values in each bin. If saved, this will have the file name ``timestamp_variable_histogram_stat_freq_bin_counts.nc``, where date will correspond to the date or dates that the data spans and stat_freq is the requested frequency of the statistic (see below). The second netCDF file will correspond to the bin_edges and will have a file name ``timestamp_variable_histogram_stat_freq_bin_edges.nc``. The reason they provided in seperate files is that bin_edges will have one dimension ``bin_edges`` of ``length(bin_count) + 1``. 
 
 Intensity annual maximum series
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -214,21 +213,24 @@ For this statistic, you must set both ``"stat_freq"`` and ``"output_freq"`` to `
 Raw
 ^^^^^^^^^^
 
-The ``"raw"`` statistic does not compute any statistical summaries on the incoming data, it simply outputs the raw data as it is passed. The only way it will modify the data is if a Dataset is passed with many climate variables, it will extract the variable requested and produce a Dataset containing only that variable. This option is included to act as a temporary data buffer for some use case applications. 
+The ``"raw"`` statistic does not compute any statistical summaries on the incoming data, it simply outputs the raw data as it is passed. The only way it will modify the data is if a Dataset is passed with many climate variables, it will extract the variable requested and produce a Dataset containing only that variable (this is true for all statistic, see variable key:value). This option is included to act as a temporary data buffer for some use case applications. 
+
+Note: The key:value pairs ``"stat_freq"`` and ``"output_freq"`` will be ignored if ``"stat":"raw"``. The one_pass will simply save the data it has been passed at native temporal resolution. This is to reduce uneccessary I/O operations required to temporally aggregate data to the correct length.
 
 Bias-Correction
 ^^^^^^^^^^^^^^^^^
 
-Another layer to the one_pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set ``"stat" : "bias_correction"`` you will receive three outputs, as opposed to just one. 
+Another layer to the one_pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set ``"stat" : "bias_correction"`` and ``"save" : True``, you will receive three outputs, as opposed to just one. 
 
 1. Daily aggregations of the incoming data (either daily means or summations if the variable is precipitation) as netCDF. Currently the variable names that will use summation as opposed to means are ``'pr', 'lsp', 'cp', 'tp', 'pre', 'precip', 'rain'``.
-2. The raw data at native temporal resolution as netCDF (this is equivalent to ``"raw"`` described above).  
-3. A pickle file containing TDigest objects. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
+2. The raw data at native temporal resolution as netCDF (this is equivalent to ``"raw"`` described above). However here, the raw data will never span the end and start of a new day.
+3. A pickle file containing TDigest objects, called ``month_01_variable_bias_correction.pkl`` if the month is January for example. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
 
-When using this statistic, make sure to set ``"stat_freq" : "daily"`` and ``"output_freq" : "daily"``.
+When using this statistic, make sure to set ``"stat_freq" : "daily"`` and ``"output_freq" : "daily"``. If you set ``"save" : False`` the raw data and the daily aggregated data will not be saved and will just be provided as outputs in memory, however the digest files will always be saved regardless.
+
+If the pickle files containing the digest objects become too large (exceed the pickle limit of 2GB), they will be saved as .zarr files instead. In this case, there will be two files ``month_01_variable_bias_correction.zarr`` containing only the digests and a smaller ``month_01_variable_bias_correction.pkl`` containing all the metadata required for the Dataset. If this occurs during the month (as the digest files get larger) the pickle file ``month_01_variable_bias_correction.pkl`` will automatically switch from containing the full Dataset object containing the digests to containing only the metadata.
 
 .. note:: The bias-correction statistic has been created specifically to pass data to the bias correction package. It does not provide bias corrected data itself.
-
 
 Frequencies
 -----------------
@@ -236,24 +238,26 @@ Frequencies
 Statistic Frequency
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The statistic frequency (written as ``"stat_freq"``) can take the following options: 
+The statistic frequency (written as ``"stat_freq"``) is where you select the temporal period required for your statistic. It can take the following options: 
 
 .. code-block:: 
    
-   "hourly", "3hourly", "6hourly", "12hourly", "daily", "daily_noon", "weekly", "monthly", "3monthly", "annually", "continuous"
+   "hourly", "2hourly", "3hourly", "6hourly", "12hourly", "daily", "daily_noon", "weekly", "monthly", "3monthly", "annually", "10annually", "continuous"
 
-Each option defines the period over which you would like the statistic computed. The frequency ``"daily_noon"`` runs for a 24 hour period but starting at 13:00. For the frequencies ``"weekly"``, ``"monthly"``, ``"annually"``, the one_pass package uses the Gregorian calendar, e.g. ``"annually"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. For ``"monthly"`` leap years are included. ``"weekly"`` will run from Monday - Sunday.
+Each option defines the period over which you would like the statistic computed. All frequncies will start from midnight except the frequency ``"daily_noon"``, which runs for a 24 hour period but starting at 13:00. 
+
+For the frequencies ``"weekly"``, ``"monthly"``, ``"3monthly"``, ``"annually"``, ``"10annually"``, the one_pass package uses the Gregorian calendar, e.g. ``"annually"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for ``"10annually"``, it will start from the first 1st January that is passed. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. ``"3monthly"``, can be interpreted as quaterly and will compute JFM, AMJ, JAS, OND. ``"weekly"`` will run from Monday - Sunday. Leap years are included, so different days in Feburary will be taken into account. 
 
 The option of ``"continuous"``, will start from the first piece of data that is provided and will continously update the statistic as new data is provided.
 
 Output Frequency
 ^^^^^^^^^^^^^^^^^^^
 
-The output frequency option (written as ``"output_freq"``) takes the same input options as ``"stat_freq"``. This option defines the frequency you want to output (or save) the xr.Dataset containing your statistic. If you set ``"output_freq"`` the same as ``"stat_freq"`` (which is the standard output) the Dataset produced by the one_pass will have a time dimension of length one, corresponding the summary statistic requested by ``"stat_freq"``. If, however, if you have requested ``"stat_freq": "hourly"`` but you set ``"output_freq": "daily"``, you will have a xr.Dataset with a time dimension of length 24, corresponding to 24 hourly statistical summaries in one file. Likewise, if you set ``"stat_freq":"daily"`` and ``"output_freq":"monthly"``, your final output will have a time dimension of 31 (if there are 31 days in that month), if you started from the first day of the month, or, if you started passing data half way through the month, it will correspond to however many days are left in that month. 
+The output frequency option (written as ``"output_freq"``) is an optional key:value pair and takes the same input options as ``"stat_freq"``. This option defines the frequency you want to output in memory (and save if requested) the xr.Dataset containing your statistic. The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If this key:value pair is not provided in the request it will default to the value provided for ``"stat_freq"``, If ``"output_freq"`` is the same as ``"stat_freq"`` the Dataset produced by the one_pass will have a time dimension of length one, corresponding the summary statistic requested by ``"stat_freq"``. If, however, if you have requested ``"stat_freq": "hourly"`` but you set ``"output_freq": "daily"``, you will have a xr.Dataset with a time dimension of length 24, corresponding to 24 hourly statistical summaries in one file. Likewise, if you set ``"stat_freq":"daily"`` and ``"output_freq":"monthly"``, your final output will have a time dimension of 31 (if there are 31 days in that month), if you started from the first day of the month, or, if you started passing data half way through the month, it will correspond to however many days are left in that month. 
 
-The ``"output_freq"`` must be the same or greater than the ``"stat_freq"``. If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one_pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``.
+If you set ``"stat_freq" = "continuous"`` you must set ``"output_freq"`` to the frequency at which the one_pass outputs the current status of the statistic. **Do not** also set ``"output_freq" = "continuous"``. If you ``"set_freq":"daily_noon"``, and ``"output_freq":"daily"``, the one_pass will pass a warning letting you know that ``"output_freq":"daily_noon"`` for consistency. It is possible to set the ``"output_freq"`` to a higher value (e.g. ``"weekly"`` or ``"monthly"`` etc). It is not possible to set ``"stat_freq":"weekly"`` and ``"output_freq":"monthly"``, as weeks are not fully divisable by months. 
 
-If you ``"set_freq"`` to ``"daily_noon"``, then you must set ``"output_freq"`` also to ``"daily_noon"`` or higher (``"monthly"`` etc). Do not set it to ``"daily"``. 
+Also regardless of the ``"save"`` key, the updated version of the final output will be output in memory every time the ``"stat_freq"`` is complete. For example, a combination of ``"set_freq":"daily"`` and ``"output_freq":"weekly"``, will return an output at the end of every day, of the same xr.Dataset being appended by one day each time. 
 
 Time step
 ----------------
@@ -263,31 +267,32 @@ The option ``"time_step"``  is the the time step of your incoming data in **minu
 Variable 
 --------------
 
-The climate variable you want to compute your statistic on. If you provide the one_pass with a xr.DataArray, you do not need to set this, however if you provide an xr.Dataset then this is required. 
+The climate variable you want to compute your statistic on. This variable is always required, even if you pass an xr.DataArray with only one variable.
 
 **Note the one_pass can only work with one variable at a time, multiple variables will be handled by different calls in the workflow.**
 
 Save
 ------------
 
-Either ``True`` or ``False``. If you set this to ``False``, the final statistic will only be output in memory and will get overwritten when new data is passed to the Opa class. It is recommended to set this to ``True`` and a netCDF file will be written (in the ``"out_filepath"``) when the statistic is completed.
+Either ``True`` or ``False``. If you set this to ``False``, the final statistic will only be output in memory and will get overwritten when new data is passed to the Opa class. It is recommended to set this to ``True`` and a netCDF file will be written (in the ``"save_filepath"``) when the statistic is completed.
 
 If you have requested to save the output, the file name will be ``timestamp_variable_stat_frequency_statistic.nc``. For example, if you asked for a monthly mean of precipitation the file name would be ``2070_05_pr_monthly_mean.nc``. The one_pass will not differentiate between different experimental runs.
 
 Checkpoint
 -----------------
-Either ``True`` or ``False``. This defines if you want to write intermediate checkpoint files as the one_pass is provided new data. If ``True``, a checkpoint file will be written for every new chunk of incoming data. If set to ``False`` the rolling statistic will only be stored in memory and will be lost of if the programme crashes. Setting to ``True`` will allow for the statistics to be rolled back in time if the model crashes. It is highly recommended to set this to ``True``.
+
+Either ``True`` or ``False``. If this key:value pair is not provided it will default to ``True``. This defines if you want to write intermediate checkpoint files as the one_pass is provided new data. If ``True``, a checkpoint file will be written for every new chunk of incoming data. If set to ``False`` the rolling statistic will only be stored in memory and will be lost of if the programme crashes. Setting to ``True`` will allow for the statistics to be rolled back in time if the model crashes. It is highly recommended to set this to ``True``.
 
 
 Checkpoint Filepath
 -------------------------
 
-This is the file path, **NOT including the file name**, of your checkpoint files. The name of the checkpoint file will be dynamically created.
+This is the file path, **NOT including the file name**, of your checkpoint files. The name of the checkpoint file will be dynamically created. If ``"checkpoint":False``, this key:value pair is not required.
 
 Save Filepath
 -----------------
 
-``"out_filepath"`` is the file path to where you want the final netCDF files to be written. The name of the file is dynamically created inside the one_pass as it contains the details of the requested statistic.
+``"save_filepath"`` is the file path, **NOT including the file name**,  to where you want the final netCDF files to be written. The name of the file is dynamically created inside the one_pass as it contains the details of the requested statistic.
 
 
 

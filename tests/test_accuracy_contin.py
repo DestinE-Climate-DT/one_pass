@@ -38,10 +38,9 @@ data = xr.open_dataset(fileList[0], engine='netcdf4') # , chunks = 'auto') # ope
 data = data.compute()
 data = data.astype(np.float64)
 
-dec_place = 1e-3
+dec_place = 1e-6
 dec_place_per = 2
 ############################# define functions ######################################
-
 
 def two_pass_mean(data, n_start, n_data):
 
@@ -51,7 +50,6 @@ def two_pass_mean(data, n_start, n_data):
     np_mean = np.mean(ds, axis=axNum, dtype=np.float64, keepdims=True)
     return np_mean
 
-
 def two_pass_std(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data))
@@ -59,7 +57,6 @@ def two_pass_std(data, n_start, n_data):
     np_std = np.std(ds, axis=axNum, dtype=np.float64, ddof=1, keepdims=True)
 
     return np_std
-
 
 def two_pass_var(data, n_start, n_data):
 
@@ -69,7 +66,6 @@ def two_pass_var(data, n_start, n_data):
 
     return np_var
 
-
 def two_pass_min(data, n_start, n_data):
 
     ds = data.isel(time=slice(n_start, n_data))
@@ -77,7 +73,6 @@ def two_pass_min(data, n_start, n_data):
     np_min = np.min(ds, axis=axNum, keepdims=True)
 
     return np_min
-
 
 def two_pass_max(data, n_start, n_data):
 
@@ -87,6 +82,13 @@ def two_pass_max(data, n_start, n_data):
 
     return np_max
 
+def two_pass_sum(data, n_start, n_data):
+
+    ds = data.isel(time=slice(n_start, n_data)) 
+    axNum = ds.get_axis_num('time')
+    np_sum = np.sum(ds, axis = axNum, keepdims = True)
+    
+    return np_sum 
 
 def two_pass_percentile(data, n_start, n_data, perc_list):
 
@@ -134,7 +136,6 @@ def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
 
 ####################### py tests ##############################
 
-
 def test_mean():
     
     # 3 months of data 
@@ -152,7 +153,7 @@ def test_mean():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
 
@@ -171,7 +172,6 @@ def test_mean():
 
     assert np.allclose(two_pass, one_pass, atol=dec_place), message
 
-
 def test_std():
 
     # 3 months of data 
@@ -189,7 +189,7 @@ def test_std():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
     
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -206,7 +206,6 @@ def test_std():
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
 
     assert np.allclose(two_pass, one_pass, atol=dec_place), message
-
 
 def test_var():
 
@@ -225,7 +224,7 @@ def test_var():
     "save": False,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
     
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -242,7 +241,6 @@ def test_var():
     one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
 
     assert np.allclose(two_pass, one_pass, atol=dec_place), message
-
 
 def test_max():
 
@@ -261,7 +259,7 @@ def test_max():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -278,7 +276,6 @@ def test_max():
     one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
 
     assert np.allclose(two_pass, one_pass, atol=dec_place), message
-
 
 def test_min():
 
@@ -297,7 +294,7 @@ def test_min():
     "save": False,
     "checkpoint": False,
     "checkpoint_filepath": "tests/",
-    "out_filepath": "tests/"}
+    "save_filepath": "tests/"}
 
     data_arr = getattr(data, pass_dic["variable"])
     message = (
@@ -315,6 +312,40 @@ def test_min():
 
     assert np.allclose(two_pass, one_pass, atol=dec_place), message
 
+def test_sum():
+
+    # 4 days of data 
+    n_start = 31*24 + 28*24
+    n_data =  n_start + 24*4
+    step = 2
+
+    pass_dic = {"stat": "sum",
+    "stat_freq": "continuous",
+    "output_freq": "daily",
+    "percentile_list" : None,
+    "thresh_exceed" : None,
+    "time_step": 60,
+    "variable": "pr",
+    "save": False,
+    "checkpoint": False,
+    "checkpoint_filepath": "tests/",
+    "save_filepath": "tests/"}
+    
+    data_arr = getattr(data, pass_dic["variable"])
+    message = (
+        "OPA "
+        + str(pass_dic["stat"])
+        + " and numpy "
+        + str(pass_dic["stat"])
+        + " not equal to "
+        + str(dec_place)
+        + " dp"
+    )
+
+    two_pass = two_pass_sum(data_arr, n_start, n_data)
+    one_pass = opa_stat_no_checkpoint(n_start, n_data, step, pass_dic)
+
+    assert np.allclose(two_pass, one_pass, atol=dec_place), message
 
 # def test_min_hourly():
 
@@ -332,7 +363,7 @@ def test_min():
 #     "save": False,
 #     "checkpoint": False,
 #     "checkpoint_filepath": "tests/",
-#     "out_filepath": "tests/"}
+#     "save_filepath": "tests/"}
 
 #     data_arr = getattr(data, pass_dic["variable"])
 #     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \
@@ -359,7 +390,7 @@ def test_min():
 #     "save": False,
 #     "checkpoint": True,
 #     "checkpoint_filepath": "tests/",
-#     "out_filepath": "tests/"}
+#     "save_filepath": "tests/"}
 
 #     data_arr = getattr(data, pass_dic["variable"])
 #     message = "OPA " + str(pass_dic["stat"]) + " and numpy " + \

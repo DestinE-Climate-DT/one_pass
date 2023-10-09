@@ -1,6 +1,4 @@
 stat: "mean"
-percentile_list : None,
-thresh_exceed : None,
 stat_freq: "daily"
 output_freq: "daily"
 time_step: 60 # timestep of data in minutes

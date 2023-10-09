@@ -13,5 +13,7 @@ dependencies:
   - tqdm
   - sphinx
   - sphinx-rtd-theme
+  - cython
+  - pip
   - pip:
-    - pytdigest
+    - -e .[all]

@@ -13,7 +13,7 @@ tests = [
 
 setup(
     name="one_pass",
-    version="0.4.2",
+    version="0.5.0",
     description="One Pass Algorithms",
     author="Katherine Grayson",
     author_email="katherine.grayson@bsc.es",
@@ -29,12 +29,13 @@ setup(
         "xarray",
         "dask",
         "zarr",
-        "pytdigest",
+        "cython",
         "pytest",
         "netcdf4",
         "cytoolz",
         "tqdm",
         "sphinx",
         "sphinx-rtd-theme",
+        "crick==0.0.4",
     ],
 )

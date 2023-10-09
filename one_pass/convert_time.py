@@ -1,6 +1,8 @@
 import numpy as np
+import pandas as pd
 
-"""Functions to convert time for the one pass algorithms.
+"""
+Functions to convert time for the one pass algorithms.
 
 times is a mapping between time words (and time stamps) and number of 
 minutes, to avoid having multiple if statements. Converts to 
@@ -10,6 +12,7 @@ of days in a month. This is done below
 
 times = {
     "hourly": 60,
+    "2hourly":2 * 60,
     "3hourly": 3 * 60,
     "6hourly": 6 * 60,
     "12hourly": 12 * 60,
@@ -18,11 +21,13 @@ times = {
     "weekly": 7 * 24 * 60,
     "monthly": 24 * 60,  # NOTE: see below for minutes with monthly
     "3monthly": 24 * 60,  # NOTE: see below for minutes with 3monthly
-    "annually": 365 * 24 * 60,
+    "annually": 365*24 * 60, # NOTE: see below for dealing with leap years
+    "10annually" : 24 * 60, # NOTE: see below for dealing with leap years
 }
 
-
-def convert_time(time_word="daily", time_stamp_input=None):
+def convert_time(time_word="daily", time_stamp_input=None,
+                 class_obj=None
+                 ):
 
     """
     Function to convert current time stamp and known frequency
@@ -50,12 +55,14 @@ def convert_time(time_word="daily", time_stamp_input=None):
     if time_word not in times:
         valid_values = ", ".join(times.keys())
         raise ValueError(
-            f"The input saving frequency '{time_word}' is not supported, \
-            valid values are: {valid_values}"
+            f"The input saving frequency '{time_word}' is not supported, "
+            f"valid values are: {valid_values}"
         )
 
     if time_stamp_input is None:
-        raise ValueError("You must provide a time_stamp_input for saving frequency")
+        raise ValueError(
+            "You must provide a time_stamp_input for saving frequency"
+        )
 
     # converts word to minutes
     stat_freq_min = times.get(time_word)
@@ -73,6 +80,19 @@ def convert_time(time_word="daily", time_stamp_input=None):
             stat_freq_min = stat_freq_min*(30+31+30)
         elif quarter in (3,4):
             stat_freq_min = stat_freq_min*(31+31+30)
+    elif time_word == "annually":
+        if time_stamp_input.is_leap_year :
+            stat_freq_min += (24 * 60)
+    elif time_word == "10annually" :
+        # if the 1st or second year in the 10 is a leap year then
+        # there will be 3 leap years in the 10 year period
+        # otherwise there will only be 2
+        if time_stamp_input.is_leap_year :
+            stat_freq_min *= (3*366 + 7*365)
+        elif (time_stamp_input + pd.DateOffset(years =1)).is_leap_year :
+            stat_freq_min *= (3*366 + 7*365)
+        else:
+            stat_freq_min *= (2*366 + 8*365)
 
     # now looking at given time stamp
     # converting everything into minutes
@@ -84,7 +104,10 @@ def convert_time(time_word="daily", time_stamp_input=None):
     time_stamp_input_month = (
         (time_stamp_input.month - 1) * time_stamp_input.days_in_month * 24 * 60
     )
-    time_stamp_input_year = time_stamp_input.year * 365 * 24 * 60
+    if time_stamp_input.is_leap_year :
+        time_stamp_input_year = time_stamp_input.year * 366 * 24 * 60
+    else:
+        time_stamp_input_year = time_stamp_input.year * 365 * 24 * 60
 
     # based on the incoming word (or stat freq will convert the time
     # stamp into the number of minutes INTO that freq)
@@ -92,11 +115,20 @@ def convert_time(time_word="daily", time_stamp_input=None):
         time_stamp_min = time_stamp_input_min
         time_stamp_tot_append = time_stamp_input_hour
 
+    elif time_word == "2hourly":
+        if np.mod(time_stamp_input.hour, 2) != 0:
+            time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+        else:
+            time_stamp_min = time_stamp_input_min
+
+        time_stamp_tot_append = time_stamp_input_hour
+
     elif time_word == "3hourly":
         if np.mod(time_stamp_input.hour, 3) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
+
         time_stamp_tot_append = time_stamp_input_hour
 
     elif time_word == "6hourly":
@@ -104,6 +136,7 @@ def convert_time(time_word="daily", time_stamp_input=None):
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
+
         time_stamp_tot_append = time_stamp_input_hour
 
     elif time_word == "12hourly":
@@ -111,20 +144,12 @@ def convert_time(time_word="daily", time_stamp_input=None):
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
+
         time_stamp_tot_append = time_stamp_input_hour
 
     elif time_word == "daily":
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
-        time_stamp_tot_append = time_stamp_input_day_of_month
-        
-    elif time_word == "daily_noon": 
-        
-        if time_stamp_input.hour >= 13 : 
-            time_stamp_input_hour = (time_stamp_input.hour - 13)*60 
-        else: 
-            time_stamp_input_hour = (time_stamp_input.hour + 13)*60 
-        
-        time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+
         time_stamp_tot_append = time_stamp_input_day_of_month
 
     elif time_word == "daily_noon":
@@ -135,9 +160,22 @@ def convert_time(time_word="daily", time_stamp_input=None):
             time_stamp_input_hour = (time_stamp_input.hour + 13)*60
 
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+
+        time_stamp_tot_append = time_stamp_input_day_of_month
+
+    elif time_word == "daily_noon":
+
+        if time_stamp_input.hour >= 13 :
+            time_stamp_input_hour = (time_stamp_input.hour - 13)*60
+        else:
+            time_stamp_input_hour = (time_stamp_input.hour + 13)*60
+
+        time_stamp_min = time_stamp_input_min + time_stamp_input_hour
+
         time_stamp_tot_append = time_stamp_input_day_of_month
 
     elif time_word == "weekly":
+
         time_stamp_min = (
             time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day_of_week
         )
@@ -148,13 +186,14 @@ def convert_time(time_word="daily", time_stamp_input=None):
 
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                          time_stamp_input_day_of_month
+
         time_stamp_tot_append = time_stamp_input_month
 
     if time_word == "3monthly":
         # True for Feb, March, May, June, August, Sep,
         if np.mod(time_stamp_input.month - 1, 3) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
-                             time_stamp_input_day_of_year #  + time_stamp_input_month
+                             time_stamp_input_day_of_year
         else:
             # for Jan, April, etc.
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
@@ -166,6 +205,33 @@ def convert_time(time_word="daily", time_stamp_input=None):
 
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                          time_stamp_input_day_of_year
+
+        time_stamp_tot_append = time_stamp_input_year
+
+    if time_word == "10annually":
+
+        if class_obj is not None:
+            try:
+                getattr(class_obj, "year_for_10annual")
+            except AttributeError:
+                class_obj.__setattr__("year_for_10annual", time_stamp_input.year)
+
+        years_in = np.mod(time_stamp_input.year - getattr(class_obj, "year_for_10annual"), 10)
+
+        if years_in == 0:
+            time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
+                             time_stamp_input_day_of_year #  + time_stamp_input_month
+        else:
+            additional_years = 0
+            for k in range(years_in):
+                if (time_stamp_input + pd.DateOffset(years =-k)).is_leap_year:
+                    additional_years += (366 * 24 * 60)
+                else:
+                    additional_years += (365 * 24 * 60)
+       
+            time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
+                             time_stamp_input_day_of_year + additional_years
+
         time_stamp_tot_append = time_stamp_input_year
 
     return stat_freq_min, time_stamp_min, time_stamp_tot_append

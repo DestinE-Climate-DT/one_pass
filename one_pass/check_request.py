@@ -7,9 +7,41 @@ and any setting required for certain statistics
 
 import os
 import numpy as np
+import warnings
+
+required_keys_with_set_output = [
+    "stat",
+    "stat_freq",
+    "save",
+    "checkpoint",
+]
+
+required_keys_with_variable_output = [
+    "time_step",
+    "variable",
+]
+
+non_required_keys_with_set_output = [
+    "output_freq",
+]
+
+non_required_keys_with_variable_output = [
+    "checkpoint_filepath",
+    "save_filepath",
+]
+
+save_options = [
+    True,
+    False,
+]
+
+checkpoint_options = [
+    True,
+    False,
+]
 
 # list of allowed options for statistic
-stat_options = {
+stat_options = [
     "mean",
     "std",
     "var",
@@ -17,15 +49,17 @@ stat_options = {
     "min",
     "max",
     "percentile",
+    "histogram",
     "raw",
     "bias_correction",
     "sum",
     "iams",
-}
+]
 
 # list of allowed options for statistic frequency
-stat_freq_options = {
+stat_freq_options = [
     "hourly",
+    "2hourly",
     "3hourly",
     "6hourly",
     "12hourly",
@@ -35,12 +69,14 @@ stat_freq_options = {
     "monthly",
     "3monthly",
     "annually",
+    "10annually",
     "continuous",
-}
+]
 
 # list of allowed options for output frequency
-output_freq_options = {
+output_freq_options = [
     "hourly",
+    "2hourly",
     "3hourly",
     "6hourly",
     "12hourly",
@@ -50,7 +86,303 @@ output_freq_options = {
     "monthly",
     "3monthly",
     "annually",
-}
+    "10annually",
+]
+
+def missing_value(key, passed_key, valid_values):
+
+    """
+    Function to define the ValueError if the requested value in any
+    key : value pair is not in the supported list.
+
+    """
+    raise ValueError(
+                f"The requested {key} : '{passed_key}' is not supported, "
+                f"valid values are: {valid_values}"
+            )
+
+def missing_key(key, valid_values, exc):   
+
+    """
+    Function to define the KeyError if the one_pass request is missing
+    a required key : value pair which has a specfic list of valid values
+    """
+
+    raise KeyError(
+            "Data request (python dictionary or config.yml) must include"
+            f" the key, value pair {key} : {valid_values}, "
+            "See docs for details."
+        ) from exc
+
+def variable_missing_key(key, exc):
+
+    """
+    Function to define the KeyError if the one_pass request is missing
+    a required key : value pair wtihtout a set list of allowed values
+    """
+
+    raise KeyError(
+            "Data request (python dictionary or config.yml) must include"
+            f" the key '{key}' with an appropriate value pair. "
+            "See docs for details."
+        ) from exc
+
+def missing_non_required_key(key, set_value):
+
+    """
+    Function to define warning if there was a non-required key value pair
+    that was not passed in the request. The warning includes the value that
+    the key value pair has been set to.
+    """
+
+    warnings.warn(
+        "Data request (python dictionary or config.yml) did not include"
+        f" {key}. {key} has been set to {set_value}.", UserWarning
+    )
+
+def check_key_values(request, valid_options, key):
+
+    """
+    Checks for the attribute stat and stat_freq.
+    If they exist it will check it's in the list of valid options.
+    If they doesn't exist it will raise a KeyError.
+
+    """
+    valid_options = globals()[valid_options]
+
+    try:
+        passed_key = getattr(request, key)
+        if passed_key not in valid_options:
+            missing_value(
+                key, passed_key, valid_options
+            )
+
+    except AttributeError as exc:
+        missing_key(key, valid_options, exc)
+
+def check_variable_key_values(request, key):
+
+    """
+    Checks for the keys that have a variable value, given in list
+    'required_keys_with_variable_output'.
+    If they doesn't exist it will raise a KeyError.
+    """
+
+    try:
+        getattr(request, key)
+
+    except AttributeError as exc:
+        variable_missing_key(key, exc)
+
+def check_non_required_key_values(request, key):
+
+    """
+    Checks for the non-required keys in the request, given in list
+    'non_required_keys_with_output'.
+    If they doesn't exist it will set them equal to their default
+    value and raise a warning explaining this.
+
+    Returns
+    --------
+    Potentially modified request
+    """
+
+    try:
+        getattr(request, key)
+    except AttributeError:
+        if key == "output_freq":
+            request.__setattr__(key, request.stat_freq)
+        else:
+            request.__setattr__(key, True)
+        set_value = getattr(request, key)
+        missing_non_required_key(key, set_value)
+
+def check_non_required_variable_key_values(request, key):
+
+    """
+    Function that checks the file paths for saving and checkpointing
+    from list 'non_required_keys_with_variable_output'.
+    key == save_filepath or checkpoint_filepath. These keys are required
+    if saving and checkpointing is True, but if they're set to False,
+    these keys are not required.
+
+    """
+
+    try:
+        file_path = getattr(request, key)
+        if os.path.exists(os.path.dirname(file_path)):
+        # check it points to a directory
+            if os.path.isdir(file_path):
+                # working directory, great
+                pass
+            else:
+                # try to reset the file_path
+                #print(os.path.dirname(file_path))
+                request.__setattr__(key, os.path.dirname(file_path))
+                file_path = getattr(request, key)
+
+                if os.path.isdir(file_path):
+                    warnings.warn(
+                    f"Removed file name from {key}, as this"
+                    f" is created dynamically. Filepath is now {file_path}",
+                    UserWarning
+                    )
+                else:
+                    raise ValueError(
+                        f"Please pass a file path for {key} that does "
+                        "not include the file name as this is created dynamically"
+                    )
+        else:
+            try: 
+                os.mkdir(os.path.dirname(file_path))
+                warnings.warn(
+                    f"created the new directory {file_path}"
+                    f" for {key}", UserWarning
+                    )
+            except:
+                raise ValueError(f"Please pass a valid file path for {key}")
+
+    except AttributeError as exc:
+        variable_missing_key(key, exc)
+
+def key_error_freq_mix(output_freq, stat_freq):
+
+    """""
+    Defines the KeyError raised if there is a mismatch between
+    the stat_freq and the output_freq
+    """
+
+    raise ValueError (
+        f"Can not set output_freq equal to {output_freq} if stat_freq"
+        f" is equal to {stat_freq}. Output_freq must always be greater "
+        "than stat_freq."
+    )
+
+def mix_of_stat_and_output_freq(output_freq, stat_freq, request):
+
+    """
+    Function to check the combination of stat_freq and
+    output_freq.
+    """
+    output_freq_weekly_options = [
+        "monthly",
+        "3monthly",
+        "annually",
+        "10annually",
+    ]
+
+    if output_freq == "continuous" and stat_freq == "continuous":
+        key_error_freq_mix(output_freq, stat_freq)
+
+    elif stat_freq == "weekly":
+        if output_freq in output_freq_weekly_options:
+            key_error_freq_mix(output_freq, stat_freq)
+ 
+    if stat_freq == "daily_noon":
+        if output_freq == "daily":
+            request.__setattr__(output_freq, stat_freq)
+            warnings.warn(
+                'Changed output_freq from "daily" to "daily_noon" '
+                " as stat_freq is set to daily_noon",
+                UserWarning
+                )        
+
+    index_value = stat_freq_options.index(stat_freq)
+    if stat_freq != "continuous":
+        for j in range(len(output_freq_options[0:index_value])):
+            # test that output_freq is always the same or greater than
+            # stat_freq
+            if output_freq in stat_freq_options[0:j]:
+                key_error_freq_mix(output_freq, stat_freq)
+
+def check_thresh_exceed(request):
+
+    if request.stat == "thresh_exceed":
+        if not hasattr(request, "thresh_exceed"):
+            raise AttributeError(
+                "For the thresh_exceed statistic you need to provide "
+                " the threshold value. This is set in a seperate key : value"
+                " pair, 'thresh_exceed' : some_value, where some_value is"
+                " the threshold you wish to set"
+            )
+
+def check_histogram(request):
+    if request.stat == "histogram":
+        if not hasattr(request, "bins"):
+            warnings.warn(
+                "Optional key value 'bins' : int or array_like. "
+                "If 'bins' is an int, it defines the number of equal width bins in "
+                "the given range. If 'bins' is an array_like, the values define "
+                "the edges of the bins (rightmost edge inclusive), allowing for "
+                "non-uniform bin widths. If set to 'None', or not included at all "
+                "it will default to 10.",
+                UserWarning
+            )
+
+            "Optional key value 'bins' : int or array_like. "
+            "If 'bins' is an int, it defines the number of equal width bins in "
+            "the given range. If 'bins' is an array_like, the values define "
+            "the edges of the bins (rightmost edge inclusive), allowing for "
+            "non-uniform bin widths. If set to 'None', or not included at all "
+            "it will default to 10.",
+
+        # if not hasattr(request, "range"):
+        #     warnings.warn(
+        #         "Optional key value 'range' : '[float, float]'. The lower and upper "
+        #         "bounds to use when generating bins. If not "
+        #         "provided, the digest bounds '[t.min(), t.max())]' are used. Note "
+        #         "that this option is ignored if the bin edges are provided "
+        #         "explicitly. ", UserWarning
+        #     )
+
+def check_percentile(request):
+
+    if request.stat == "percentile":
+        if not hasattr(request, "percentile_list") or request.percentile_list is None:
+            warnings.warn(
+                "key value pair 'percentile_list' has been set to [],"
+                " without quotations, for the whole distribution."
+                " For the percentile statistic you should provide"
+                " a list of required percentiles, e.g. [0.01, 0.5, 0.99]"
+                " for the 1st, 50th and 99th percentile, or"
+                " if you want the whole distribution, 'percentile_list' : [] ",
+                UserWarning
+            )
+            request.__setattr__("percentile_list", [])
+        # this is to check if it's an empty list
+        if not request.percentile_list:
+            for j in range(np.size(request.percentile_list)):
+                if request.percentile_list[j] > 1 or request.percentile_list[j] < 0:
+                    raise ValueError(
+                        'Percentiles must be between 0 and 1 or [] '
+                        " for the whole distribution"
+                    )
+
+def check_iams(request):
+
+    if request.stat =="iams":
+        if request.stat_freq != "annually":
+            raise ValueError(
+                'Must set stat_freq equal to annually when requesting'
+                ' iams statistic')
+        if request.output_freq != "annually":
+            raise ValueError(
+                'Must set output_freq equal to annually when requesting'
+                ' iams statistic')
+
+def check_bias_correction(request):
+
+    """
+    Check that if bias_correction has been selected as the statistic
+    then both output_freq and stat_freq are set to daily.
+    """
+
+    if request.stat == "bias_correction":
+        if  request.stat_freq != "daily" or request.output_freq != "daily":
+            raise ValueError(
+                "Must set stat_freq and output_freq equal to daily when"
+                " requesting data for bias correction"
+            )
 
 def check_request(request):
 
@@ -64,234 +396,40 @@ def check_request(request):
     Error if there's something wrong with the request
 
     """
-    try:
-        # if time_append already exisits it won't overwrite it
-        getattr(request, "stat")
-        stat = request.stat
 
-        if stat not in stat_options:
-            valid_values = ", ".join(stat_options)
-            raise ValueError(
-                f"The requested stat '{stat}' is not supported, "
-                f"valid values are: {valid_values}"
-            )
+    for element in required_keys_with_set_output:
 
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'stat' : some_stat, "
-            "corresponding to the statistic you require see docs for details"
-        ) from exc
+        valid_options = f'{element}_options'
+        check_key_values(request, valid_options, element)
 
-    try:
-        # if time_append already exisits it won't overwrite it
-        getattr(request, "stat_freq")
-        stat_freq = request.stat_freq
+    for element in required_keys_with_variable_output:
 
-        if stat_freq not in stat_freq_options:
-            valid_values = ", ".join(stat_freq_options)
-            raise ValueError(
-                f"The requested stat_freq '{stat_freq}' is not supported, "
-                f" valid values are: {valid_values}"
-            )
+        check_variable_key_values(request, element)
 
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'stat_freq' : "
-            " some_freq, see docs for details"
-        ) from exc
+    for element in non_required_keys_with_set_output:
+        # output_freq
+        check_non_required_key_values(request, element)
 
-    try:
-        getattr(request, "output_freq")
-        output_freq = request.output_freq
+    for element in non_required_keys_with_variable_output:
+        # Loop to check that save_filepath and checkpoint_filepath
+        # are present, only if save or checkpoint is set to True
 
-        if output_freq == "continuous":
-            raise ValueError(
-                "Can not put continuous as the output frequency, must specifcy "
-                " frequency (e.g. monthly) for on-going netCDF files"
-            )
+        # here checking that the 'save' and 'checkpoint' are True
+        parts = element.split('_')
+        before = parts[0]
+        if getattr(request, before):
+            check_non_required_variable_key_values(request, element)
 
-        if output_freq not in output_freq_options:
-            valid_values = ", ".join(output_freq_options)
-            raise ValueError(
-                f"The requested output_freq '{output_freq}' "
-                f" is not supported, valid values are: {valid_values}"
-            )
+    output_freq = request.output_freq
+    stat_freq = request.stat_freq
+    mix_of_stat_and_output_freq(output_freq, stat_freq, request)
 
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'output_freq' :"
-            " some_freq, see docs for details"
-        ) from exc
+    # check requirements for specific statistics
+    check_thresh_exceed(request)
+    check_histogram(request)
+    check_percentile(request)
+    check_iams(request)
+    check_bias_correction(request)
 
-    if output_freq == "monthly" and stat_freq == "weekly":
-        raise KeyError (
-            "Can not set output_freq equal to monthly if stat_freq"
-            " is equal to weekly, as months are not wholly divisable by "
-            "weeks."
-        )
+    
 
-    try:
-        getattr(request, "time_step")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'time_step' : "
-            " time_step in minutes of data, see docs for details"
-        ) from exc
-
-    try:
-        getattr(request, "variable")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'variable' : "
-            " variable of interest, see docs for details"
-        ) from exc
-
-    try:
-        getattr(request, "percentile_list")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'percentile_list' : "
-            " list of percentiles. If not required for your statistc set "
-            " 'percentile_list : None"
-        ) from exc
-
-    try:
-        getattr(request, "thresh_exceed")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'thresh_exceed' : "
-            "threshold. If not required for your statistic set "
-            "'thresh_exceed' : None"
-        ) from exc
-
-    try:
-        getattr(request, "save")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'save' : "
-            "True or False. Set to True if you want to save the "
-            "completed statistic to netCDF"
-        ) from exc
-
-    try:
-        getattr(request, "checkpoint")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'checkpoint' : "
-            " True or False. Highly recommended to set to True so that "
-            " the Opa will save summaries in case of model crash"
-        ) from exc
-
-    try:
-        getattr(request, "out_filepath")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'output_file' : "
-            " file/path/for/saving. If you do not want to save, and "
-            " you have set save : False, here you can put None"
-        ) from exc
-
-    try:
-        getattr(request, "checkpoint_filepath")
-
-    except AttributeError as exc:
-        raise KeyError(
-            "config.yml must include key value pair 'checkpoint_file' : "
-            " file/path/for/checkpointing. If you do not want to checkpoint, and"
-            " you have set checkpoint : False, here you can put None"
-        ) from exc
-
-    if request.save:
-        file_path = getattr(request, "out_filepath")
-        if os.path.exists(os.path.dirname(file_path)):
-            # check it points to a directory
-            if os.path.isdir(file_path):
-                pass
-            else:
-                raise ValueError(
-                    "Please pass a file path for saving that does "
-                    "not include the file name as this is created dynamically"
-                )
-        else:
-            if os.path.isdir(file_path):
-                os.mkdir(os.path.dirname(file_path))
-                print("created new directory for saving")
-            else:
-                raise ValueError("Please pass a valid file path for saving")
-
-    if request.checkpoint:
-        file_path = getattr(request, "checkpoint_filepath")
-        if os.path.exists(os.path.dirname(file_path)):
-            # check it points to a directory
-            if os.path.isdir(file_path):
-                pass
-            else:
-                raise ValueError(
-                    "Please pass a file path for checkpointing that "
-                    " does not include the file name, as this is "
-                    " created dynamically"
-                )
-        else:
-            # if they have put a file name here it will drop it
-            if os.path.isdir(file_path):
-                os.mkdir(os.path.dirname(file_path))
-                print("created new directory for checkpointing")
-            else:
-                raise ValueError("Please pass a valid file path for checkpointing")
-
-    if request.stat == "thresh_exceed":
-        if not hasattr(request, "thresh_exceed"):
-            raise AttributeError("need to provide threshold of exceedance value")
-
-    if request.stat == "percentile":
-        if not hasattr(request, "percentile_list"):
-            raise ValueError(
-                "For the percentile statistic you need to provide "
-                " a list of required percentiles, e.g. 'percentile_list' :"
-                " [0.01, 0.5, 0.99] for the 1st, 50th and 99th percentile, "
-                " if you want the whole distribution, 'percentile_list' : ['all']"
-            )
-
-        if request.percentile_list is None:
-            raise ValueError(
-                        'Percentiles must be between 0 and 1 or ["all"] '
-                        " for the whole distribution"
-                    )
-
-        if request.percentile_list[0] != "all":
-            for j in range(np.size(request.percentile_list)):
-                if request.percentile_list[j] > 1:
-                    raise ValueError(
-                        'Percentiles must be between 0 and 1 or ["all"] '
-                        " for the whole distribution"
-                    )
-
-    if request.stat =="iams":
-        if request.stat_freq != "annually":
-            raise ValueError(
-                'Must set stat_freq equal to annually when requesting'
-                ' iams statistic')
-        if request.output_freq != "annually":
-            raise ValueError(
-                'Must set output_freq equal to annually when requesting'
-                ' iams statistic')
-
-    if request.stat == "bias_correction":
-        if  request.stat_freq != "daily":
-            raise ValueError(
-                "Must set stat_freq equal to daily when requesting"
-                " data for bias correction"
-            )
-
-        if request.output_freq != "daily":
-            raise ValueError(
-                "Must set output_freq equal to daily when requesting"
-                " data for bias correction"
-            )

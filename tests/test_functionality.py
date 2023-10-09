@@ -56,21 +56,18 @@ data = data.astype(np.float64)
 
 ############################# define functions #########################
 
-
 def lower_output(data):
 
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "3hourly",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "pr",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -86,17 +83,15 @@ def lower_output(data):
 def bad_timestep(data):
 
     pass_dic = {
-        "stat": "mean",
+        "stat": "sum",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
-        "time_step": 37.3,
+        "time_step": 27.4,
         "variable": "pr",
-        "save": True,
+        "save": False,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -108,21 +103,18 @@ def bad_timestep(data):
         ds = data.isel(time=slice(i, i + 1))  # extract moving window
         dm = daily_mean.compute(ds)
 
-
 def check_attributes(data):
 
     pass_dic = {
         "stat": "mean",
         "stat_freq": "daily",
         "output_freq": "daily",
-        "percentile_list": None,
-        "thresh_exceed": None,
         "time_step": 60,
         "variable": "es",
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": "tests/",
+        "save_filepath": "tests/",
     }
 
     n_start = 0
@@ -148,7 +140,7 @@ def outputs_for_bc(data, file_path):
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
-        "out_filepath": file_path,
+        "save_filepath": file_path,
     }
 
     n_start = 0
@@ -171,18 +163,15 @@ def test_raises_timing_error():
     with pytest.raises(ValueError):
         lower_output(data)
 
-
 def test_bad_timestep():
 
     with pytest.raises(Exception):
         bad_timestep(data)
 
-
 def test_attributes():
 
     with pytest.raises(Exception):
         check_attributes(data)
-
 
 # def test_output_for_bc():
 
