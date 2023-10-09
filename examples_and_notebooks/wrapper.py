@@ -1,6 +1,8 @@
 import glob
 import os
 import sys
+import xarray as xr
+import numpy as np
 
 # making sure we're in the correct folder  
 path = os.path.realpath(os.path.join(os.path.dirname(__file__)))
@@ -15,25 +17,22 @@ def main():
     pass_dic = {"stat": "mean",
     "stat_freq": "daily",
     "output_freq": "daily",
-    "thresh_exceed" : None, 
-    "percentile_list", : None, 
     "time_step": 60,
     "variable": "uas",
     "save": True,
     "checkpoint": True,
     "checkpoint_filepath": "/path/to/checkpoint/data/",
-    "out_filepath": "/path/to/saved/data/"}
+    "save_filepath": "/path/to/saved/data/"}
 
     ########### GSV Interface ################  
 
     #### reading some data from disk - replace with call to GSV interface  #### 
-    file_path_data = os.path.realpath(os.path.join(os.path.dirname(__file__), 'tests', 'uas_10_months.nc'))
+    file_path_data = os.path.realpath(os.path.join(os.path.dirname(__file__), 'tests', 'pr_12_months.nc'))
 
     fileList = glob.glob(file_path_data) 
     fileList.sort() 
     data = xr.open_dataset(fileList[0])  
     data = data.astype(np.float64)
-
 
     ############ computing OPA ############# 
 
