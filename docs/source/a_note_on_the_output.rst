@@ -14,6 +14,6 @@ If you have requested to save the output the file name will be ``timestamp_varia
 The only different file names will be for the following:
 
 - ``"stat_freq" : "raw"``, which will follow the form ``timestamp_variable_raw_data.nc``
-- ``"stat_freq" : "bias_correction"``, will have the three file names ``timestamp_variable_daily_mean.nc`` (or ``timestamp_variable_daily_sum.nc`` if the variable is for precipitation, ``timestamp_variable_raw_data.nc`` for the raw data and ``month_num_variable_bias_correction.pkl`` for the digest files (potentially also with a .zarr file, see the bias correction section in :doc:`the_data_request`.
+- ``"stat_freq" : "bias_correction"``, will have the three file names ``timestamp_variable_daily_mean.nc`` (or ``timestamp_variable_daily_sum.nc`` if the variable is for precipitation), ``timestamp_variable_raw_data.nc`` for the raw data and ``month_num_variable_bias_correction.pkl`` for the digest files (potentially also with a .zarr file, see the bias correction section in :doc:`the_data_request`).
 - ``"stat_freq" : "histogram"`` will have two files ``timestamp_variable_histogram_stat_freq_bin_edges.nc`` and ``timestamp_variable_histogram_stat_freq_bin_counts.nc``.
 
