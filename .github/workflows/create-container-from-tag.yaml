@@ -8,7 +8,7 @@ on:
   #     - v*
 
 env:
-  IMAGE_NAME: one_pass
+  IMAGE_NAME: one-pass
 jobs:
   build:
     runs-on: ubuntu-latest
