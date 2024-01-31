@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: one-pass
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     permissions:
        packages: write
        contents: read
@@ -19,9 +19,9 @@ jobs:
       - name: "Check out code"
         uses: actions/checkout@v3
       - name: "Log in to registry"
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }}  --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }}  --password-stdin
       - name: "build container"
-        run: docker build --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}" .
+        run: podman build --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}" .
       - name: "publish container"
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
@@ -32,5 +32,5 @@ jobs:
           [ "$VERSION" == "main" ] && VERSION=latest
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          podman tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          podman push $IMAGE_ID:$VERSION
