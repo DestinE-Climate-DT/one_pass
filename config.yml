@@ -1,0 +1,11 @@
+stat: "mean"
+stat_freq: "daily"
+output_freq: "daily"
+time_step: 60 # timestep of data in minutes
+param: "uas"
+save: True
+checkpoint: True
+checkpoint_filepath: "/file/path/to/checkpoint/"
+save_filepath: "/file/path/to/save/"
+
+

@@ -1,0 +1,313 @@
+stages:
+  - prepare
+  - lint
+  - test
+
+buildcloud:
+  tags:
+    - csccloud
+  artifacts:
+    paths:
+      - venv
+    expire_in: 20 minutes
+  stage: prepare
+  script:
+    - python3.9 -m venv venv
+    - source venv/bin/activate
+    - python3.9 -m pip install --upgrade pip
+    - pip3.9 install -e .[all]
+    - pip3.9 install pylint
+
+buildlumi:
+  tags:
+    - lumi
+  variables:
+    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+  artifacts:
+    paths:
+      - venvlumi
+    expire_in: 60 minutes
+  stage: prepare
+  script:
+    - module load cray-python
+    - python -m venv venvlumi
+    - source venvlumi/bin/activate
+    - python -m pip install --upgrade pip
+    - pip install -e .[all]
+
+lint-opa:
+  allow_failure: true
+  dependencies:
+    - buildcloud
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/opa.py
+
+lint-check_request:
+  allow_failure: true
+  dependencies:
+    - buildcloud
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/check_request.py
+
+lint-util:
+  allow_failure: true
+  dependencies:
+    - buildcloud
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint  --fail-under=9.5 one_pass/util.py
+
+lint-convert_time:
+  allow_failure: true
+  dependencies:
+    - buildcloud
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/convert_time.py
+
+lint-init:
+  allow_failure: true
+  dependencies:
+    - buildcloud
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/__init__.py
+
+lint-update_statistics:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/statistics/update_statistics.py
+
+lint-bc:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/statistics/bias_correction.py
+
+lint-raw:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/statistics/raw_data.py
+
+lint-get_final_statistics:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/statistics/get_final_statistics.py
+  
+lint-create_data_sets:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/saving/create_data_sets.py
+
+lint-create_file_names:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/saving/create_file_names.py
+
+lint-modify_attributes:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/saving/modify_attributes.py
+
+lint-save_final:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/saving/save_final.py
+
+lint-remove_attributes:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/saving/remove_attributes.py
+
+lint-write_checkpoint:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/checkpointing/write_checkpoint.py
+
+lint-write_zarr:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/checkpointing/write_zarr.py
+
+lint-write_pickle:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/checkpointing/write_pickle.py
+
+lint-remove_checkpoints:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/checkpointing/remove_checkpoints.py
+
+lint-check_time:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/initialise/check_time.py
+
+
+lint-time_append:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/initialise/time_append.py
+
+
+lint-initialise_statistics:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/initialise/initialise_statistics.py
+
+lint-initialise_time:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint --fail-under=9.5 one_pass/initialise/initialise_time.py
+
+lint-check_variable:
+  allow_failure: true
+  tags:
+    - csccloud
+  stage: lint
+  script:
+    - source venv/bin/activate
+    - pylint one_pass/initialise/check_variable.py
+
+test:
+  variables:
+    SCHEDULER_PARAMETERS: "-N 1 -t 03:00:00"
+  tags:
+    - csccloud
+  stage: test
+  script:
+    - source venv/bin/activate
+    - tests/get_data.sh
+    - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  # These artifacts are saved with every build in GitLab and can be reviewed later. If
+  # we have a folder with HTML files, as in this example, users can navigate with their
+  # browser.
+  artifacts:
+    expire_in: 30 days
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+testlumi:
+  dependencies:
+    - buildlumi
+  needs:
+    - buildlumi
+  variables:
+    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+  tags:
+    - lumi
+  stage: test
+  script:
+    - source venvlumi/bin/activate
+    - tests/get_data.sh
+    - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  # These artifacts are saved with every build in GitLab and can be reviewed later. If
+  # we have a folder with HTML files, as in this example, users can navigate with their
+  # browser.
+  artifacts:
+    expire_in: 30 days
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# documentation:
+#   tags:
+#     - csccloud
+#   stage: docs
+#   script:
+#     - sphinx-build docs/source docs/build
+#     - mv docs/build public/
+#   artifacts:
+#     paths:
+#       - public
+
