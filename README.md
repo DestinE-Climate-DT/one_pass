@@ -1,12 +1,16 @@
 # One pass algorithms
 
-This repository holds the code for the development and implementation of the one_pass algorithms for the DestinationEarth project. These algorithms are intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations, taking the needs of the use cases into account. The work is contained in workpackage 9 (WP9).
+This repository holds the code for the implementation of the one_pass algorithms for the DestinationEarth project: 
+https://destine.ecmwf.int/ and https://destination-earth.eu/. 
 
-The one_pass algorithms will eventually work with climate data streamted from the Generic State Vector (GSV) interface. The algorithms take as input any Xarray object (either a Dataset or a DataArray) from the GSV interface and will compute the requested statistics. 
+These algorithms are intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations.
+
+The algorithms take as input any Xarray object (either a Dataset or a DataArray) and will compute the requested statistics based on the user configuration. 
 
 ### Disclaimer
-The `one_pass` package is in a preliminary developement phase. Some features are still not implemented and you may encounter bugs. For feedback and issue reporting, feel free to open an issue in: https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass/-/issues
- 
+
+No active development of the one-pass is occuring in this repository - that is occuring in a private repository. For any questions on development please contact katherine.grayson@bsc.es
+
 ## Installation
 As there is currently no package-based installation for the `one_pass` the source must be obtained. This can easily be done (on any platform with internet connection) by cloning the repository directly. We recommend cloning the repository to depth 1 (only taking the latest commit to the main branch), to avoid cloning the larger history:
 
