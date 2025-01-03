@@ -37,7 +37,8 @@ All the information on how to install, configure and run the one_pass package is
 ## Support
 
 For all feedback, comments and issues, feel free to open an issue or email me at katherine.grayson@bsc.es. 
+ 
+[![DOI](https://zenodo.org/badge/684685048.svg)](https://doi.org/10.5281/zenodo.14591827)
 
-DOI: 10.5281/zenodo.14591828
 
 
