@@ -1,11 +1,13 @@
 # One pass algorithms
 
-This repository holds the code for the implementation of the one_pass algorithms for the DestinationEarth project: 
+This repository holds the code for the implementation of the one_pass algorithms, developed for the DestinationEarth project: 
 https://destine.ecmwf.int/ and https://destination-earth.eu/. 
 
 These algorithms are intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations.
 
-The algorithms take as input any Xarray object (either a Dataset or a DataArray) and will compute the requested statistics based on the user configuration. 
+The algorithms take as input any Python Xarray object (either a Dataset or a DataArray) and will compute the requested statistics based on the user configuration yml file. 
+
+The code is ready to be implemented into a workflow which passes output data from climate models of arbitary chunk (number of time steps) length. 
 
 ### Disclaimer
 
