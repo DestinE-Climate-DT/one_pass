@@ -1,7 +1,7 @@
 # One pass algorithms
 
 This repository holds the code for the implementation of the one_pass algorithms, developed for the DestinationEarth project: 
-https://destine.ecmwf.int/ and https://destination-earth.eu/. 
+https://destine.ecmwf.int/ and https://destination-earth.eu/ and licensed under Apache License, Version 2.0. 
 
 These algorithms are intelligent data reduction techniques to process streamed climate model output data on-the-fly to produce statistical summaries or derived computations.
 
