@@ -55,8 +55,16 @@ def call_bias_adjust(data, request):
     if bias_adjust is None:
         msg = "OPA: 'bias_corr' package not found."
         raise ImportError(msg)
+    # If ba_reference_dir contains a 'mask.npy' file, it is assumed to be the mask
+    # that the reference files was computed with. Otherwise, assume that the reference
+    # files were computed with no mask.
+    mask_path = os.path.join(request.ba_reference_dir, "mask.npy")
+    if os.path.isfile(mask_path):
+        mask = np.load(mask_path)
+    else:
+        mask = None
     return bias_adjust(
-        data=data,
+        data=data.load(),
         tdigest_ref=request.ba_reference_dir,
         tdigest_model=os.path.join(request.save_filepath, "ba"),
         lower_threshold=request.ba_lower_threshold,
@@ -65,7 +73,7 @@ def call_bias_adjust(data, request):
         evaluate=False,
         proceed=False,
         stream=True,
-        in_mask=None,
+        in_mask=mask,
         future_meth=request.ba_future_method,
         future_start_date=datetime.fromisoformat(request.ba_future_start_date),
         future_weight=request.ba_future_weight,

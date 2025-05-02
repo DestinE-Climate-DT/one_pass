@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.1 - 2025/01/31
+
+### Added
+- Feature to prevent OPA checkpoints removal, via the argument `keep_checkpoints` in the `Opa` constructor.
+
+### Updated
+- For bias adjustment, implemented reading the mask file, which is assumed placed in the bias adjustment reference files, with the name `mask.npy`
+
+### Fixed
+- Resolved deferred computation of the Dask Array, by calling data.load()
 
 ## v0.7.0 - 2024/12/02
 

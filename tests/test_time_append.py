@@ -174,11 +174,11 @@ def opa_stat_no_checkpoint(n_start, n_data, step, pass_dic):
 
     return dm
 
-def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
+def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic, keep_checkpoints=False):
 
     for i in range(n_start, n_data, step):
 
-        opa_stat = Opa(pass_dic)
+        opa_stat = Opa(pass_dic, keep_checkpoints=keep_checkpoints)
         ds = data.isel(time=slice(i, i + step))
         dm = opa_stat.compute(ds)
 
@@ -191,7 +191,7 @@ def opa_stat_with_checkpoint(n_start, n_data, step, pass_dic):
 
     return dm
 
-def mean_calc(data):
+def mean_calc(data, keep_checkpoints=False):
 
     n_start = 0 
     n_data = (n_start + 24)*31
@@ -221,11 +221,13 @@ def mean_calc(data):
     )
 
     two_pass = two_pass_mean(data_arr, n_start_2_pass, n_data)
-    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    one_pass = opa_stat_with_checkpoint(
+        n_start, n_data, step, pass_dic, keep_checkpoints=keep_checkpoints
+    )
 
     return one_pass, two_pass, message
 
-def std_calc(data):
+def std_calc(data, keep_checkpoints=False):
 
     n_start = 0
     n_data = n_start + 24*31*2 + 28*24
@@ -255,7 +257,9 @@ def std_calc(data):
     )
 
     two_pass = two_pass_std(data_arr, n_start_2_pass, n_data)
-    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    one_pass = opa_stat_with_checkpoint(
+        n_start, n_data, step, pass_dic, keep_checkpoints=keep_checkpoints
+    )
 
     return one_pass, two_pass, message
 
@@ -329,7 +333,7 @@ def max_calc(data):
 
     return one_pass, two_pass, message
 
-def hist_calc():
+def hist_calc(keep_checkpoints=False):
 
     n_start = 4*24
     n_data = n_start + 7*24
@@ -345,7 +349,9 @@ def hist_calc():
     "checkpoint_filepath": "tests/",
     "save_filepath": "tests/"}
 
-    one_pass = opa_stat_with_checkpoint(n_start, n_data, step, pass_dic)
+    one_pass = opa_stat_with_checkpoint(
+        n_start, n_data, step, pass_dic, keep_checkpoints=keep_checkpoints
+    )
 
     return one_pass
 

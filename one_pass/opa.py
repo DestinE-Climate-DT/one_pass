@@ -173,7 +173,13 @@ class Opa:
     nested classes are listed below.
     """
 
-    def __init__(self, user_request: Dict, logging_level : Optional[str]="INFO"):
+    def __init__(
+        self,
+        user_request: Dict,
+        keep_checkpoints: bool = False,
+        logging_level : Optional[str]="INFO"
+    ):
+
         """
         Initalisation. Will initialise all data from their class
         attributes, then if a checkpoint file exists it will re-load
@@ -214,6 +220,7 @@ class Opa:
         user_request = util.parse_request(user_request)
         # assign attributes from the request
         self.request = Request()
+        self.keep_checkpoints = keep_checkpoints
         self.data_set_info = DataSetInfo()
         self.fixed = Fixed()
         self.logger = self._get_logger(logging_level=logging_level)

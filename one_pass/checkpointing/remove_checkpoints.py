@@ -31,11 +31,14 @@ def remove_zarr_checkpoints(opa_self):
                     os.rmdir(checkpoint_file_zarr)
 
 def remove_checkpoints(opa_self):
-    """Will first check if checkpointing is turned on.
+    """If Opa.keep_checkpoints is True, does nothing.
+    Will first check if checkpointing is turned on.
     If yes, it will find the path for the checkpoint
     file and remove it. It will also call remove
-    zarr checkpoints
+    zarr checkpoints.
     """
+    if opa_self.keep_checkpoints:
+        return
     if opa_self.request.checkpoint:
         if os.path.isfile(opa_self.request.checkpoint_file):
             opa_self.logger.debug('removing checkpoint')
