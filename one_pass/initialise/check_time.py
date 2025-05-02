@@ -485,7 +485,7 @@ def check_time_stamp(opa_self, data_source : xr.DataArray, weight : int):
                                     time_stamp, opa_self
                                 )
 
-        elif opa_self.request.stat_freq == "continuous":
+        else:
             # for continuous you want the output_freq to govern
             # n_data (number of samples to add before outputing)
             (

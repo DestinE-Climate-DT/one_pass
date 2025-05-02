@@ -2,7 +2,22 @@
 
 from setuptools import setup, find_packages
 
-version = "0.6.1"
+requirements = [
+    "numpy==2.*",
+    "xarray",
+    "dask",
+    "zarr==2.*",
+    "cython==3.*",
+    "netcdf4==1.*",
+    "cytoolz==1.*",
+    "tqdm==4.*",
+    "sphinx==8.*",
+    "sphinx-rtd-theme==3.*",
+    # Creek wheels built from tag, see
+    # https://github.com/dask/crick/issues/42
+    "crick @ https://github.com/dask/crick/archive/refs/tags/0.0.6.tar.gz",
+    "pyarrow==18.*",
+]
 
 # List of dependencies for running our tests. Not intended to be
 # required for one pass algorithms runtime.
@@ -15,7 +30,8 @@ tests = [
 
 setup(
     name="one_pass",
-    version=version,
+    setup_requires=["setuptools-scm>=8.1.0"],
+    use_scm_version=True,
     description="One Pass Algorithms",
     author="Katherine Grayson",
     author_email="katherine.grayson@bsc.es",
@@ -26,19 +42,5 @@ setup(
         "tests": tests,
         "all": tests,  # later, here we can do tests + docs + something...
     },
-    install_requires=[
-        "numpy",
-        "xarray",
-        "dask",
-        "zarr",
-        "cython",
-        "pytest",
-        "netcdf4",
-        "cytoolz",
-        "tqdm",
-        "sphinx",
-        "sphinx-rtd-theme",
-        "crick==0.0.5",
-        "pyarrow",
-    ],
+    install_requires=requirements,
 )

@@ -103,37 +103,43 @@ def calc_time_stamp_min(time_stamp_input : pd.Timestamp,
 
     # based on the incoming word (or stat freq will convert the time
     # stamp into the number of minutes INTO that freq)
+
+    # Set a bad default. If time_word is not anything below, it's 
+    # going to return -1
+    time_stamp_min = -1
+
+    # this should be rewritten as match/case when python 3.10 is available
     if time_word in ("hourly", "half_hourly"):
         time_stamp_min = time_stamp_input_min
 
-    elif time_word == "2hourly":
+    if time_word == "2hourly":
         if np.mod(time_stamp_input.hour, 2) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
 
-    elif time_word == "3hourly":
+    if time_word == "3hourly":
         if np.mod(time_stamp_input.hour, 3) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
 
-    elif time_word == "6hourly":
+    if time_word == "6hourly":
         if np.mod(time_stamp_input.hour, 6) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
 
-    elif time_word == "12hourly":
+    if time_word == "12hourly":
         if np.mod(time_stamp_input.hour, 12) != 0:
             time_stamp_min = time_stamp_input_min + time_stamp_input_hour
         else:
             time_stamp_min = time_stamp_input_min
 
-    elif time_word == "daily":
+    if time_word == "daily":
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
 
-    elif time_word == "daily_noon":
+    if time_word == "daily_noon":
         if time_stamp_input.hour >= 13 :
             time_stamp_input_hour = (time_stamp_input.hour - 13)*60
         else:
@@ -141,13 +147,12 @@ def calc_time_stamp_min(time_stamp_input : pd.Timestamp,
 
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour
 
-    elif time_word == "weekly":
+    if time_word == "weekly":
         time_stamp_min = (
             time_stamp_input_min + time_stamp_input_hour + time_stamp_input_day_of_week
         )
 
-    elif time_word == "monthly":
-
+    if time_word == "monthly":
         time_stamp_min = time_stamp_input_min + time_stamp_input_hour + \
                          time_stamp_input_day_of_month
 

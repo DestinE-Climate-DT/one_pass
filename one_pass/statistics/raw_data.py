@@ -58,7 +58,7 @@ def check_raw_for_bc(opa_self, data_source, weight, how_much_left):
         dm_raw = check_raw(opa_self, data_source, weight)
 
     # this will span over the new statistic
-    elif how_much_left < weight:
+    else:
         # extracting time until the end of the statistic
         data_source_left = data_source.isel(time=slice(0, how_much_left))
         dm_raw = check_raw(opa_self, data_source_left, how_much_left)

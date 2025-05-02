@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.4 - 2024/12/02
+
+### Changed
+- Build **crick** package via Github tag (see [Crick issue](https://github.com/dask/crick/issues/42))
+
+### Fixed
+- Maintenance of package version via `setuptool_scm`
+- `pyproject.toml` for build package
+- Few linting changes
+- Fix CI/CD pipeline, add python 3.11 and 3.12
+
 ## v0.6.3 - 2024/10/25
 
 ### Added
