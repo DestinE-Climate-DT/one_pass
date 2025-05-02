@@ -42,7 +42,7 @@ pip install .[all] # or pip install -e .[all] for an editable installation
 
 ### Added in v0.7.0
 
-In minor release v0.7, the integration with [**bias_adjustment**](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment) has been introduced. To make use of it, it needs to be installed manually at the tag [`v0.5.0`](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment/-/tags/v0.5.0) in the virtual environment.
+In minor release v0.7, the integration with [**bias_adjustment**](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment) has been introduced. To make use of it, it needs to be installed manually at the tag [`v0.5.3`](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment/-/tags/v0.5.3) in the virtual environment.
 
 ## Documentation 
 
@@ -75,6 +75,4 @@ which will make the pdf version of the docs in the folder `docs/build/latex`. It
 
 ## Support
 
-For all feedback, comments and issues, feel free to open an issue or email me at katherine.grayson@bsc.es
-
-
+For all feedback, comments and issues, feel free to [open an issue](https://earth.bsc.es/gitlab/digital-twins/de_340-2/one_pass/-/issues) or send [me](https://www.bsc.es/alsina-ferrer-ivan) an email.

@@ -9,7 +9,7 @@ If you use the one_pass package in your research or publications, please cite us
 .. code-block:: bibtex
 
    @software{one_pass,
-     author       = {Katherine Grayson, Stephan Thober, et al.},
+     author       = {Katherine Grayson, Ivan Alsina-Ferrer, Stephan Thober, et al.},
      title        = {One_pass: intelligent data reduction techniques for streamed climate data},
      year         = {2023},
      publisher    = {GitLab},

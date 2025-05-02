@@ -34,6 +34,13 @@ You can clone the directory directly via Git using:
 
 This will clone the main branch of the repository. 
 
+Bias adjustment
+---------------
+
+Since version v0.7.0, the bias adjustment is performed in the One_Pass package through the ref:`bias_adjustment package<https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment>`.
+
+To perform bias adjustment in a One-pass fashion, please install the One_Pass package with one of the described methods, and then install the bias_adjustment package. Once this is done, the request will admit :ref:`keys related to bias adjustment<Bias adjustment keys>`
+
 Installation for deliverable DE340.9.1.1
 -----------------------------------------
 

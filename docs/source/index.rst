@@ -19,7 +19,6 @@ Welcome to one_pass's documentation!
    installation
    getting_started
    the_data_request
-   bias_adjustment_with_raw_data
    a_note_on_timestamps
    a_note_on_the_output
    debugging

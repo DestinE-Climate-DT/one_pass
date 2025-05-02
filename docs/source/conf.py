@@ -6,10 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "one_pass"
+project = "One_Pass"
 copyright = "2024, Katherine Grayson"
-author = "Katherine Grayson"
-release = "0.6.1"
+author = "Katherine Grayson,\nIvan Alsina Ferrer"
+release = "v0.7.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -21,30 +21,44 @@ The same request can also be passed directly in python as a dictionary:
 
 .. code-block:: python
 
-   pass_dic = {"stat" : "mean",
-   "stat_freq": "daily",
-   "output_freq": "daily",
-   "time_step": 60,
-   "variable": "uas",
-   "save": True,
-   "checkpoint": True,
-   "checkpoint_filepath": "/file/path/to/checkpoint/",
-   "save_filepath": "/file/path/to/save/"}
+    pass_dic = {
+        "stat" : "mean",
+        "stat_freq": "daily",
+        "output_freq": "daily",
+        "time_step": 60,
+        "variable": "uas",
+        "save": True,
+        "checkpoint": True,
+        "checkpoint_filepath": "/file/path/to/checkpoint/",
+        "save_filepath": "/file/path/to/save/",
+    }
 
 The functionality of all the keys are outlined below.
 
-.. note:: 
+.. note::
 
-        **Be careful about spelling in the request, it matters.**
+    **Be careful about spelling in the request, it matters.**
 
 Statistics
----------------
+----------
 
 The ``stat`` key defines which statistic you wish to compute on the streamed climate data. The one_pass package can only compute one statistic per request. The following options for ``stat`` are supported: 
 
-.. code-block:: JSON
-   
-   "mean", "sum", "std", "var", "thresh_exceed", "min", "max", "iams", "percentile", "histogram", "raw", "bias_correction"
+ ============================ ==================================
+  Stat                         Meaning
+ ============================ ==================================
+  ``"mean"``                   Mean
+  ``"sum"``                    Summation
+  ``"std"``                    Standard deviation
+  ``"var"``                    Variance
+  ``"thresh_exceed"``          Threshold exceedance
+  ``"min"``                    Minimum
+  ``"max"``                    Maximum
+  ``"iams"``                   Intensity annual maximum series
+  ``"percentile"``             Percentile
+  ``"histogram"``              Histogram
+  ``"raw"``                    No statistic computed
+ ============================ ==================================
 
 We use the folling definitions in the mathematical descriptions of the algorithms below: 
 
@@ -57,8 +71,8 @@ We use the folling definitions in the mathematical descriptions of the algorithm
 
 In the case where the incoming data has only one time step (:math:`w = 1`), :math:`X_w`, reduces to :math:`x_n`.
 
-Summation
-^^^^^^^^^^^^^
+Summation (``"sum"``)
+^^^^^^^^^^^^^^^^^^^^^
 
 The summation statistic (written as ``"sum"`` in the statistic request) is calculated over the requested temporal frequency (see ``stat_freq``) by:
 
@@ -68,8 +82,8 @@ The summation statistic (written as ``"sum"`` in the statistic request) is calcu
 
 where in the case of :math:`w>1, \sum_{i=n-w+1}^{n}X_w`, is calculated using numpy.
 
-Mean
-^^^^^^^^^^^
+Mean (``"mean"``)
+^^^^^^^^^^^^^^^^^
 
 The mean statistic calculates the arithmatic mean over the requested temporal frequency, using the following:  
 
@@ -79,8 +93,8 @@ The mean statistic calculates the arithmatic mean over the requested temporal fr
 
 where :math:`\bar{X}_n` is the updated mean of the full dataset, :math:`\bar{X}_{n-w}` is the previous rolling mean and, if :math:`w> 1, \bar{X_w}`, is the temporal mean over the incoming data computed with numpy. If :math:`w= 1, \bar{X_w} = x_n`.
 
-Variance 
-^^^^^^^^^^^^^
+Variance (``"var"``)
+^^^^^^^^^^^^^^^^^^^^
 
 The variance (written as ``"var"``) is calculated over the requested temporal frequency, by updating two estimates iteratively. Let the two-pass summary :math:`M_{2,n}` be defined as:
 
@@ -110,8 +124,8 @@ At the end of the iterative process (when the last value is given to complete th
 
 See `S. Mastelini <https://www.sciencedirect.com/science/article/abs/pii/S0167865521000520>`__ for details. 
 
-Standard Deviation 
-^^^^^^^^^^^^^^^^^^^^^
+Standard Deviation (``"std"``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The standard deviation (written as ``"std"``) calculates the standard deviation of the incoming data stream over the requested temporal frequency, by taking the square root of the variance: 
 
@@ -119,8 +133,8 @@ The standard deviation (written as ``"std"``) calculates the standard deviation 
 
    \textrm{std}(X_n) = \sqrt{\textrm{var}(X_n)}.
 
-Minimum 
-^^^^^^^^^^^^^^
+Minimum (``"min"``)
+^^^^^^^^^^^^^^^^^^^
 
 The minimum value (written as ``"min"``) is given by: 
 
@@ -134,8 +148,8 @@ The minimum value (written as ``"min"``) is given by:
 
 where if :math:`w > 1, \textrm{min}(X_w)` is calculated using the minimum function in numpy.
 
-Maximum
-^^^^^^^^^^^^^^
+Maximum (``"max"``)
+^^^^^^^^^^^^^^^^^^^
 
 The maximum value (written as ``"max"``) is given by:
 
@@ -149,8 +163,8 @@ The maximum value (written as ``"max"``) is given by:
 
 where if :math:`w > 1, \textrm{max}(X_w)` is calculated using the maximum function in numpy.
 
-Threshold Exceedance 
-^^^^^^^^^^^^^^^^^^^^^^^
+Threshold Exceedance (``"thresh_exceed"``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The threshold exceedance statistic (written as ``"thresh_exceed"``) requires a value for the key:value pair ``thresh_exceed: [some_value1, some_value2]``, where ``some_value1`` is an int or float value that defines the threshold for your chosen variable. From v0.6.1 onwards, this should be given as a list, even if it's just one value. Multiple thresholds can be added to the list as the thresholds will appear as a new dimension in the output xr.Dataset. The output of this statistic is the number of times that threshold is exceeded. It is calculated by: 
 
@@ -166,18 +180,18 @@ where :math:`s` is the number of samples in :math:`X_w` that exceeded the thresh
 
 .. note:: From v0.6.1 onwards, the threshold exceedance should be passed as a list. The list can be as long as you like but must be comma seperated if you want to include multiple thresholds of exceedance. The thresholds will appear as a new co-ordinate and dimension in the final xr.Dataset.
 
-Percentile
-^^^^^^^^^^^^^
+Percentile (``"percentile"``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``"percentile"`` statistic has an optional key:value pair ``"percentile_list" : [0.2, 0.5]`` where the list contains the requested percentiles between the values of ``[0,1]``. The list can be as long as you like but must be comma seperated. If you want the whole distribution, so all the percentiles from ``[0,1]``, leave the list empty ``[]``. If this key:value pair is not provided, the package will default to the full distribution ``[]``. There will be a new dimension in the produced xr.Dataset that will correspond to the number of requested percentiles. If you request the full distribution, this will correspond to 100 variables, one for each percentile from 0.01 to 1. This statistic makes use of the `T-Digest algorithm <https://www.sciencedirect.com/science/article/pii/S2665963820300403>`__ using the `implementation <https://github.com/dask/crick/tree/0.0.4>`__. 
 
-Histogram
-^^^^^^^^^^^^
+Histogram (``"histogram"``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``"histogram"`` statistic uses the same t-digest algorithm as given in the percentiles statistic. This statistic has the optional key:value pair ``"bins" : int``, which sets the number of bins you would like. If this is not set, or set to None, the one_pass will default to 10. Unlike the other statistics, ``"histogram"`` will provide two output files, both in memory and saved to disk if ``"save" : True``. The first will be a netCDF of the bin counts, so the number of values in each bin. If saved, this will have the file name ``timestamp_variable_histogram_stat_freq_bin_counts.nc``, where date will correspond to the date or dates that the data spans and stat_freq is the requested frequency of the statistic (see below). The second netCDF file will correspond to the bin_edges and will have a file name ``timestamp_variable_histogram_stat_freq_bin_edges.nc``. The reason they provided in seperate files is that bin_edges will have one dimension ``bin_edges`` of ``length(bin_count) + 1``. 
 
-Intensity annual maximum series
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Intensity annual maximum series (``"iams"``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The intensity annual maximum series statistic, written as ``"iams"`` computes the summations of a variable over a range of rolling time durations :math:`d` (in minutes) and then takes the maximum value. It is described by 
 
@@ -212,34 +226,18 @@ The two pass equivalent of the rolling summations is given by `xr.DataArray.roll
 
 For this statistic, you must set both ``"stat_freq"`` and ``"output_freq"`` to ``"annually"``.
 
-Raw
-^^^^^^^^^^
+Raw (``"raw"``)
+^^^^^^^^^^^^^^^
 
 The ``"raw"`` statistic does not compute any statistical summaries on the incoming data, it simply outputs the raw data as it is passed. The only way it will modify the data is if a Dataset is passed with many climate variables, it will extract the variable requested and produce a Dataset containing only that variable (this is true for all statistic, see variable key:value). This option is included to act as a temporary data buffer for some use case applications. 
 
 Note: The key:value pairs ``"stat_freq"`` and ``"output_freq"`` are not required if ``"stat":"raw"`` and will be ignored if passed*. The one_pass will simply save the data it has been passed at native temporal resolution. This is to reduce uneccessary I/O operations required to temporally aggregate data to the correct length.
 
-Bias-Correction
-^^^^^^^^^^^^^^^^^
+Bias Correction
+^^^^^^^^^^^^^^^
 
-Another layer to the one_pass library is the bias-correction. This package is being developed seperately from the one_pass but will make use of the outputs from the one_pass package. Specifically if you set ``"stat" : "bias_correction"`` and ``"save" : True``, you will receive three outputs, as opposed to just one. 
+.. note:: From v0.7.0 onwards, `bias_correction` is no longer a separate statistic key. Instead, bias correction is requested through one of the :ref:`bias adjustment keys<Bias adjustment keys>`.
 
-1. Daily aggregations of the incoming data (either daily means or summations if the variable is precipitation) as netCDF. Currently the variable names that will use summation as opposed to means are ``'pr', 'lsp', 'cp', 'tp', 'pre', 'precip', 'rain'``.
-2. The raw data at native temporal resolution as netCDF (this is equivalent to ``"raw"`` described above). However here, the raw data will never span the end and start of a new day.
-3. A pickle file containing TDigest objects, called ``month_01_variable_bias_correction.pkl`` if the month is January for example. There will be one file for each month, and the digests will be updated with the daily time aggregations (means or summations) for that month. The months will be accumulated, for example, the month 01 file will contain data from all the Januaries of the years the model has covered. 
-
-When using this statistic, make sure to set ``"stat_freq" : "daily"`` and ``"output_freq" : "daily"``. If you set ``"save" : False`` the raw data and the daily aggregated data will not be saved and will just be provided as outputs in memory, however the digest files will always be saved regardless.
-
-If the pickle files containing the digest objects become too large (exceed the pickle limit of 2GB), they will be saved as .zarr files instead. In this case, there will be two files ``month_01_variable_bias_correction.zarr`` containing only the digests and a smaller ``month_01_variable_bias_correction.pkl`` containing all the metadata required for the Dataset. If this occurs during the month (as the digest files get larger) the pickle file ``month_01_variable_bias_correction.pkl`` will automatically switch from containing the full Dataset object containing the digests to containing only the metadata.
-
-.. note:: From v0.6.0 onwards, to call the outputs for the bias correction you need to make the call 
-
-.. code-block:: python 
-
-   opa_stat = Opa("config.yml") # initalise some statistic using the config.yml file
-   dm = opa_stat.compute_bias_correction(data) # pass some data to compute 
-
-.. note:: The bias-correction statistic has been created specifically to pass data to the bias correction package. It does not provide bias corrected data itself and is not for external use. For detials on how to request bias adjusted data, see :doc:`bias_adjustment_with_raw_data`.
 
 Frequencies
 -----------------
@@ -249,15 +247,31 @@ Statistic Frequency
 
 The statistic frequency (written as ``"stat_freq"``) is where you select the temporal period required for your statistic. It can take the following options: 
 
-.. code-block:: 
-   
-   "hourly", "2hourly", "3hourly", "6hourly", "12hourly", "daily", "daily_noon", "weekly", "monthly", "3monthly", "yearly", "annually", "10yearly", "10annually", "continuous"
+ ============================ ==================================
+  Statistic Frequency          Aggregation length
+ ============================ ==================================
+  ``"hourly"``                 One hour
+  ``"2hourly"``                Two hours
+  ``"3hourly"``                Three hours
+  ``"6hourly"``                Six hours
+  ``"12hourly"``               Tweleve hours
+  ``"daily"``                  One day
+  ``"daily_noon"``             One day, starting and ending at 12 pm.
+  ``"weekly"``                 One week
+  ``"monthly"``                One month
+  ``"3monthly"``               Three months
+  ``"yearly"``                 One year
+  ``"annually"``               One year (deprecated)
+  ``"10yearly"``               Ten years
+  ``"10annually"``             Ten years (deprecated)
+  ``"continuous"``             Aggregation does not stop
+ ============================ ==================================
 
-.. note:: In v0.6.0 to request annual statistics we are now using the word "yearly" as opposed to "annually". For now both values will still work but "annually" will be depricipated in future versions. 
+.. note:: In v0.6.0 to request annual statistics we are now using the word ``"yearly"`` as opposed to ``"annually"``. For now both values will still work but ``"annually"`` will be deprecated in future versions.
 
 Each option defines the period over which you would like the statistic computed. All frequncies will start from midnight except the frequency ``"daily_noon"``, which runs for a 24 hour period but starting at 13:00. 
 
-For the frequencies ``"weekly"``, ``"monthly"``, ``"3monthly"``, ``"annually"``, ``"10annually"``, the one_pass package uses the Gregorian calendar, e.g. ``"yearly"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for ``"10yearly"``, it will start from the first 1st January that is passed. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. ``"3monthly"``, can be interpreted as quaterly and will compute JFM, AMJ, JAS, OND. ``"weekly"`` will run from Monday - Sunday. Leap years are included, so different days in Feburary will be taken into account. 
+For the frequencies ``"weekly"``, ``"monthly"``, ``"3monthly"``, ``"yearly"``, ``"10yearly"``, the one_pass package uses the Gregorian calendar, e.g. ``"yearly"`` will only start accumlating data if the first piece of data provided corresponds to the 1st January, it will not compute a random 365 days starting on any random date. The same for ``"10yearly"``, it will start from the first 1st January that is passed. If the data stream starts half way through the year, the one_pass will simply pass over the incoming data until it reaches the beginning of the new year. ``"3monthly"``, can be interpreted as quaterly and will compute JFM, AMJ, JAS, OND. ``"weekly"`` will run from Monday - Sunday. Leap years are included, so different days in Feburary will be taken into account.
 
 The option of ``"continuous"``, will start from the first piece of data that is provided and will continously update the statistic as new data is provided.
 
@@ -306,14 +320,27 @@ Save Filepath
 ``"save_filepath"`` is the file path, **NOT including the file name**,  to where you want the final netCDF files to be written. The name of the file is dynamically created inside the one_pass as it contains the details of the requested statistic.
 
 
+Bias adjustment keys
+--------------------
 
+Since version v0.7.0, the One_Pass package allows for bias adjustment along with aggregation of data through the optional dependency :ref:`bias_adjustment<https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment>`.
 
+With the package installed, extend the opa request with the following keys:
 
+ ========================== =========== ================== =========================================================================================================
+  Request key                Type        Default            Description
+ ========================== =========== ================== =========================================================================================================
+  ``bias_adjust``            ``bool``    ``False``          Set to ``True`` to enable bias adjustment. Otherwise, the rest of the keys are ignored
+  ``ba_reference_dir``       ``str``     ``None``           Optional. Directory where the reference tdigest pkl files are stored
+  ``ba_lower_threshold``     ``float``   ``-np.inf``        Prevent application of bias adjustment on values beyond this threshold
+  ``ba_non_negative``        ``bool``    ``False``          Force non-negativity of variable
+  ``ba_agg_method``          ``str``     ``"sum"``          Method to do perform daily aggregation (available options: ``"sum"`` and ``"mean"``)
+  ``ba_future_method``       ``str``     ``"additive"``     Method to use for future bias adjustment (available options: ``"additive"`` and ``"multiplicative"``)
+  ``ba_future_weight``       ``float``   1                  Weight to be applied to future values in tdigests, in order to 'wash out' historical t-digest
+  ``ba_future_start_date``   ``str``     ``"9999-12-31"``   When future starts. String in format YYYY-MM-DD. Default means "no future"
+  ``ba_detrend``             ``bool``    ``False``          Detrend variable prior to quantile regression
+ ========================== =========== ================== =========================================================================================================
 
+.. note::
 
-
-
-
-
-
-
+    If `bias_adjust` is set to `True` without the optional dependency installed, `ImportError` will be raised.

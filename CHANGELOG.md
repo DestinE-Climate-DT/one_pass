@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.2 - 2025/03/24
+
+### Updated
+- Updated documentation with bias adjustment procedure
+- Formatted Notebook examples and updated data source
+- Updated contact information
+- Updated linked version of bias adjustment in the README.
+
 ## v0.7.1 - 2025/01/31
 
 ### Added
