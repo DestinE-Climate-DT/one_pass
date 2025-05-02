@@ -520,6 +520,24 @@ def check_bias_adjustment_wrong_method():
     }
 
     Opa(pass_dic)
+    
+    
+def check_bias_adjustment_incorrectly_in_request():
+
+    pass_dic = {
+        "stat": "mean",
+        "stat_freq": "daily",
+        "output_freq": "daily",
+        "time_step": 60,
+        "variable": "es",
+        "save": True,
+        "checkpoint": True,
+        "checkpoint_filepath": "tests/",
+        "save_filepath": "tests/",
+        "bias_adjustment" : None,
+    }
+
+    Opa(pass_dic)
 ####################### py tests ##############################
 
 def test_raises_timing_error():
@@ -637,4 +655,8 @@ def test_bias_adjustment_no_method(caplog):
 
 def test_bias_adjustment_wrong_method(caplog):
     check_bias_adjustment_wrong_method()
+    assert "WARNING" in caplog.text
+    
+def test_bias_adjustment_incorrectly_in_request(caplog):
+    check_bias_adjustment_incorrectly_in_request()
     assert "WARNING" in caplog.text

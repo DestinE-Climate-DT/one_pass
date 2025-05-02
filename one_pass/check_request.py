@@ -471,7 +471,7 @@ def check_ba(request, logger):
     # try to get the value of the key
     try:
         value = getattr(request, "bias_adjustment")
-        if value:
+        if value in ["True", True]:
             if request.stat != "raw":
                 raise ValueError(
                     "Currently, if bias adjustment has been set to True then stat has "
@@ -497,9 +497,10 @@ def check_ba(request, logger):
                     f"are {ba_method_options}."
                 )
         else:
-            raise ValueError(
+            logger.warning(
                 f"{value} is not a valid value for bias_adjustment. If you want "
-                "bias adjusted data, set bias_adjustment : True"
+                "bias adjusted data, set bias_adjustment : True. Opa will ignore the bias adjustment "
+                "field and compute the statistic requested."
             )
     except AttributeError:
         pass
