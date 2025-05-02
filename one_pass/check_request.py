@@ -6,6 +6,7 @@ and any setting required for certain statistics
 
 import os
 import numpy as np
+from datetime import date
 
 required_keys_with_set_output = [
     "stat",
@@ -419,17 +420,6 @@ def check_iams(request):
                 'Must set output_freq equal to yearly/annually when requesting'
                 ' iams statistic')
 
-def check_bias_correction(request):
-    """Check that if bias_correction has been selected as the statistic
-    then both output_freq and stat_freq are set to daily.
-    """
-    if request.stat == "bias_correction":
-        if  request.stat_freq != "daily" or request.output_freq != "daily":
-            raise ValueError(
-                "Must set stat_freq and output_freq equal to daily when"
-                " requesting data for bias correction"
-            )
-
 def check_raw(request, logger):
     """Check that if raw has been selected as the statistic then the user knows that 
     the opa will not alter the time dimension and the variables "stat_freq" and 
@@ -463,15 +453,31 @@ def check_annually(request, logger):
             "'yearly' instead."
         )
 
-def check_ba(request, logger):
-    """Check that if bias adjustment has been selected, the correct values have
-    been set. The stat must be equal to raw and an appropriate bias adjustment
+def check_legacy_bias_adjustment(request, logger):
+    """For older ways to call bias adjustment, check that if bias adjustment
+    has been selected, the correct values have been set.
+    The stat must be equal to raw and an appropriate bias adjustment
     method must have been set.
     """
+    if request.stat == "bias_correction":
+        logger.warning(
+            "request['stat'] = 'bias_correction' is now deprecated and will soon be removed."
+            "Please, consider using request['bias_adjust'] = True."
+        )
+        if request.stat_freq != "daily" or request.output_freq != "daily":
+            raise ValueError(
+                "Must set stat_freq and output_freq equal to daily when"
+                " requesting data for bias correction"
+            )
+
     # try to get the value of the key
     try:
         value = getattr(request, "bias_adjustment")
         if value in ["True", True]:
+            logger.warning(
+                "request['bias_adjustment'] is now a deprecated key and will soon be removed."
+                "Please, consider using request['bias_adjust'] = True."
+            )
             if request.stat != "raw":
                 raise ValueError(
                     "Currently, if bias adjustment has been set to True then stat has "
@@ -484,8 +490,9 @@ def check_ba(request, logger):
                 if method is not None:
                     if request.bias_adjustment_method not in ba_method_options:
                         logger.warning(
-                            f"The requested bias_adjustment method {request.bias_adjustment_method} "
-                            "is not supported. It has been set to 'additive'. The valid values "
+                            "The requested bias_adjustment method "
+                            f"{request.bias_adjustment_method} is not supported. "
+                            "It has been set to 'additive'. The valid values "
                             f"are: {ba_method_options}"
                         )
                         setattr(request, "bias_adjustment_method", None)
@@ -499,11 +506,44 @@ def check_ba(request, logger):
         else:
             logger.warning(
                 f"{value} is not a valid value for bias_adjustment. If you want "
-                "bias adjusted data, set bias_adjustment : True. Opa will ignore the bias adjustment "
-                "field and compute the statistic requested."
+                "bias adjusted data, set bias_adjustment : True. Opa will ignore "
+                "the bias adjustment field and compute the statistic requested."
             )
     except AttributeError:
         pass
+
+
+def check_bias_adjustment(request, logger):
+    """Check that if bias adjustment has been selected, the correct values have been set.
+    The stat must be equal to raw and an appropriate bias adjustment
+    method must have been set.
+    """
+    if not request.bias_adjust:
+        return
+    if request.ba_reference_dir is None:
+        raise ValueError(
+            "When bias adjusting, ba_reference_dir must be set."
+        )
+    if request.ba_agg_method not in ("sum", "mean"):
+        raise ValueError(
+            "When bias adjusting, ba_reference_dir must be set."
+        )
+    if request.ba_future_method not in ("additive", "multiplicative"):
+        raise ValueError(
+            "When bias adjusting, ba_reference_dir must be set."
+        )
+    try:
+        date.fromisoformat(request.ba_future_start_date)
+    except ValueError:
+        raise ValueError(
+            f"request.ba_future_start_date ({request.ba_future_start_date}) "
+            "is not a valid date in YYYY-MM-DD format."
+        )
+    if request.ba_reference_dir is None:
+        raise ValueError(
+            "When bias adjusting, ba_reference_dir must be set."
+        )
+
 
 def check_request(request, logger):
     """
@@ -548,7 +588,7 @@ def check_request(request, logger):
     check_histogram(request, logger)
     check_percentile(request, logger)
     check_iams(request)
-    check_bias_correction(request)
     check_raw(request, logger)
     check_annually(request, logger)
-    check_ba(request, logger)
+    check_legacy_bias_adjustment(request, logger)
+    check_bias_adjustment(request, logger)

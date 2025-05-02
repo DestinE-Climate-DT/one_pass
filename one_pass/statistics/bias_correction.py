@@ -8,6 +8,7 @@ t-digest. These digests are updated with the daily aggregation, either
 a mean or sum depending on the variable."""
 
 import os
+from datetime import datetime
 import pickle
 import zarr
 import numpy as np
@@ -20,6 +21,58 @@ from one_pass.statistics.update_statistics import update_tdigest
 from one_pass.saving.modify_attributes import update_metadata_for_bc_digests
 from one_pass.saving.create_data_sets import create_data_set_for_bc
 from one_pass.checkpointing.write_checkpoint import load_dask
+
+
+try:
+    from bias_corr import bias_adjust
+except ImportError:
+    bias_adjust = None
+
+
+def call_bias_adjust(data, request):
+    """
+    Bias adjust data.
+
+    Parameters
+    ----------
+    data : xr.DataArray
+        data to be adjusted
+    request : Request
+        OPA request with the bias adjustment configuration
+
+    Returns
+    -------
+    xr.DataArray
+        adjusted data
+
+    Raises
+    ------
+    ImportError
+        If bias_corr package is not installed.
+    """
+    if not request.bias_adjust:
+        return data
+    if bias_adjust is None:
+        msg = "OPA: 'bias_corr' package not found."
+        raise ImportError(msg)
+    return bias_adjust(
+        data=data,
+        tdigest_ref=request.ba_reference_dir,
+        tdigest_model=os.path.join(request.save_filepath, "ba"),
+        lower_threshold=request.ba_lower_threshold,
+        non_negative=request.ba_non_negative,
+        agg_meth=request.ba_agg_method,
+        evaluate=False,
+        proceed=False,
+        stream=True,
+        in_mask=None,
+        future_meth=request.ba_future_method,
+        future_start_date=datetime.fromisoformat(request.ba_future_start_date),
+        future_weight=request.ba_future_weight,
+        detrend=request.ba_detrend,
+        detrend_skip_years=request.ba_detrend_skip_years,
+    )
+
 
 class BiasCorrection:
     """Class for pickling meta data from a list of attributes that you want.
@@ -136,12 +189,12 @@ class BiasCorrection:
         opa_self : the Opa class
         bc_month : the month of the current time step so you know which file
                 to access
-        total_size (opt) : if provided will write the file name based on 
+        total_size (opt) : if provided will write the file name based on
                 whether the total size is more than the pickle limit
 
         Returns
         -------
-        opa_self.monthly_digest_file_name : file name for the digests 
+        opa_self.monthly_digest_file_name : file name for the digests
         opa_self.monthly_digest_file_bc_att : pickle file name that will store
                 metdata if digests are going into a zarr
         extension : the extension (pkl or zarr) depending on the size of

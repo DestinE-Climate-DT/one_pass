@@ -1,5 +1,12 @@
 # Changelog
 
+
+## v0.7.0 - 2024/12/02
+
+### Added
+- Bias Correction / One Pass interaction via optional dependency.
+- New keys in OPA request to ask for bias corrected statistics, set via `bias_adjust=True`.
+
 ## v0.6.4 - 2024/12/02
 
 ### Changed

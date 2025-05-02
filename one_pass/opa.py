@@ -102,11 +102,21 @@ class Request:
     save : bool = None
     save_filepath : str = None
     checkpoint_file : str = None
+    bias_adjust: bool = False          # run bias_adjust on input xr.DataArray
+    ba_reference_dir: str = None       # directory where reference tdigest pkl are stored
+    ba_lower_threshold: float = -np.inf   # do not apply ba on values beyond lower_threshold
+    ba_non_negative: bool = False      # DO WE NEED THIS? correct variable to be non negative
+    ba_agg_method: str = "sum"          # method to do daily aggregation (sum or mean)
+    ba_future_method: str = "additive"       # method to use for future bias adjustment additive or multiplicative
+    ba_future_weight: float = 1.0      # weight to be applied to future values in tdigests - in order to 'wash out' historical t-digest
+    ba_future_start_date: str = "9999-12-31"   # when future starts
+    ba_detrend: bool = False           # detrend variable
+    ba_detrend_skip_years: int = 2     # number of years to not detrend at the beginning
 
 @dataclass
 class DataSetInfo:
     """class that stores information about the incoming data
-    
+
     shape_data_source_tail : tuple. Dimensions of the incoming xr
             data but compressed to one in the two dimension. Used
             for re-sizing statistcs that need to be flattened.
@@ -197,7 +207,7 @@ class Opa:
         bc : class. Class that will only be initialised if the statistic
                 is the bias correction. Stores data required for the
                 bias correction which requires different outputs from other
-                statistics. Initialised as BiasCorrection class in 
+                statistics. Initialised as BiasCorrection class in
                 bias_correction.
         logger : logger class.
         """
@@ -226,7 +236,7 @@ class Opa:
             self._check_checkpoint()
 
     def _load_pickle(self, file_path : str):
-        """Function that will load pickled data from a 
+        """Function that will load pickled data from a
         checkpoint file
 
         Arguments
@@ -352,7 +362,7 @@ class Opa:
                     ):
         """If there is more data given to the OPA than what is required for the
         statistic, hwere we make a recursive call to itself with the remaining data
-        
+
         Arguments
         ----------
         self : Opa class
@@ -369,7 +379,7 @@ class Opa:
         if self.request.stat == "bias_correction":
             Opa.compute_bias_correction(self, data_source)
         else:
-            Opa.compute(self, data_source)
+            Opa.compute(self, data_source, bias_adjust=False)
 
     def _full_continuous_data(self, data_source : xr.DataArray,
                               how_much_left : int, weight : int):
@@ -529,7 +539,7 @@ class Opa:
             self._final_append(how_much_left, weight, data_source)
 
     ############## defining class methods ####################
-    def compute(self, data_source : xr.Dataset):
+    def compute(self, data_source : xr.Dataset, bias_adjust : bool = True):
         """Compute one_pass statistics. This is called for all
         statistic requests other than bias correction. Here the
         variable will be extracted from the dataset then the time
@@ -538,21 +548,29 @@ class Opa:
         statistic. Once the statistic is 'full' it will create a
         final xr.Dataset with the new statistic and potentially
         save.
-        
+
         Incoming
         ----------
-        data_source : this is the data provided by the user. 
-                It must be either an xr.Dataset or xr.DataArray.
-        
+        data_source : this is the data provided by the user.
+            It must be either an xr.Dataset or xr.DataArray.
+        bias_adjust : bool, optional
+            Whether to bias adjust the data (if turned on by the user)
+            This is used to not adjust data again in the recursive
+            call, by default True
+
         Outputs
         ---------
-        depending on the user request, the compute function 
+        depending on the user request, the compute function
         will output the requested statistic over the specified time
         frequency after enough data has been passed to it.
         """
 
         # convert from a data_set to a data_array if required
         data_source = check_variable(self, data_source)
+
+        # bias adjust data if requested
+        if bias_adjust and self.request.bias_adjust:
+            data_source = bias_correction.call_bias_adjust(data_source, self.request)
 
         # this checks if there are multiple time stamps
         weight = np.size(data_source.time.data)
@@ -634,9 +652,9 @@ class Opa:
 
         Incoming
         ----------
-        data_source : This is the data provided by the user. 
+        data_source : This is the data provided by the user.
                 It must be either an xr.Dataset or xr.DataArray.
-        
+
         Outputs
         ---------
         1. Raw data will be output (and saved to disk if save is True)

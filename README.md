@@ -28,7 +28,21 @@ mamba env create -f environment.yml
 conda activate env_opa
 
 ```
-In any platform without interent connection, we have provided installation instructions using Docker in the documentation. 
+In any platform without interent connection, we have provided installation instructions using Docker in the documentation.
+
+Alternatively, the package can be installed via pip and venv, as:
+
+```
+git clone https://earth.bsc.es/gitlab/digital-twins/de_340-2/one_pass.git
+cd one_pass
+python3 -m venv venv
+source venv/bin/activate
+pip install .[all] # or pip install -e .[all] for an editable installation 
+```
+
+### Added in v0.7.0
+
+In minor release v0.7, the integration with [**bias_adjustment**](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment) has been introduced. To make use of it, it needs to be installed manually at the tag [`v0.5.0`](https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment/-/tags/v0.5.0) in the virtual environment.
 
 ## Documentation 
 
