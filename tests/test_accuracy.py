@@ -4,7 +4,6 @@
 import glob
 import os
 import sys
-import unittest
 import dask
 
 import numpy as np
@@ -45,7 +44,7 @@ data = data.compute()
 data = data.astype(np.float64)
 
 dec_place = 1e-6
-dec_place_per = 1e-2
+dec_place_per = 5e-4
 ############################# define functions ######################################
 
 

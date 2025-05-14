@@ -118,17 +118,14 @@ def get_percentile(opa_self):
     opa_self.statistics.percentile_cum = np.zeros(
         np.shape([opa_self.statistics.digests_cum]*
                  np.shape(opa_self.request.percentile_list)[0])
-        ) # opa_self.statistics.digests_cum
+        )
+
     for j in range(opa_self.data_set_info.size_data_source_tail):
         # for crick
         opa_self.statistics.percentile_cum[:,j] = \
             opa_self.statistics.digests_cum[j].quantile(
             opa_self.request.percentile_list
         )
-
-    opa_self.statistics.percentile_cum = np.transpose(
-        opa_self.statistics.percentile_cum
-    )
 
     value = opa_self.data_set_info.shape_data_source_tail
     final_size = [np.size(opa_self.request.percentile_list), *value[1:]]

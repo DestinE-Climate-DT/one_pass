@@ -33,23 +33,26 @@ buildcloud312:
     - pip3.12 install -e .[all]
     - pip3.12 install pylint
 
+###################################################
+# Temporarily removed until core hours are restored
+###################################################
 
-buildlumi:
-  tags:
-    - lumi
-  variables:
-    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
-  artifacts:
-    paths:
-      - venvlumi
-    expire_in: 60 minutes
-  stage: prepare
-  script:
-    - module load cray-python
-    - python -m venv venvlumi
-    - source venvlumi/bin/activate
-    - python -m pip install --upgrade pip
-    - pip install -e .[all]
+# buildlumi:
+#   tags:
+#     - lumi
+#   variables:
+#     SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+#   artifacts:
+#     paths:
+#       - venvlumi
+#     expire_in: 60 minutes
+#   stage: prepare
+#   script:
+#     - module load cray-python
+#     - python -m venv venvlumi
+#     - source venvlumi/bin/activate
+#     - python -m pip install --upgrade pip
+#     - pip install -e .[all]
 
 lint-opa:
   allow_failure: true
@@ -402,30 +405,34 @@ test312:
         coverage_format: cobertura
         path: coverage.xml
 
-testlumi:
-  dependencies:
-    - buildlumi
-  needs:
-    - buildlumi
-  variables:
-    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
-  tags:
-    - lumi
-  stage: test
-  script:
-    - source venvlumi/bin/activate
-    - tests/get_data.sh
-    - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-  # These artifacts are saved with every build in GitLab and can be reviewed later. If
-  # we have a folder with HTML files, as in this example, users can navigate with their
-  # browser.
-  artifacts:
-    expire_in: 30 days
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
+###################################################
+# Temporarily removed until core hours are restored
+###################################################
+
+# testlumi:
+#   dependencies:
+#     - buildlumi
+#   needs:
+#     - buildlumi
+#   variables:
+#     SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+#   tags:
+#     - lumi
+#   stage: test
+#   script:
+#     - source venvlumi/bin/activate
+#     - tests/get_data.sh
+#     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
+#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+#   # These artifacts are saved with every build in GitLab and can be reviewed later. If
+#   # we have a folder with HTML files, as in this example, users can navigate with their
+#   # browser.
+#   artifacts:
+#     expire_in: 30 days
+#     reports:
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: coverage.xml
 
 # documentation:
 #   tags:
@@ -437,4 +444,3 @@ testlumi:
 #   artifacts:
 #     paths:
 #       - public
-

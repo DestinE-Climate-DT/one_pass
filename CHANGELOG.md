@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.3 - 2025/05/14
+
+### Updated
+- Update crick dependency: v0.0.8
+
+### Fixed
+- Type checking of request `percentile_list` and `thresh_exceed`
+- Fix bug in percentile dataset creation
+
 ## v0.7.2 - 2025/03/24
 
 ### Updated

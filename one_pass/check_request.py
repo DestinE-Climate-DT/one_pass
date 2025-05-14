@@ -5,7 +5,6 @@ and any setting required for certain statistics
 """
 
 import os
-import numpy as np
 from datetime import date
 
 required_keys_with_set_output = [
@@ -328,12 +327,12 @@ def check_thresh_exceed(request, logger):
                 "where this is a list of exceedance values. This can be a "
                 "single value."
             )
-        if type (request.thresh_exceed) == str:
+        if isinstance(request.thresh_exceed, str):
             raise ValueError(
                 "The value for the threshold exceedance can not be a str. "
                 "Please convert to a list format [some_value, some_value2]"
             )
-        if type(request.thresh_exceed) != list:
+        if not isinstance(request.thresh_exceed, list):
             logger.warning(
                 "Values for threshold exceedance should be passed as a list. "
                 f"The single value {request.thresh_exceed} has been converted "
@@ -381,32 +380,32 @@ def percentile_warning(logger):
 
 def check_percentile(request, logger):
     """ Function that checks for percentile list """
-    if request.stat == "percentile":
-        if not hasattr(request, "percentile_list") or request.percentile_list is None:
-            percentile_warning(logger)
-            setattr(request, "percentile_list", [])
+    if request.stat != "percentile":
+        return
 
-        elif type(request.percentile_list) == str:
+    if not hasattr(request, "percentile_list") or request.percentile_list is None:
+        percentile_warning(logger)
+        setattr(request, "percentile_list", [])
+        return
+
+    if isinstance(request.percentile_list, str):
+        raise ValueError(
+            f"percentile_list {request.percentile_list} not a valid "
+            "value. Values must be in a list and range between 0 and 1. "
+            "For the whole distribution, put []"
+        )
+
+    if isinstance(request.percentile_list, list):
+        if (
+            not all(isinstance(element, (int, float)) for element in request.percentile_list)
+            or any(element > 1 or element < 0 for element in request.percentile_list)
+        ):
             raise ValueError(
-                f"percentile_list {request.percentile_list} not a valid "
-                "value. Values must be in a list and range between 0 and 1. "
+                f"percentile_list {request.percentile_list} contains invalid "
+                "values. Values must be in a list and range between 0 and 1. "
                 "For the whole distribution, put []"
             )
 
-        elif type(request.percentile_list) == list:
-            for j in range(np.size(request.percentile_list)):
-                if request.percentile_list[j] != int:
-                    raise ValueError(
-                        f"percentile_list {request.percentile_list[j]} not a valid "
-                        "value. Values must be in a list and range between 0 and 1. "
-                        "For the whole distribution, put []"
-                    )
-                elif request.percentile_list[j] > 1 or request.percentile_list[j] < 0:
-                    raise ValueError(
-                        f"percentile_list {request.percentile_list[j]} not a valid "
-                        "value. Values must be in a list and range between 0 and 1. "
-                        "For the whole distribution, put []"
-                    )
 
 def check_iams(request):
     """Function that checks that output and stat frequencies for iams """

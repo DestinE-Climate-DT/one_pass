@@ -15,7 +15,7 @@ requirements = [
     "sphinx-rtd-theme==3.*",
     # Creek wheels built from tag, see
     # https://github.com/dask/crick/issues/42
-    "crick @ https://github.com/dask/crick/archive/refs/tags/0.0.6.tar.gz",
+    "crick==0.0.8",
     "pyarrow==18.*",
 ]
 
