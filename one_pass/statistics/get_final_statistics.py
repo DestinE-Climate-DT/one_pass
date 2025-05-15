@@ -39,13 +39,13 @@ def get_histogram(opa_self):
     opa_self.statistics.histogram_cum = np.empty(
         np.shape(
             [opa_self.statistics.digests_cum]*opa_self.request.bins
-        ),dtype=np.int32
-        )
+        ), dtype=np.int32
+    )
     opa_self.statistics.histogram_bin_edges_cum = np.empty(
         np.shape(
             [opa_self.statistics.digests_cum]*(opa_self.request.bins+1)
-        ),dtype=np.int32
-        )
+        ), dtype=np.float64
+    )
 
     if hasattr(opa_self.request,"range") is False:
         if opa_self.logger.isEnabledFor(logging.DEBUG):

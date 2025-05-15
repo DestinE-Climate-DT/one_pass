@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7.4 - 2025/05/15
+
+### Fixed
+- Fix type of histogram edges dataset
+
 ## v0.7.3 - 2025/05/14
 
 ### Updated
