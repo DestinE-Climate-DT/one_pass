@@ -155,17 +155,22 @@ class OpaStatistics:
                 digest_list, opa_self.data_set_info.size_data_source_tail
             )
 
+        # Read the compression from request. If it wasn't passed, set to 1
+        compression = opa_self.request.compression
+        if compression is None:
+            compression = 1
+
         if opa_self.logger.isEnabledFor(logging.DEBUG):
             for j in tqdm.tqdm(
                     range(opa_self.data_set_info.size_data_source_tail),
                     desc="Initialising digests"
                 ):
-                digest_list[j] = TDigest(compression=1)
+                digest_list[j] = TDigest(compression=compression)
 
         else:
         # this is looping through every grid cell
             for j in range(opa_self.data_set_info.size_data_source_tail):
-                digest_list[j] = TDigest(compression=1)
+                digest_list[j] = TDigest(compression=compression)
 
         setattr(self, "digests_cum", digest_list)
 

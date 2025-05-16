@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.0 - 2025/05/16
+
+### Added
+- New request key `compression`.
+
 ## v0.7.4 - 2025/05/15
 
 ### Fixed

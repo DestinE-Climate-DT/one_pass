@@ -345,6 +345,7 @@ def hist_calc(keep_checkpoints=False):
     "time_step": 60,
     "variable": "pr",
     "save": True,
+    "compression": 1,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",
     "save_filepath": "tests/"}

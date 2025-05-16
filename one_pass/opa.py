@@ -84,6 +84,9 @@ class Request:
     checkpoint : bool. True or False saying if the statistics should
             be saved to a pickle file after each incoming datachunk
             has been passed.
+    compression : bool. Compression parameter for TDigest objects.
+            Used only when stat is "histogram" or "percentile".
+            In those cases, defaults to 1.
     save : bool. True of False for if the final statistic should be saved
             to disk.
     save_filepath : str. Filepath specifying where the final statistics
@@ -102,6 +105,7 @@ class Request:
     save : bool = None
     save_filepath : str = None
     checkpoint_file : str = None
+    compression : int = None
     bias_adjust: bool = False          # run bias_adjust on input xr.DataArray
     ba_reference_dir: str = None       # directory where reference tdigest pkl are stored
     ba_lower_threshold: float = -np.inf   # do not apply ba on values beyond lower_threshold

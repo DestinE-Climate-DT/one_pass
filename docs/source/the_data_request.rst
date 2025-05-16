@@ -296,6 +296,11 @@ The climate variable you want to compute your statistic on. This variable is alw
 
 **Note the one_pass can only work with one variable at a time, multiple variables will be handled by different calls in the workflow.**
 
+Compression
+---------------
+
+The request key ``"compression"`` refers to the ``compression`` parameter used in TDigest objects. It must be of type float, and defaults to 1.0. It is only used for the ``stat`` options ``"histogram"`` and ``"percentile"``
+
 Save
 ------------
 

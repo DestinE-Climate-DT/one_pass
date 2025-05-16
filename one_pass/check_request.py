@@ -406,7 +406,6 @@ def check_percentile(request, logger):
                 "For the whole distribution, put []"
             )
 
-
 def check_iams(request):
     """Function that checks that output and stat frequencies for iams """
     if request.stat =="iams":
@@ -451,6 +450,23 @@ def check_annually(request, logger):
             "depcripiated in future versions of the Opa. Please use the request "
             "'yearly' instead."
         )
+
+def check_compression(request, logger):
+    """Check whether cmpression has been passed, and defaults it to 1 in the case of 
+    the stat being "histogram" or "percentile".
+    """
+    if request.stat in ("histogram", "percentile"):
+        compression = request.compression
+        if compression is None:
+            logger.warning(
+                "For 'histogram' or 'percentile' stats, not passing a compression "
+                "results in a default compression of 1."
+            )
+        elif not isinstance(compression, (int, float)):
+            raise TypeError(
+                f"In request, compression should be a float, not {type(compression).__name__}"
+            )
+
 
 def check_legacy_bias_adjustment(request, logger):
     """For older ways to call bias adjustment, check that if bias adjustment
@@ -589,5 +605,6 @@ def check_request(request, logger):
     check_iams(request)
     check_raw(request, logger)
     check_annually(request, logger)
+    check_compression(request, logger)
     check_legacy_bias_adjustment(request, logger)
     check_bias_adjustment(request, logger)

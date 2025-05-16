@@ -62,6 +62,7 @@ def hist_calc():
     "output_freq": "weekly",
     "time_step": 60,
     "variable": "pr",
+    "compression": 1,
     "save": True,
     "checkpoint": True,
     "checkpoint_filepath": "tests/",

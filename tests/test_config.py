@@ -94,6 +94,7 @@ def none_percentile_list():
         "output_freq": "daily",
         "time_step": 60,
         "variable": "pr",
+        "compression": 1,
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
@@ -110,6 +111,7 @@ def missing_percentile_list():
         "output_freq": "daily",
         "time_step": 60,
         "variable": "pr",
+        "compression": 1,
         "save": True,
         "checkpoint": True,
         "checkpoint_filepath": "tests/",
@@ -521,7 +523,42 @@ def check_bias_adjustment_wrong_method():
 
     Opa(pass_dic)
     
+
+def check_no_compression_in_percentile_request():
+
+    pass_dic = {
+        "stat": "percentile",
+        "percentile_list" : [0.25, 0.5, 0.75],
+        "stat_freq": "daily",
+        "output_freq": "daily",
+        "time_step": 60,
+        "variable": "pr",
+        "save": True,
+        "checkpoint": True,
+        "checkpoint_filepath": "tests/",
+        "save_filepath": "tests/",
+    }
+
+    Opa(pass_dic)
     
+def check_bad_compression_type():
+
+    pass_dic = {
+        "stat": "percentile",
+        "percentile_list" : [0.25, 0.5, 0.75],
+        "stat_freq": "daily",
+        "output_freq": "daily",
+        "time_step": 60,
+        "variable": "pr",
+        "compression": "badvalue",
+        "save": True,
+        "checkpoint": True,
+        "checkpoint_filepath": "tests/",
+        "save_filepath": "tests/",
+    }
+
+    Opa(pass_dic)
+
 def check_bias_adjustment_incorrectly_in_request():
 
     pass_dic = {
@@ -644,6 +681,14 @@ def test_check_threshold_missing():
 def test_check_threshold_str():
     with pytest.raises(ValueError):
         check_threshold_str()
+
+def test_no_compression_in_percentile_request(caplog):
+    check_no_compression_in_percentile_request()
+    assert "WARNING" in caplog.text
+
+def test_bad_compression_in_percentile_request():
+    with pytest.raises(TypeError):
+        check_bad_compression_type()
 
 def test_bias_adjustment_wrong_stat():
     with pytest.raises(ValueError):
