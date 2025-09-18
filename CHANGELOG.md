@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.1 - 2025/09/18
+
+### Added
+- Install bias adjustment as extra with `pip install '.[ba]'`
+- CI `id_token` for each gitlab CI job
+
+### Updated
+- Bias Adjustment dependency updated to v0.5.4: new request keys
+- Re-enabled LUMI testing
+- Updated minimum required Python version from 3.9 to 3.10
+
 ## v0.8.0 - 2025/05/16
 
 ### Added

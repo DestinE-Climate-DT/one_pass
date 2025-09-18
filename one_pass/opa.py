@@ -66,34 +66,70 @@ class Request:
     variables passed. This will become a nested dataclass to the Opa
     class.
 
-    stat : str. String corresponding to the statistic that the user
+    stat : str
+            String corresponding to the statistic that the user
             requests.
-    time_step : int. Integer value giving the time step between the
+    time_step : int
+            Integer value giving the time step between the
             incoming data in minutes. This will most probably be 60
-    variable : str. String value giving the variable of interest. If
+    variable : str
+            String value giving the variable of interest. If
             the incoming data is passed as an xr.Dataset this will be
             used to extract the variable of interest. Opa can only
             process one variable at a time.
-    stat_freq : str. String giving the frequency of the request statistic.
+    stat_freq : str
+            String giving the frequency of the request statistic.
             For example 'daily'.
-    output_freq : str. String giving the frequency at which the final
+    output_freq : str
+            String giving the frequency at which the final
             statistic should be saved into a netCDF. For example
             'monthly'. If stat_freq is set to 'daily' this would result
             in one final .nc file containing 31 daily statistics.
-    checkpoint_filepath : str. File path where checkpoint are stored.
-    checkpoint : bool. True or False saying if the statistics should
+    checkpoint_filepath : str
+            File path where checkpoint are stored.
+    checkpoint : bool
+            True or False saying if the statistics should
             be saved to a pickle file after each incoming datachunk
             has been passed.
-    compression : bool. Compression parameter for TDigest objects.
+    compression : bool
+            Compression parameter for TDigest objects.
             Used only when stat is "histogram" or "percentile".
             In those cases, defaults to 1.
-    save : bool. True of False for if the final statistic should be saved
+    save : bool
+            True of False for if the final statistic should be saved
             to disk.
-    save_filepath : str. Filepath specifying where the final statistics
+    save_filepath : str
+            Filepath specifying where the final statistics
             should be saved.
-    checkpoint_file : str. Not actually defined in the request but made
+    checkpoint_file : str.
+            Not actually defined in the request but made
             later, attaches checkpoint_filepath with the name of the
             checkpoint file.
+    bias_adjust : bool
+            run bias_adjust on input xr.DataArray
+    ba_reference_dir : str
+            directory where reference tdigest pkl are stored
+    ba_lower_threshold : float
+            do not apply ba on values beyond lower_threshold
+    ba_non_negative : bool
+            correct variable to be non negative
+    ba_agg_method : str
+            method to do daily aggregation (sum or mean)
+    ba_future_method : str
+            method to use for future bias adjustment additive or multiplicative
+    ba_future_weight : float
+            weight to be applied to future values in tdigests - in order to 'wash out' historical t-digest
+    ba_future_start_date : str
+            when future starts
+    ba_detrend : bool
+            detrend variable
+    ba_detrend_skip_years : int
+            number of years to not detrend at the beginning
+    ba_transform_method : str
+            Transformation method to apply to data. Currently: [None, log]
+    ba_ref_trend_year : int
+            If reference used de-trending, the year to evaluate the reference trend
+            needs to be given. By default will use the start year of the simulation.
     """
     stat : str = None
     time_step : int = None
@@ -106,16 +142,18 @@ class Request:
     save_filepath : str = None
     checkpoint_file : str = None
     compression : int = None
-    bias_adjust: bool = False          # run bias_adjust on input xr.DataArray
-    ba_reference_dir: str = None       # directory where reference tdigest pkl are stored
-    ba_lower_threshold: float = -np.inf   # do not apply ba on values beyond lower_threshold
-    ba_non_negative: bool = False      # DO WE NEED THIS? correct variable to be non negative
-    ba_agg_method: str = "sum"          # method to do daily aggregation (sum or mean)
-    ba_future_method: str = "additive"       # method to use for future bias adjustment additive or multiplicative
-    ba_future_weight: float = 1.0      # weight to be applied to future values in tdigests - in order to 'wash out' historical t-digest
-    ba_future_start_date: str = "9999-12-31"   # when future starts
-    ba_detrend: bool = False           # detrend variable
-    ba_detrend_skip_years: int = 2     # number of years to not detrend at the beginning
+    bias_adjust: bool = False
+    ba_reference_dir: str = None
+    ba_lower_threshold: float = -np.inf
+    ba_non_negative: bool = False
+    ba_agg_method: str = "sum"
+    ba_future_method: str = "additive"
+    ba_future_weight: float = 1.0
+    ba_future_start_date: str = "9999-12-31"
+    ba_detrend: bool = False
+    ba_detrend_skip_years: int = 10
+    ba_transform_method: Optional[str] = None
+    ba_ref_trend_year: Optional[int] = None
 
 @dataclass
 class DataSetInfo:

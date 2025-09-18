@@ -19,10 +19,17 @@ requirements = [
     "pyarrow==18.*",
 ]
 
+
+# Optional dependency: Bias adjustment
+bias_adjustment = [
+    "bias_corr @ git+https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment.git@v0.5.4",
+]
+
 # List of dependencies for running our tests. Not intended to be
 # required for one pass algorithms runtime.
 tests = [
     "coverage==7.2.*",
+    "pylint==3.*",
     "pytest==7.2.*",
     "pytest-cov==4.*",
     "pytest-mock==3.10.*",
@@ -36,11 +43,12 @@ setup(
     author="Katherine Grayson",
     author_email="katherine.grayson@bsc.es",
     url="https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass",
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     packages=find_packages(),
     extras_require={
+        "ba": bias_adjustment,
         "tests": tests,
-        "all": tests,  # later, here we can do tests + docs + something...
+        "all": bias_adjustment + tests,  # later, here we can do tests + docs + something...
     },
     install_requires=requirements,
 )

@@ -325,6 +325,8 @@ Save Filepath
 ``"save_filepath"`` is the file path, **NOT including the file name**,  to where you want the final netCDF files to be written. The name of the file is dynamically created inside the one_pass as it contains the details of the requested statistic.
 
 
+.. _ba_keys:
+
 Bias adjustment keys
 --------------------
 
@@ -332,9 +334,9 @@ Since version v0.7.0, the One_Pass package allows for bias adjustment along with
 
 With the package installed, extend the opa request with the following keys:
 
- ========================== =========== ================== =========================================================================================================
+ ========================== =========== ================== ==========================================================================================================================================
   Request key                Type        Default            Description
- ========================== =========== ================== =========================================================================================================
+ ========================== =========== ================== ==========================================================================================================================================
   ``bias_adjust``            ``bool``    ``False``          Set to ``True`` to enable bias adjustment. Otherwise, the rest of the keys are ignored
   ``ba_reference_dir``       ``str``     ``None``           Optional. Directory where the reference tdigest pkl files are stored
   ``ba_lower_threshold``     ``float``   ``-np.inf``        Prevent application of bias adjustment on values beyond this threshold
@@ -344,7 +346,10 @@ With the package installed, extend the opa request with the following keys:
   ``ba_future_weight``       ``float``   1                  Weight to be applied to future values in tdigests, in order to 'wash out' historical t-digest
   ``ba_future_start_date``   ``str``     ``"9999-12-31"``   When future starts. String in format YYYY-MM-DD. Default means "no future"
   ``ba_detrend``             ``bool``    ``False``          Detrend variable prior to quantile regression
- ========================== =========== ================== =========================================================================================================
+  ``ba_detrend_skip_years``  ``int``     10                 Number of years to not detrend at the beginning
+  ``ba_transform_method``    ``str``     ``None``           Optional. Transformation method to apply to data. Currently, one of: ``None``, ``"log"``.
+  ``ba_ref_trend_year``      ``int``     ``None``           Optional. Year to evaluate the reference trend. Needed if ``ba_detrend`` is ``True``. By default, uses the start year of the simulation.
+ ========================== =========== ================== ==========================================================================================================================================
 
 .. note::
 

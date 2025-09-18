@@ -10,9 +10,11 @@ Before installing one_pass, ensure you have the following pre-requisites install
 
 - `Git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`__
 
-- `Mamba <https://mamba.readthedocs.io/en/latest/>`__ or `Conda <https://docs.conda.io/en/latest/>`__ 
-
 - `Python <https://docs.python.org/3/>`__
+
+- Optionally, `Mamba <https://mamba.readthedocs.io/en/latest/>`__ or `Conda <https://docs.conda.io/en/latest/>`__
+
+.. _install_pip:
 
 Pip
 ------------
@@ -23,6 +25,8 @@ To install one_pass with pip, execute the following:
    
    pip install git+https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git@main
 
+.. _install_git:
+
 Git
 -------------
 
@@ -32,14 +36,53 @@ You can clone the directory directly via Git using:
 
    git clone https://earth.bsc.es/gitlab/digital-twins/de_340/one_pass.git
 
-This will clone the main branch of the repository. 
+This will clone the main branch of the repository. It is recommended to install using a virtual environment:
+
+
+.. code-block:: bash
+
+   git clone https://earth.bsc.es/gitlab/digital-twins/de_340-2/one_pass.git
+   cd one_pass
+   python3 -m venv venv
+   source venv/bin/activate  # Command `deactivate` to undo
+   pip install .
+
+Or, in editable mode,
+
+.. code-block:: bash
+
+   pip install -e .
+
+.. _install_deps:
+
+Installation of dependencies
+----------------------------
+
+To install dependencies of bias_adjustment, please :ref:`clone<install_git>` the repository, and install using :ref:`pip<install_pip>` with the following syntax:
+
+.. code-block:: bash
+
+   pip install '.[$dep]'
+
+Replacing ``$dep`` by one of the following values:
+
++-----------+--------------------------------+
+| Value     | Description                    |
++===========+================================+
+| ``ba``    | Bias adjustment                |
+| ``tests`` | Tests (mostly for development) |
+| ``all``   | All dependencies               |
++-----------+--------------------------------+
+
 
 Bias adjustment
 ---------------
 
-Since version v0.7.0, the bias adjustment is performed in the One_Pass package through the ref:`bias_adjustment package<https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment>`.
+Since version v0.7.0, the bias adjustment is performed in the One_Pass package through the `bias_adjustment package<https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment>`__.
 
-To perform bias adjustment in a One-pass fashion, please install the One_Pass package with one of the described methods, and then install the bias_adjustment package. Once this is done, the request will admit :ref:`keys related to bias adjustment<Bias adjustment keys>`
+To perform bias adjustment in a One-pass fashion, please install the One_Pass package with the bias_adjustment :ref:`dependency<install_deps>`. Alternatively, install the bias_adjustment package manually in the same environment as the One_Pass installation.
+
+Once the installation is complete, the request will admit :ref:`keys related to bias adjustment<ba_keys>`.
 
 Installation for deliverable DE340.9.1.1
 -----------------------------------------

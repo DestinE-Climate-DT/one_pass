@@ -79,6 +79,8 @@ def call_bias_adjust(data, request):
         future_weight=request.ba_future_weight,
         detrend=request.ba_detrend,
         detrend_skip_years=request.ba_detrend_skip_years,
+        transform_method=request.ba_transform_method,
+        ref_trend_year=request.ba_ref_trend_year,
     )
 
 
