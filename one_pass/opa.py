@@ -219,6 +219,7 @@ class Opa:
         self,
         user_request: Dict,
         keep_checkpoints: bool = False,
+        use_zarr: bool = False,
         logging_level : Optional[str]="INFO"
     ):
 
@@ -263,6 +264,7 @@ class Opa:
         # assign attributes from the request
         self.request = Request()
         self.keep_checkpoints = keep_checkpoints
+        self.use_zarr = use_zarr
         self.data_set_info = DataSetInfo()
         self.fixed = Fixed()
         self.logger = self._get_logger(logging_level=logging_level)

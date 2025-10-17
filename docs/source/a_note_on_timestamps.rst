@@ -9,7 +9,7 @@ Firstly, the Opa instance needs to be initialized:
 
    opa = Opa("config.yml")
 
-If the request key ``checkpoint`` has been set to ``True``, then during initialization a checkpoint pickle file will be searched to to start from. If checkpointing has been set to ``False`` or no checkpoint file exists, the class will be initialized from scratch.
+If the request key ``checkpoint`` has been set to ``True``, then during initialization a checkpoint file (pickle by default, or Zarr if ``use_zarr=True`` or when pickle size limits are exceeded) will be searched to to start from. If checkpointing has been set to ``False`` or no checkpoint file exists, the class will be initialized from scratch.
 
 Then, when running
 

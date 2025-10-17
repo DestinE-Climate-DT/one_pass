@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.2 - 2025/10/06
+
+### Added
+- Feature to control compression using Zarr, `use_zarr` (defaults to `False`)
+
+### Updated
+- Bias Adjustment dependency updated to v0.5.5
+
 ## v0.8.1 - 2025/09/18
 
 ### Added

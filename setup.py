@@ -22,7 +22,7 @@ requirements = [
 
 # Optional dependency: Bias adjustment
 bias_adjustment = [
-    "bias_corr @ git+https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment.git@v0.5.4",
+    "bias_corr @ git+https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment.git@v0.5.5",
 ]
 
 # List of dependencies for running our tests. Not intended to be

@@ -147,7 +147,7 @@ def write_checkpoint(opa_self):
 
     total_size = get_total_size(opa_self)
     # limit on a pickle file is 2GB
-    if total_size < opa_self.fixed.pickle_limit:
+    if (not opa_self.use_zarr) or (total_size < opa_self.fixed.pickle_limit):
         # have to include opa_self here as the second input
         write_pickle(opa_self)
         opa_self.logger.debug(

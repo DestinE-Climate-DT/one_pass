@@ -301,6 +301,17 @@ Compression
 
 The request key ``"compression"`` refers to the ``compression`` parameter used in TDigest objects. It must be of type float, and defaults to 1.0. It is only used for the ``stat`` options ``"histogram"`` and ``"percentile"``
 
+Opa initialization options
+---------------------------
+
+These parameters are passed to the ``Opa`` constructor and are separate from the request keys:
+
+- ``keep_checkpoints`` (bool, default False): retain checkpoint files after the final statistic is completed. Since version v0.7.1.
+
+- ``use_zarr`` (bool, default False): write checkpoint files as Zarr instead of pickle. This is useful for large states or when Zarr compression is preferred. Since version v0.8.2.
+
+- ``logging_level`` (str, default 'INFO'): set the logging level for the Opa instance. Available options: 'DEBUG', 'INFO', 'WARNING', 'ERROR'.
+
 Save
 ------------
 

@@ -32,6 +32,8 @@ After importing the library only two lines of python code are required to run
 .. code-block:: python 
 
    opa = Opa("config.yml") # initalise some statistic using the config.yml file
+   # or with additional options:
+   # opa = Opa("config.yml", keep_checkpoints=True, use_zarr=False)
    dm = opa.compute(data) # pass some data to compute
 
 
@@ -39,7 +41,7 @@ Above, all the details of the requested statistic are given by the data request,
 
 .. note::
 
-   Once the passed ``data`` completes the requested statistics, checkpoints are removed by default. Since version `v0.7.1`, this can be prevented by initializing the ``opa`` instance as ``opa = Opa("config.yml", keep_checkpoints=True)``.
+   Once the passed ``data`` completes the requested statistics, checkpoints are removed by default. Since version `v0.7.1`, this can be prevented by initializing the ``opa`` instance as ``opa = Opa("config.yml", keep_checkpoints=True)``. Since version `v0.8.2`, checkpoint files can be written as Zarr instead of pickle by setting ``use_zarr=True``, which is useful for large states or when Zarr compression is preferred.
 
 .. note:: 
 
