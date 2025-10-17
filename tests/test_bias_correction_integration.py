@@ -34,7 +34,7 @@ MEAN_SHIFT = 2.0
 SKEWNESS = 5.0
 TREND = None
 TREND = 0.1
-FREQ = "h" # D or h
+FREQ = "h"  # D or h
 
 # Directories, checkpoint, input and reference
 save_dir = os.path.abspath(os.path.dirname(__file__))
@@ -74,9 +74,9 @@ def setup_directories():
 def ds_model():
     setup_directories()
 
-    # Step 1: Create reference data (normal distribution) - we need to store those, 
+    # Step 1: Create reference data (normal distribution) - we need to store those,
     # as estimate currently expects file input - usually the user will provide the output
-    # of the estimate functions via the ba_reference_dir 
+    # of the estimate functions via the ba_reference_dir
     data_reference = np.random.normal(loc=0.0, scale=1.0, size=(TIME_LEN, *GRID_SHAPE))
     if TREND:
         trend = np.array([[[(x.year - 1990) * TREND]] for x in time])
@@ -140,7 +140,9 @@ def da_model_bias_adjusted(ds_model):
     )
 
 
-@pytest.mark.skipif(bias_adjust is None, reason="Optional dependency bias_corr not installed")
+@pytest.mark.skipif(
+    bias_adjust is None, reason="Optional dependency bias_corr not installed"
+)
 def test_bias_adjust(ds_model, da_model_bias_adjusted):
     pass_dic = {
         "stat": "raw",
@@ -160,9 +162,7 @@ def test_bias_adjust(ds_model, da_model_bias_adjusted):
     opa = Opa(pass_dic)
     res = opa.compute(ds_model["myvar"])
 
-    assert np.allclose(
-        res["myvar"].data, da_model_bias_adjusted.data, atol=dec_place
-    )
+    assert np.allclose(res["myvar"].data, da_model_bias_adjusted.data, atol=dec_place)
 
 
 def test_error_no_reference_dir():
@@ -178,7 +178,6 @@ def test_error_no_reference_dir():
             "checkpoint_filepath": save_dir,
             "save_filepath": save_dir,
             "bias_adjust": True,
-
         }
         opa = Opa(pass_dic)
 
@@ -235,6 +234,6 @@ def test_error_bad_start_date():
             "save_filepath": save_dir,
             "bias_adjust": True,
             "ba_reference_dir": output_dir,
-            "ba_future_start_date": "abad-da-te"
+            "ba_future_start_date": "abad-da-te",
         }
         opa = Opa(pass_dic)

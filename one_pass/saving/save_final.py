@@ -1,88 +1,73 @@
-""""save final statistic"""
+"""Functions for saving finalized statistics to NetCDF files."""
 
 import os
+from typing import TYPE_CHECKING
+import numpy as np
+from one_pass.options import StatKey
+from one_pass.mpi import MPI_LAUNCHED, MPI_RANK
 
-def save_output_nc(opa_self, final_time_file_str : str):
-    """Function that saves final_cum Dataset to netcdf.
-    This is only called for the statistics, not for the raw data
+if TYPE_CHECKING:
+    from one_pass.opa import Opa
 
-    Arguments
-    ---------
-    opa_self : Opa class
-    dm : final xr.Dataset that needs to be saved
-    final_time_file_str : the time str for the final file name
-    """
-    # for saving the daily aggregations of the bias correction
-    if (opa_self.request.stat == "bias_correction" and
-            opa_self.request.variable not in
-            opa_self.fixed.precip_options
-        ):
-        file_name = os.path.join(
-            opa_self.request.save_filepath,
-            f"{final_time_file_str}_{opa_self.request.variable}_"
-            f"timestep_{opa_self.request.time_step}_"
-            f"{opa_self.request.stat_freq}_mean.nc",
-        )
 
-    elif (opa_self.request.stat == "bias_correction" and
-            opa_self.request.variable in
-            opa_self.fixed.precip_options
-        ):
-        file_name = os.path.join(
-            opa_self.request.save_filepath,
-            f"{final_time_file_str}_{opa_self.request.variable}_"
-            f"timestep_{opa_self.request.time_step}_"
-            f"{opa_self.request.stat_freq}_sum.nc",
-        )
-
-    elif opa_self.request.stat == "histogram":
-        file_name = os.path.join(
-            opa_self.request.save_filepath,
-            f"{final_time_file_str}_{opa_self.request.variable}_"
-            f"timestep_{opa_self.request.time_step}_"
-            f"{opa_self.request.stat_freq}_{opa_self.request.stat}_bin_counts.nc",
-        )
-
-    else:  # normal other stats
-        file_name = os.path.join(
-            opa_self.request.save_filepath,
-            f"{final_time_file_str}_{opa_self.request.variable}_"
-            f"timestep_{opa_self.request.time_step}_"
-            f"{opa_self.request.stat_freq}_{opa_self.request.stat}.nc",
-        )
-
-    dm = getattr(opa_self.statistics, "final_cum")
-    dm.to_netcdf(path=file_name, mode="w")
+def _save_output_nc(dm, filename):
+    """Internal helper to save dataset to NetCDF and close file."""
+    dm.to_netcdf(path=filename, mode="w")
     dm.close()
 
-    # if it's a histom there will be two final outputs
-    if opa_self.request.stat == "histogram":
-        file_name = os.path.join(
-            opa_self.request.save_filepath,
-            f"{final_time_file_str}_{opa_self.request.variable}_"
-            f"timestep_{opa_self.request.time_step}_"
-            f"{opa_self.request.stat_freq}_{opa_self.request.stat}_"
-            "bin_edges.nc",
-        )
-        dm = getattr(opa_self.statistics, "final2_cum")
-        dm.to_netcdf(path=file_name, mode="w")
-        dm.close()
 
-def save_raw_output_nc(
-            opa_self, dm_raw, final_time_file_str
-    ):
-    """Function that save the raw data. Will be called from
-    raw_data.py
+def save_output_nc(opa: "Opa"):
+    """Save computed statistics to NetCDF file.
 
-    Arguments
-    ---------
-    opa_self : Opa class
-    dm_raw : raw data to be saved. Will have modified attributes
+    Saves the finalized statistics Dataset to a NetCDF file with appropriate
+    naming conventions. Handles both single and dual outputs (for histograms).
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance containing the computed statistics and save configuration.
+
+    Notes
+    -----
+    For histogram statistics, saves two files:
+    - One for bin counts (*_bin_counts.nc)
+    - One for bin edges (*_bin_edges.nc)
+
+    For other statistics, saves a single file with the statistic name.
     """
-    file_name = os.path.join(
-        opa_self.request.save_filepath, f"{final_time_file_str}_"
-        f"{opa_self.request.variable}_raw_data.nc"
+
+    if MPI_LAUNCHED and MPI_RANK != 0:
+        return
+
+    stat = opa.request.stat
+    stat_freq = opa.request.stat_freq
+    convert_to_float32 = opa.as_float32
+    # TODO: Rename to filedir
+    save_filepath = opa.request.save_filepath
+    base_filename = opa.data_set_info.filename
+
+    filename_stem = (
+        f"{base_filename}_{opa.request.variable}_"
+        f"timestep_{opa.request.time_step}_"
+        f"{stat_freq.value}_{stat.value}"
     )
 
-    dm_raw.to_netcdf(path=file_name, mode="w")
-    dm_raw.close()
+    if stat == StatKey.HISTOGRAM:
+        suffixes = ("_bin_counts.nc", "_bin_edges.nc")
+        for dm, suffix in zip(opa.statistics.get_final(), suffixes):
+            if convert_to_float32:
+                for var_name in dm.data_vars:
+                    if dm[var_name].dtype == np.float64:
+                        dm[var_name] = dm[var_name].astype(np.float32)
+            path = os.path.join(save_filepath, filename_stem + suffix)
+            dm.to_netcdf(path=path, mode="w")
+
+    else:
+        path = os.path.join(save_filepath, filename_stem + ".nc")
+        dm = opa.statistics.get_final()
+        if convert_to_float32:
+            for var_name in dm.data_vars:
+                if dm[var_name].dtype == np.float64:
+                    dm[var_name] = dm[var_name].astype(np.float32)
+        dm.to_netcdf(path=path, mode="w")
+        dm.close()

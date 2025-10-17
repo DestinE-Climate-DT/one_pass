@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.9.0 - 2025/10/17
+
+### Added
+- Data fetch helper script `tools/get_test_data.sh` to download `data/pr_12_months.nc`
+- Time normalization tests in `tests/test_time_normalization.py` (public helpers `convert_word_to_minutes`, `get_minutes_into_word`)
+- New time APIs and utilities under `one_pass/time/`: `timestamps.py` and `opa_time.py`
+- New parameter `as_float32` in `Opa` class initialization to control float32 conversion (defaults to `False`)
+- Multiprocessing Support: Single-node parallelization via `workers` parameter in `Opa` constructor
+- MPI Support: Distributed parallel computing for `histogram` and `percentile` statistics via Message Passing Interface
+- MPI Test Infrastructure and Utilities: Test suite in `tests/mpi/`
+- OPA metadata attributes in output datasets: `OPA_version`, `OPA_timestep`, `OPA_last_timestamp`, and `OPA_num_timestamps`
+
+### Updated
+- Improved type annotations and formatting across `one_pass/opa.py`
+- Tests refactored to use fixtures and helpers reducing duplication
+- Adopted enums `StatKey` and `FrequencyKey` across logic and tests
+- Rewrote `one_pass/convert_time.py`
+- Major update in tests
+- Split `one_pass/opa.py` into smaller modules (e.g. `one_pass/request.py`)
+- Moved from `setup.py` to `pyproject.toml`
+
+### Fixed
+- More robust request validation and error messages; consistent handling for `raw`, histogram, percentile, and frequency checks
+- Raise a clear error when `checkpoint_filepath` is missing before loading checkpoints
+- Formatting in tests
+- Accurate minute conversions for `monthly`, `3monthly`, `yearly`, and `10yearly`
+- Correct minutes-into-period calculation for `daily_noon`, weekly starts, and 10-year windows (with `first_year`)
+- More robust validation and defaults for `thresh_exceed` and `percentile_list`
+
+### Removed
+- Feature: Zarr functionality, i.e. compress pickle if larger than a certain size. See issue [\#71](https://earth.bsc.es/gitlab/digital-twins/de_340-2/one_pass/-/issues/71)
+- Feature: Time rollback, i.e. remove statistics if incoming timesteps are before intermediate points. See issue [\#72](https://earth.bsc.es/gitlab/digital-twins/de_340-2/one_pass/-/issues/72)
+- Legacy `tests/test_bias_correction.py`
+- Removed logic for deprecated `bias_adjustment` key and statistic
+- Removed class `Fixed`
+
 ## v0.8.2 - 2025/10/06
 
 ### Added
@@ -231,4 +267,3 @@
 
 ## v0.1.0 - 2023/03/30
 - First release
-

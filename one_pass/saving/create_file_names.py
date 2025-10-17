@@ -1,142 +1,187 @@
-""""create file names for final netCDF file"""
+"""Utilities for creating output file names for NetCDF files."""
+
+from typing import Optional, TYPE_CHECKING
 
 import pandas as pd
 import xarray as xr
 
-def create_raw_file_name(data_source : xr.DataArray, weight :int):
-    """Creates the final file name for the netCDF file for the raw data.
+from one_pass.options import FrequencyKey
 
-    Arguments
-    ---------
-    data_source : Incoming data chunk
-    weight : length of time dimensions in the incoming chunk
+if TYPE_CHECKING:
+    from one_pass.opa import Opa
+
+
+def create_raw_file_name(data_source: xr.DataArray) -> str:
+    """Create filename for raw data output.
+
+    Generates a descriptive filename based on the timestamps present in the raw data.
+
+    Parameters
+    ----------
+    data_source : xr.DataArray
+        Input data containing timestamps.
 
     Returns
-    --------
-    final_time_file_str : string output with the name of the final netCDF file
+    -------
+    str
+        Filename string with format YYYY_MM_DD_THH_MM for single timestamp,
+        or YYYY_MM_DD_THH_MM_to_YYYY_MM_DD_THH_MM for multiple timestamps.
     """
-    final_time_file_str = None
-    time_stamp_sorted = sorted(data_source.time.data)
-    time_stamp_list = [pd.to_datetime(x) for x in time_stamp_sorted]
+    timestamp_sorted = sorted(data_source.time.data)
+    timestamp_list = [pd.to_datetime(x) for x in timestamp_sorted]
 
-    if weight > 1:
-        final_time_file_str = (
-            time_stamp_list[0].strftime("%Y_%m_%d_T%H_%M")
+    if len(timestamp_list) > 1:
+        return (
+            timestamp_list[0].strftime("%Y_%m_%d_T%H_%M")
             + "_to_"
-            + time_stamp_list[-1].strftime("%Y_%m_%d_T%H_%M")
+            + timestamp_list[-1].strftime("%Y_%m_%d_T%H_%M")
         )
-    else:
-        final_time_file_str = time_stamp_list[0].strftime("%Y_%m_%d_T%H_%M")
+    return timestamp_list[0].strftime("%Y_%m_%d_T%H_%M")
 
-    return final_time_file_str
 
-def create_file_name(opa_self, append : bool = False, time_word : str = None):
-    """Creates the final file name for the netCDF file. If append is True
-    then the file name will span from the first requested statistic to the
-    last. time_word corresponds to the continous option which outputs checks
-    every month
-    
-    Arguments
-    ---------
-    opa_self : Opa class
-    append : This is a boolean flag. If true, it means that the file name
-            needs to span the full statistic time frame.
-    time_word : this is used when stat_freq is continuous. In this
-            situation we want to use the output_freq for naming the
-            file, so time_word is input as the output_freq and the
-            stat_freq gets temporarily swapped to the output_freq in
-            order to create the name. It is returned to continuous
-            at the end.
+def _create_filename_span(opa: "Opa", time_word: FrequencyKey):
+    """Create filename for appended statistics spanning multiple periods.
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance with time and request information.
+    time_word : FrequencyKey
+        Temporal frequency determining the filename format.
+
     Returns
-    --------
-    final_time_file_str : string output with the name of the final netCDF file
+    -------
+    str
+        Filename spanning from first to last timestamp in the aggregation.
+
+    Raises
+    ------
+    RuntimeError
+        If an unsupported time_word is provided.
     """
-    final_time_file_str = None
+    if time_word in (
+        FrequencyKey.HOURLY,
+        FrequencyKey.TWO_HOURLY,
+        FrequencyKey.THREE_HOURLY,
+        FrequencyKey.SIX_HOURLY,
+        FrequencyKey.TWELVE_HOURLY,
+        FrequencyKey.DAILY_NOON,
+    ):
+        return (
+            opa.time.first_timestamp.strftime("%Y_%m_%d_T%H")
+            + "_to_"
+            + opa.time.init_timestamp.strftime("%Y_%m_%d_T%H")
+        )
+
+    if time_word in (FrequencyKey.DAILY, FrequencyKey.WEEKLY):
+        return (
+            opa.time.first_timestamp.strftime("%Y_%m_%d")
+            + "_to_"
+            + opa.time.init_timestamp.strftime("%Y_%m_%d")
+        )
+
+    if time_word in (
+        FrequencyKey.MONTHLY,
+        FrequencyKey.THREE_MONTHLY,
+    ):
+        return (
+            opa.time.first_timestamp.strftime("%Y_%m")
+            + "_to_"
+            + opa.time.init_timestamp.strftime("%Y_%m")
+        )
+
+    if time_word == FrequencyKey.YEARLY or opa.request.stat == FrequencyKey.TEN_YEARLY:
+        return (
+            opa.time.first_timestamp.strftime("%Y")
+            + "_to_"
+            + opa.time.init_timestamp.strftime("%Y")
+        )
+
+    raise RuntimeError("Cannot create filename.")
+
+
+def _create_filename_single_point(opa: "Opa", time_word: FrequencyKey):
+    """Create filename for a single statistic (no appending).
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance with time and request information.
+    time_word : FrequencyKey
+        Temporal frequency determining the filename format.
+
+    Returns
+    -------
+    str
+        Filename representing the single statistic timestamp.
+
+    Raises
+    ------
+    RuntimeError
+        If an unsupported time_word is provided.
+    """
+    if time_word in (
+        FrequencyKey.HOURLY,
+        FrequencyKey.TWO_HOURLY,
+        FrequencyKey.THREE_HOURLY,
+        FrequencyKey.SIX_HOURLY,
+        FrequencyKey.TWELVE_HOURLY,
+        FrequencyKey.DAILY_NOON,
+    ):
+        return opa.time.init_timestamp.strftime("%Y_%m_%d_T%H")
+
+    if time_word == FrequencyKey.DAILY:
+        return opa.time.init_timestamp.strftime("%Y_%m_%d")
+
+    if time_word == FrequencyKey.WEEKLY:
+        return opa.time.init_timestamp.strftime("%Y_%m_%d")
+
+    if time_word in (
+        FrequencyKey.MONTHLY,
+        FrequencyKey.THREE_MONTHLY,
+    ):
+        return opa.time.init_timestamp.strftime("%Y_%m")
+
+    if time_word == FrequencyKey.YEARLY or opa.request.stat == FrequencyKey.TEN_YEARLY:
+        return opa.time.init_timestamp.strftime("%Y")
+
+    raise RuntimeError("Cannot create filename.")
+
+
+def create_file_name(opa: "Opa", time_word: Optional[str] = None) -> str:
+    """Create the final filename for a NetCDF output file.
+
+    Generates a descriptive filename based on the statistic period and whether
+    multiple statistics are being appended into one file.
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance containing time and request configuration.
+    time_word : FrequencyKey or None, optional
+        Frequency to use for filename generation. Used for continuous statistics
+        where stat_freq is continuous but output_freq determines the output period.
+        If None, uses opa.request.stat_freq.
+
+    Returns
+    -------
+    str
+        Timestamp-based filename string.
+
+    Notes
+    -----
+    For continuous statistics (stat_freq='continuous'), the output_freq should be
+    passed as time_word to generate appropriate filenames.
+    """
 
     # used for naming continuous data
-    if time_word is not None:
-        stat_freq_old = opa_self.request.stat_freq
-        opa_self.request.stat_freq = time_word
+    if time_word is None:
+        time_word = opa.request.stat_freq
 
-    if append:
+    # Filename of a span if we have more than one statistic (_to_)
+    is_span = opa.time.num_statistics > 1
 
-        # if opa_self.request.stat_freq == "half_hourly":
-        #     opa_self.append.final_time_file_str = (
-        #         opa_self.append.final_time_file_str
-        #         + "_to_"
-        #         + opa_self.time.init_time_stamp.strftime("%Y_%m_%d_T%H%_M")
-        #     )
+    if is_span:
+        return _create_filename_span(opa, time_word)
 
-        if opa_self.request.stat_freq in (
-                "hourly",
-                "2hourly",
-                "3hourly",
-                "6hourly",
-                "12hourly"
-            ):
-            opa_self.append.final_time_file_str = (
-                opa_self.append.final_time_file_str
-                + "_to_"
-                + opa_self.time.init_time_stamp.strftime("%Y_%m_%d_T%H")
-            )
-
-        elif opa_self.request.stat_freq in ("daily", "weekly"):
-            opa_self.append.final_time_file_str = (
-                opa_self.append.final_time_file_str
-                + "_to_"
-                + opa_self.time.init_time_stamp.strftime("%Y_%m_%d")
-            )
-
-        elif opa_self.request.stat_freq in ("monthly","3monthly"):
-            opa_self.append.final_time_file_str = (
-                opa_self.append.final_time_file_str
-                + "_to_"
-                + opa_self.time.init_time_stamp.strftime("%Y_%m")
-            )
-
-        elif (opa_self.request.stat_freq == "yearly" or
-                opa_self.request.stat == "10yearly"
-            ):
-            opa_self.append.final_time_file_str = (
-                opa_self.append.final_time_file_str + "_to_" +
-                opa_self.time.init_time_stamp.strftime("%Y")
-            )
-    else:
-
-        # if opa_self.request.stat_freq == "half_hourly":
-        #     final_time_file_str = \
-        #         opa_self.time.init_time_stamp.strftime("%Y_%m_%d_T%H_%M")
-
-        if opa_self.request.stat_freq in (
-                "hourly",
-                "2hourly",
-                "3hourly",
-                "6hourly",
-                "12hourly",
-                "daily_noon"
-        ):
-            final_time_file_str = \
-                opa_self.time.init_time_stamp.strftime("%Y_%m_%d_T%H")
-
-        elif opa_self.request.stat_freq == "daily":
-            final_time_file_str = \
-                opa_self.time.init_time_stamp.strftime("%Y_%m_%d")
-
-        elif opa_self.request.stat_freq == "weekly":
-            final_time_file_str = \
-                opa_self.time.init_time_stamp.strftime("%Y_%m_%d")
-
-        elif opa_self.request.stat_freq in ("monthly", "3monthly"):
-            final_time_file_str = \
-                opa_self.time.init_time_stamp.strftime("%Y_%m")
-
-        elif (opa_self.request.stat_freq == "yearly" or
-                opa_self.request.stat == "10yearly"
-            ):
-            final_time_file_str = \
-                opa_self.time.init_time_stamp.strftime("%Y")
-
-    if time_word is not None:
-        opa_self.request.stat_freq = stat_freq_old
-
-    return final_time_file_str
+    return _create_filename_single_point(opa, time_word)

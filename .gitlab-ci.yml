@@ -31,25 +31,29 @@ buildcloud312:
     - pip3.12 install -e .[all]
     - pip3.12 install pylint
 
-buildlumi:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  tags:
-    - lumi
-  variables:
-    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
-  artifacts:
-    paths:
-      - venvlumi
-    expire_in: 60 minutes
-  stage: prepare
-  script:
-    - module load cray-python
-    - python -m venv venvlumi
-    - source venvlumi/bin/activate
-    - python -m pip install --upgrade pip
-    - pip install -e .[tests]
+###################################################
+# Temporarily removed until core hours are restored
+###################################################
+
+# buildlumi:
+#   id_tokens:
+#     CI_JOB_JWT:
+#       aud: https://earth.bsc.es/gitlab
+#   tags:
+#     - lumi
+#   variables:
+#     SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+#   artifacts:
+#     paths:
+#       - venvlumi
+#     expire_in: 60 minutes
+#   stage: prepare
+#   script:
+#     - module load cray-python
+#     - python -m venv venvlumi
+#     - source venvlumi/bin/activate
+#     - python -m pip install --upgrade pip
+#     - pip install -e .[tests]
 
 cache:
   paths:
@@ -72,7 +76,7 @@ lint-opa:
     - source venv/bin/activate
     - pylint --fail-under=9.5 one_pass/opa.py
 
-lint-check_request:
+lint-validate_request:
   id_tokens:
     CI_JOB_JWT:
       aud: https://earth.bsc.es/gitlab
@@ -86,9 +90,9 @@ lint-check_request:
   stage: lint
   script:
     - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/check_request.py
+    - pylint --fail-under=9.5 one_pass/validation/request.py
 
-lint-util:
+lint-request:
   id_tokens:
     CI_JOB_JWT:
       aud: https://earth.bsc.es/gitlab
@@ -102,7 +106,7 @@ lint-util:
   stage: lint
   script:
     - source venv/bin/activate
-    - pylint  --fail-under=9.5 one_pass/util.py
+    - pylint  --fail-under=9.5 one_pass/request.py
 
 lint-convert_time:
   id_tokens:
@@ -199,7 +203,7 @@ lint-get_final_statistics:
   script:
     - source venv/bin/activate
     - pylint one_pass/statistics/get_final_statistics.py
-  
+
 lint-create_data_sets:
   id_tokens:
     CI_JOB_JWT:
@@ -486,33 +490,33 @@ test312:
 # Temporarily removed until core hours are restored
 ###################################################
 
-testlumi:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  dependencies:
-    - buildlumi
-  needs:
-    - buildlumi
-  variables:
-    SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
-  tags:
-    - lumi
-  stage: test
-  script:
-    - source venvlumi/bin/activate
-    - tests/get_data.sh
-    - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-  # These artifacts are saved with every build in GitLab and can be reviewed later. If
-  # we have a folder with HTML files, as in this example, users can navigate with their
-  # browser.
-  artifacts:
-    expire_in: 30 days
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
+# testlumi:
+#   id_tokens:
+#     CI_JOB_JWT:
+#       aud: https://earth.bsc.es/gitlab
+#   dependencies:
+#     - buildlumi
+#   needs:
+#     - buildlumi
+#   variables:
+#     SCHEDULER_PARAMETERS: "-p debug -N 1 -n 4 --mem=8G -t 00:15:00 -A project_465000454"
+#   tags:
+#     - lumi
+#   stage: test
+#   script:
+#     - source venvlumi/bin/activate
+#     - tests/get_data.sh
+#     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
+#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+#   # These artifacts are saved with every build in GitLab and can be reviewed later. If
+#   # we have a folder with HTML files, as in this example, users can navigate with their
+#   # browser.
+#   artifacts:
+#     expire_in: 30 days
+#     reports:
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: coverage.xml
 
 # documentation:
 #   tags:

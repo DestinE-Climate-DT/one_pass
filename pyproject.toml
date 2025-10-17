@@ -1,4 +1,99 @@
 [build-system]
-requires = ["setuptools", "setuptools_scm", "wheel"]
+requires = [
+    "setuptools>=64",
+    "setuptools-scm>=8.1.0",
+    "wheel"
+]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "one_pass"
+description = "One-Pass summaries for climate data analysis"
+authors = [
+    { name = "Katherine Grayson", email = "katherine.grayson@bsc.es" },
+    { name = "Ivan Alsina-Ferrer", email = "ivan.alsina@bsc.es" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy==2.*",
+    "xarray",
+    "dask",
+    "zarr==2.*",
+    "cython==3.*",
+    "netcdf4==1.*",
+    "cytoolz==1.*",
+    "tqdm==4.*",
+    "crick==0.0.8",
+    "pyarrow==18.*",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://gitlab.earth.bsc.es/digital-twins/de_340-2/one_pass"
+Repository = "https://gitlab.earth.bsc.es/digital-twins/de_340-2/one_pass"
+
+[project.optional-dependencies]
+ba = [
+    "bias_corr @ git+https://gitlab.earth.bsc.es/digital-twins/de_340-2/bias_adjustment.git@v0.5.5",
+]
+tests = [
+    "coverage==7.2.*",
+    "pylint==3.*",
+    "pytest==8.*",
+    "pytest-cov==4.*",
+    "pytest-mock==3.10.*",
+]
+docs = [
+    "sphinx==8.*",
+    "sphinx-rtd-theme==3.*",
+]
+dev = [
+    "black[jupyter]==24.8.0",
+    "mypy==1.11.1",
+    "mypy-extensions==1.0.0",
+    "pylint==3.2.6",
+    "pre-commit==4.0.1",
+]
+mpi = [
+    "pytest-mpi==0.*",
+    "pytest-mpiexec>=0.0.1a1",
+    "pytest-isolate-mpi==0.*",
+    "mpi4py==4.*",
+]
+all = [
+    "bias_corr @ git+https://earth.bsc.es/gitlab/digital-twins/de_340-2/bias_adjustment.git@v0.5.5",
+    "black[jupyter]==24.8.0",
+    "mypy==1.11.1",
+    "mypy-extensions==1.0.0",
+    "pylint==3.*",
+    "pytest==8.*",
+    "pre-commit==4.0.1",
+    "coverage==7.2.*",
+    "pytest-cov==4.*",
+    "pytest-mock==3.10.*",
+    "sphinx==8.*",
+    "sphinx-rtd-theme==3.*",
+    "pytest-mpi==0.*",
+    "pytest-mpiexec>=0.0.1a1",
+    "pytest-isolate-mpi==0.*",
+    "mpi4py==4.*",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "node-and-date"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+addopts = """
+    --ignore=scripts
+    --ignore=examples
+    --ignore=notebooks
+    --ignore=tests/mpi
+"""

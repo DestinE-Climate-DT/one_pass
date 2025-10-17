@@ -1,46 +1,34 @@
-""""Module for removing checkpoint"""
+"""Module for removing checkpoint files after computation completes."""
+
 import os
-import numpy as np
+from typing import TYPE_CHECKING
 
-def remove_zarr_checkpoints(opa_self):
-    """Will first check if the attribute matching_items
-    is present which indicates that checkpointing has
-    been done with zarr. If it is it will go through and
-    remove all the zarr checkpoint files
-    """
-    if opa_self.time.using_zarr:
-        # looping through all the data that is something_cum
-        for element in opa_self.statistics.__dict__.items():
-            if element[0] != "final_cum":
-                checkpoint_file_zarr = os.path.join(
-                    opa_self.request.checkpoint_filepath,
-                    f"checkpoint_{opa_self.request.variable}_"
-                    f"{opa_self.request.stat_freq}_"
-                    f"{opa_self.request.output_freq}_"
-                    f"timestep_{opa_self.request.time_step}_"
-                    f"{element[0]}.zarr",
-                )
-                if os.path.exists(checkpoint_file_zarr):
-                    file_list = os.listdir(checkpoint_file_zarr)
-                    num_of_files = np.size(file_list)
-                    for files in range(num_of_files):
-                        os.remove(
-                            os.path.join(checkpoint_file_zarr,
-                                        file_list[files])
-                            )
-                    os.rmdir(checkpoint_file_zarr)
+if TYPE_CHECKING:
+    from one_pass.opa import Opa
 
-def remove_checkpoints(opa_self):
-    """If Opa.keep_checkpoints is True, does nothing.
-    Will first check if checkpointing is turned on.
-    If yes, it will find the path for the checkpoint
-    file and remove it. It will also call remove
-    zarr checkpoints.
+
+def remove_checkpoints(opa: "Opa"):
+    """Remove checkpoint files after successful computation.
+
+    This function cleans up checkpoint files when computation is complete,
+    unless explicitly configured to keep them.
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance containing checkpoint configuration and file path.
+
+    Notes
+    -----
+    The checkpoint file is only removed if:
+    - opa.keep_checkpoints is False
+    - Checkpointing was enabled in the request
+    - The checkpoint file exists on disk
     """
-    if opa_self.keep_checkpoints:
+    if opa.keep_checkpoints:
         return
-    if opa_self.request.checkpoint:
-        if os.path.isfile(opa_self.request.checkpoint_file):
-            opa_self.logger.debug('removing checkpoint')
-            os.remove(opa_self.request.checkpoint_file)
-        remove_zarr_checkpoints(opa_self)
+    if not opa.request.checkpoint:
+        return
+    if os.path.isfile(opa.request.checkpoint_file):
+        opa.logger.debug("removing checkpoint")
+        os.remove(opa.request.checkpoint_file)

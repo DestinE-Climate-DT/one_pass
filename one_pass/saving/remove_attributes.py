@@ -1,31 +1,79 @@
-"""Functions to remove unnecessary attributes that do
-not need to be carried through"""
+"""Functions to remove unnecessary attributes during continuous statistics.
 
-from one_pass.checkpointing.write_checkpoint import find_items_with_substr
+These utilities clean up intermediate computation results that don't need to be
+maintained between output periods for continuous statistics.
+"""
 
-def remove_attributes_continuous(opa_self):
-    """Resets attributes before the output of the statistic
-    when the stat_freq is continuous. We can not remove all
-    the attributes STAT.cum because they are needed in the
-    next calculation but we can remove some uncessary ones.
-    For example, it will remove the final attributes created
-    to output the percentiles and histograms, but will leave
-    the underlying digests_cum. It will remove the std_cum
-    as we only need to carry through the variance and it will
-    remove the final_cum which is the dataset used for returning
+from typing import TYPE_CHECKING
+
+from one_pass.options import StatKey
+
+if TYPE_CHECKING:
+    from one_pass.opa import Opa
+
+
+def find_items_with_substr(pass_dict, target_substring):
+    """Find all class attributes containing a specific substring.
+
+    Searches through the attributes of an object (typically an OPA instance)
+    and returns those whose names contain the target substring.
+
+    Parameters
+    ----------
+    pass_dict : object
+        Object (typically Opa instance) whose attributes to search.
+    target_substring : str
+        Substring to match in attribute names.
+
+    Returns
+    -------
+    list of str
+        List of attribute names containing the target substring.
     """
-    if opa_self.request.stat in ("percentile", "histogram"):
-        matching_items = find_items_with_substr(opa_self.statistics, "cum")
+    matching_items = []
+
+    for key in pass_dict.__dict__.keys():
+
+        if target_substring in key:
+            matching_items.append((key))
+
+    return matching_items
+
+
+def remove_attributes_continuous(opa: "Opa"):
+    """Clean up intermediate attributes for continuous statistics.
+
+    For continuous statistics, removes attributes that are no longer needed after
+    output but keeps essential cumulative data for the next computation cycle.
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance with continuous statistics.
+
+    Notes
+    -----
+    This function selectively removes:
+    - Final percentile/histogram arrays (keeping underlying TDigests)
+    - Standard deviation (keeping variance for recomputation)
+    - Finalized datasets after output
+
+    These removals reduce memory usage while preserving the state needed for
+    continued rolling computation.
+    """
+    if opa.request.stat in (StatKey.PERCENTILE, StatKey.HISTOGRAM):
+        matching_items = find_items_with_substr(opa.statistics, "cum")
         for key in matching_items:
-            if key != "digests_cum":
-                setattr(opa_self.statistics, key, None)
+            # Keep the cumulative object which contains tdigest
+            if key != "_cumulative":
+                setattr(opa.statistics, key, None)
 
-    if opa_self.request.stat == "std":
-        setattr(opa_self.statistics, "std_cum", None)
+    if opa.request.stat == StatKey.STD:
+        setattr(opa.statistics, "std_cum", None)
 
-    if opa_self.statistics.final_cum is not None:
-        setattr(opa_self.statistics, "final_cum", None)
+    if opa.statistics.final_cum is not None:
+        setattr(opa.statistics, "final_cum", None)
 
-    if opa_self.request.stat == "histogram":
-        if opa_self.statistics.final2_cum is not None:
-            setattr(opa_self.statistics, "final2_cum", None)
+    if opa.request.stat == StatKey.HISTOGRAM:
+        if opa.statistics.final2_cum is not None:
+            setattr(opa.statistics, "final2_cum", None)

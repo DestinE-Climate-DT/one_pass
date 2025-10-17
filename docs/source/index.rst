@@ -8,8 +8,8 @@ Welcome to one_pass's documentation!
 
 **One_pass** is a python library developed for the Destination Earth programme as part of the Climate Digital Twin (Climate DT). The library works on streamed climate data, performing intelligent data reduction techniques in order to provide statistical summaries as requested by the user.
 
-.. note:: 
-   This project is under active development 
+.. note::
+   This project is under active development
 
 .. toctree::
    :maxdepth: 3
@@ -21,6 +21,7 @@ Welcome to one_pass's documentation!
    the_data_request
    a_note_on_timestamps
    a_note_on_the_output
+   parallel_computing_quick_reference
    debugging
    tests
    examples_tutorials

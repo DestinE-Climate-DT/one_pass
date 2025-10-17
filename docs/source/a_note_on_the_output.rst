@@ -15,17 +15,28 @@ The timestamp on the time dimension will correspond to the time stamp of the fir
 
 Metadata
 =========
-All of the original attributes (metadata) included in the Dataset will be present in the final Dataset along with a new (or appended if it already exists) 'history' attribute corresponding to the details of the one_pass algorithm and the time of its creation. There will only be one variable in the final Dataset, as the one_pass only processes one variable at a time. The name of the variable and the units will be unchanged.
+All of the original attributes (metadata) included in the Dataset will be present in the final Dataset along with a new (or appended if it already exists) 'history' attribute corresponding to the details of the one_pass algorithm and the time of its creation. Additionally, the following OPA-specific metadata attributes are included:
+
+- ``OPA_version``: Version of the one_pass package used
+- ``OPA_timestep``: The timestep value used in processing
+- ``OPA_last_timestamp``: List of last timestamps processed
+- ``OPA_num_timestamps``: List of number of timestamps processed
+
+There will only be one variable in the final Dataset, as the one_pass only processes one variable at a time. The name of the variable and the units will be unchanged.
+
+Data Types
+==========
+By default, the one_pass package saves to disk datasets with data types corresponding to those of the originally passed data sets. This behavior is controlled by the ``as_float32`` parameter in the ``Opa`` class initialization. When ``as_float32`` is set to ``True``, float64 variables will be converted to float32 before saving, which can significantly reduce file size while maintaining sufficient precision for most climate data applications. Only float64 variables are converted; other data types remain unchanged. By default, ``as_float32`` is set to ``False``, meaning variables will be stored with the same data type they were originally input.
 
 File name
 ==========
-If you have requested to save the output the file name will be ``timestamp_variable_timestep_x_stat_freq_stat.nc``, where ``x`` is the value of the ``timestep``. For example, if you asked for a monthly mean of precipitation, created from hourly data, the file name would be output as ``2070_05_pr_timestep_60_monthly_mean.nc``. The length of the time_stamp will change depending on the stat_freq requested. For example, if you ask for ``"stat_freq" : "daily"``, the time_stamp will include the day, whereas if you request ``"stat_freq" : "monthly"`` the time_stamp will just include the month. 
+If you have requested to save the output the file name will be ``timestamp_variable_timestep_x_stat_freq_stat.nc``, where ``x`` is the value of the ``timestep``. For example, if you asked for a monthly mean of precipitation, created from hourly data, the file name would be output as ``2070_05_pr_timestep_60_monthly_mean.nc``. The length of the time_stamp will change depending on the stat_freq requested. For example, if you ask for ``"stat_freq" : "daily"``, the time_stamp will include the day, whereas if you request ``"stat_freq" : "monthly"`` the time_stamp will just include the month.
 
 If you have requested ``"stat_freq" : "continuous"`` then the file name will be ``timestamp_variable_timestep_x_output_freq_stat.nc`` as each output file will correspond to the rolling summary of the continuous statistic shown at output_freq frequency. The timestamp in the filename will be the start of that output_freq. Again, ``x`` will be the time step of the data used to create the statistic in minutes.
 
 If you have requested an ``output_freq`` greater than the ``stat_freq`` the timestamp in the file name will span the output frequency. For example, ``"stat_freq" : "daily"`` with ``"output_freq" : "monthly"`` will give a file name of ``2071_01_01_to_2071_01_31_pr_timestep_60_daily_mean.nc``.
 
-The one_pass file names  will not differentiate between different experimental runs. 
+The one_pass file names  will not differentiate between different experimental runs.
 
 The other different file names will be for the following:
 
