@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from logging import Logger
 from pathlib import Path
 from typing import Any, Dict, Literal, Mapping, Optional, Sequence, Tuple
@@ -173,6 +173,30 @@ class Request:  # pylint: disable=R0902
         _validate_mpi(self)
         check_request(self, logger=logger)
 
+    def __repr__(self):
+        skip_keys = {
+            "bias_adjustment",
+            "checkpoint_filepath",
+            "save_filepath",
+            "_logger",
+        }
+        valid_value_types = (StatKey, FrequencyKey, bool, int, float, str)
+        elements = []
+        for key, value in asdict(self).items():
+            if key in skip_keys:
+                continue
+            if value is None:
+                continue
+            if self.bias_adjust is False and key.startswith("ba_"):
+                continue
+            if not isinstance(value, valid_value_types):
+                continue
+            if isinstance(value, (StatKey, FrequencyKey)):
+                elements.append(f"{key}={value.value}")
+            else:
+                elements.append(f"{key}={value}")
+        return f"Request({', '.join(elements)})"
+
     @classmethod
     def parse(
         cls,
@@ -253,7 +277,7 @@ class Request:  # pylint: disable=R0902
             name += f".{MPI_RANK:06d}-{MPI_SIZE:06d}"
         return name
 
-    # IDEA: Refactor out for simplicity (else rename to checkpoint_filepath)
+    # TODO: Rename to checkpoint_dir
     @property
     def checkpoint_file(self) -> str:
         """Full checkpoint file path.

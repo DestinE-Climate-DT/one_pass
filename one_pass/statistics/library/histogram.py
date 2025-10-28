@@ -121,7 +121,8 @@ def finalize_histogram_mpi(opa: "Opa") -> Tuple[NDArray, NDArray]:
         for j, tdigest in enumerate(local_tdigests):
             if tdigest is None:
                 raise RuntimeError(
-                    f"TDigest at index {start_index + j} is None - initialization failed"
+                    f"TDigest at index {start_index + j} is None "
+                    "- initialization failed"
                 )
             histogram, bin_edges = tdigest.histogram(
                 bins=bins,

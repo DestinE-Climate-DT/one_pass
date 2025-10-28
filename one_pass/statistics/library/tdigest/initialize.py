@@ -15,6 +15,7 @@ from one_pass.mpi import MPI_LAUNCHED, MPI_get_indices
 if TYPE_CHECKING:
     from one_pass.opa import Opa
 
+
 def initialise_mpi(opa: "Opa"):
     """Initialize TDigest objects for MPI execution.
 
@@ -100,7 +101,6 @@ def initialise(opa: "Opa"):
         A sequence of TDigest objects. In MPI mode, only local indices
         contain TDigest objects, others are None.
     """
-    size = opa.data_set_info.spacial_size
 
     if MPI_LAUNCHED:
         return initialise_mpi(opa)

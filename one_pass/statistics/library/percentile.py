@@ -56,7 +56,7 @@ def finalize_percentile(opa: "Opa") -> NDArray:
     return np.expand_dims(percentiles, axis=0)
 
 
-def finalize_percentile_mpi(opa: "Opa") -> NDArray:
+def finalize_percentile_mpi(opa: "Opa") -> NDArray:  # pylint: disable=R0914
     """MPI version of finalize_percentile. Distributes tdigest processing across ranks
     and gathers results on rank 0.
 

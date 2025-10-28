@@ -16,7 +16,6 @@ import numpy as np
 import tqdm
 import xarray as xr
 
-from one_pass.options import FrequencyKey
 from one_pass.mpi import MPI_LAUNCHED, MPI_get_indices
 
 

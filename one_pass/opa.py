@@ -1,6 +1,7 @@
 """Main module for calling one pass functions"""
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 import os
@@ -54,7 +55,7 @@ class DataSetInfo:
     filename: Optional[str] = None
 
 
-class Opa:  # pylint: disable=R0902,R0903,R0913
+class Opa:  # pylint: disable=R0902,R0903,R0913,R0917
     """Main OPA class for computing one-pass statistics.
 
     This class manages the computation of statistics using a one-pass algorithm.
@@ -146,6 +147,14 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
         if self.request.checkpoint:
             self._check_checkpoint()
 
+        self.logger.info("OPA ininitalized with request: %s", self.request)
+
+    @property
+    def finalized(self) -> bool:
+        """Whether the current statistic period is complete."""
+
+        return self.time.finalized
+
     @property
     def result(self):
         """Get the computed result.
@@ -166,6 +175,17 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
             self.logger.warning("Accessing result before statistic is finalised.")
         return self._result
 
+    @result.setter
+    def result(self, value: Union[xr.Dataset, Tuple[xr.Dataset, xr.Dataset]]):
+        save = self.request.save
+        if self._result is not None and not save:
+            self.logger.warning(
+                "Buffered result is already set and save is not enabled. "
+                "Overwriting with new result."
+            )
+        self.logger.debug("Setting result to %s", _repr_data_source(value))
+        self._result = value
+
     def _check_checkpoint(self):
         """Check for existing checkpoint file and restore state if found.
 
@@ -179,12 +199,15 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
         restored from the checkpoint, allowing computation to resume from
         where it left off.
         """
+        # pylint: disable=W0212
+
         checkpoint_path = self.request.checkpoint_file
 
         # see if the checkpoint file exists
         if os.path.exists(checkpoint_path):
             with open(checkpoint_path, "rb") as brf:
                 loaded_object = pickle.load(brf)
+                loaded_object._result = None
                 self.__dict__.update(loaded_object.__dict__)
 
     def _done(self):
@@ -205,12 +228,10 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
         if self.request.checkpoint:
             # this will not be written when count == ndata
             if self.time.continuous or not self.time.finalized:
-                self.logger.info("Checkpointing intermediate data")
                 self.checkpoint()
 
         if self.time.finalized:
-            self.logger.info("Computing final statistic")
-            return self.statistics.get_final()
+            return self.result
 
         return None if self.request.stat != StatKey.HISTOGRAM else (None, None)
 
@@ -240,23 +261,24 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
 
         self.logger.info("Starting rotate")
 
-        # TODO: Rename to wrap_statistics because set_final is confusing.
         update_attributes(self)
         self.statistics.add_final(create_data_set(self, data_source))
 
         # Reset tracking of timestamps.
-        self.time.reset()
-
-        # Reset statistics
-        self.statistics.reset(keep_final=True)
+        self.time.reset(hard=False)
+        self.statistics.reset(hard=False)
 
         # the flag is set after call recursive, meaning it will only
         # checkpoint the data once after all the recursive calls are
         # finished. Without, it would checkpoint but go back and checkpoint
         # all the previous states again
-        if self.time.finalized and self.request.save:
-            remove_checkpoints(self)
-            self.save_nc()
+        if self.time.finalized:
+            if self.request.save:
+                remove_checkpoints(self)
+                self.save_nc()
+            self.result = self.statistics.get_final()
+            self.time.reset(hard=True)
+            self.statistics.reset(hard=True)
 
     def _preprocess(
         self,
@@ -287,7 +309,9 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
                 Data that extends beyond current period, to be processed recursively.
         """
 
-        self.logger.info("Starting preprocess")
+        self.logger.info(
+            "Starting preprocess with %d time steps", data_source.time.size
+        )
         stat = self.request.stat
 
         # convert from a data_set to a data_array if required
@@ -352,7 +376,9 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
             Finalized statistics if all processing is complete, otherwise None.
         """
 
-        self.logger.info("Starting postprocess")
+        self.logger.info(
+            "Starting postprocess with %d time steps", data_source.time.size
+        )
 
         # If current statistic is finalized,
         #   rotate OPA, meaning:
@@ -375,6 +401,12 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
         else:
             # Current statistic is not finalized, wait for more data.
             pass
+
+        self.logger.debug(
+            "_postprocess:opa.time.finalized: %s, arg finalized: %s",
+            self.time.finalized,
+            finalized,
+        )
 
         # If there is carryover (remaining, to be processed) data,
         #   call OPA again for the remaining data.
@@ -401,8 +433,6 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
             carryover.time.size,
         )
 
-        self.logger.info("Processing carryover data")
-        # Recursive call with more data
         return self.compute(carryover)
 
     def compute(
@@ -441,44 +471,63 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
         frequency after enough data has been passed to it.
         """
 
-        self.logger.info(
+        self.logger.info(  # pylint: disable=W1203
             f"Starting compute (with{'out' if not MPI_LAUNCHED else ''} MPI)",
         )
 
-        self.logger.info(
-            "Input data_source: %s (dims: %s, time dim: %d, times: (%s - %s))",
-            str(data_source.__class__.__name__),
-            str(data_source.dims),
-            data_source.time.size,
-            str(data_source.time.data[0]),
-            str(data_source.time.data[-1]),
-        )
+        self.logger.info("Input data source: %s", _repr_data_source(data_source))
 
         abort, data_source, carryover = self._preprocess(data_source, bias_adjust)
 
         if abort:
             return data_source
 
-        self.logger.info("Updating statistics with chunked data")
+        self.logger.info(
+            "Updating statistics with chunked data with %d time steps",
+            data_source.time.size,
+        )
         finalized = update_statistics(self, data_source)
 
         return self._postprocess(finalized, data_source, carryover)
 
-    def checkpoint(self):
+    def checkpoint(self, directory: Optional[str | Path] = None):
         """Save current OPA state to a checkpoint file.
 
         Serializes the entire OPA instance to a pickle file for later restoration.
         This allows computation to be resumed from the current state.
 
+        Parameters
+        ----------
+        directory : str or Path, optional
+            Directory to save the checkpoint file. If None, uses the directory
+            specified in `request.checkpoint_filepath`. This parameter allows
+            saving checkpoints to custom locations without modifying the request
+            configuration.
+
         Raises
         ------
         ValueError
-            If checkpointing was disabled in the request configuration.
+            If checkpointing was disabled in the request configuration
+            (i.e., `checkpoint=False` in the request).
 
         Notes
         -----
-        Before saving, all dask arrays in statistics are loaded into memory
-        to reduce disk space usage.
+        - Checkpoint files are named using the convention:
+          `checkpoint_{variable}_{stat_freq}_timestep_{timestep}_{output_freq}_{stat}.pkl`
+        - Before saving, all dask arrays in statistics are loaded into memory
+          to reduce disk space usage.
+        - The checkpoint includes all OPA state needed to resume computation:
+          time tracking, statistics accumulation, and configuration.
+
+        Examples
+        --------
+        Save checkpoint to default location from request:
+
+        >>> opa.checkpoint()
+
+        Save checkpoint to custom directory:
+
+        >>> opa.checkpoint(directory="/path/to/custom/checkpoint/dir")
         """
 
         if self.request.checkpoint is False:
@@ -486,15 +535,15 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
                 "Cannot checkpoint OPA becasue in request, checkpoint was set to False."
             )
 
-        self.logger.info("Checkpointing OPA")
+        if directory is None:
+            # NOTE: Should be renamed (-> checkpoint_dir)
+            directory = self.request.checkpoint_filepath
 
-        # self.logger.info("Loading statistics into memory")
-        # # Dask-load all objects in statistics to save disk space
-        # self.statistics.load()
+        fpath = os.path.join(directory, self.request.checkpoint_name)
 
-        # TODO: Name should change
-        self.logger.info("OPA dump to checkpoint file")
-        with open(self.request.checkpoint_file, "wb") as bf:
+        self.logger.info("OPA dump to checkpoint fpath: %s", fpath)
+
+        with open(fpath, "wb") as bf:
             pickle.dump(self, bf, protocol=pickle.HIGHEST_PROTOCOL)
 
     def save_nc(self):
@@ -506,16 +555,48 @@ class Opa:  # pylint: disable=R0902,R0903,R0913
 
         Notes
         -----
-        This method is only called for computed statistics, not for raw data.
-        The filename and save path are determined from the request configuration
-        and data set information.
+        - This method is only called for computed statistics, not for raw data.
+        - NetCDF files are named using the convention:
+          `{timestamp}_{variable}_timestep_{timestep}_{stat_freq}_{stat}.nc`
+        - For histogram statistics, two files are created:
+          one for bin counts (*_bin_counts.nc) and one for bin edges (*_bin_edges.nc)
+        - The filename timestamp is determined from the data set information
+          and represents the time range of the statistic.
         """
+        # Raw data doesn't make OPA reach here.
 
-        if self.request.stat == StatKey.RAW:
-            # Raw data saving is handled in check_raw function
-            pass
-        else:
-            save_output_nc(self)
+        # NOTE: Should be renamed (-> checkpoint_dir)
+        directory = self.request.save_filepath
+
+        self.logger.info(
+            "Saving finalized dataset to NetCDF file in directory: %s", directory
+        )
+        save_output_nc(self, directory=directory)
+
+
+def _repr_data_source(
+    obj: Union[
+        None,
+        xr.Dataset,
+        xr.DataArray,
+        Tuple[None, None],
+        Tuple[xr.Dataset, xr.Dataset],
+        Tuple[xr.DataArray, xr.DataArray],
+    ]
+) -> str:
+    if obj is None:
+        return "None"
+    if isinstance(obj, tuple):
+        return "(" + ", ".join([_repr_data_source(v) for v in obj]) + ")"
+    if isinstance(obj, (xr.Dataset, xr.DataArray)):
+        return "{:s} (dims: {:s}; times: [{:s} - {:s}] ({:d}))".format(  # pylint: disable=C0209
+            str(obj.__class__.__name__),
+            ", ".join(list(obj.sizes)),
+            str(obj.time.data[0].astype("datetime64[s]")),
+            str(obj.time.data[-1].astype("datetime64[s]")),
+            obj.time.size,
+        )
+    return repr(obj)
 
 
 def data_source_to_data_array(

@@ -1,8 +1,6 @@
 """Pytest configuration for one_pass tests, including MPI support."""
 
 import pytest
-import os
-import sys
 from pathlib import Path
 
 
@@ -23,24 +21,11 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection behavior."""
-    # Check if we're in an MPI environment
-    mpi_env_vars = ["OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MPI_LOCALNRANKS"]
-    in_mpi_env = any(var in os.environ for var in mpi_env_vars)
-
-    # Skip MPI tests if not in MPI environment
-    if not in_mpi_env:
-        skip_mpi = pytest.mark.skip(reason="Not running in MPI environment")
-        for item in items:
-            if "mpi" in item.keywords:
-                item.add_marker(skip_mpi)
-    else:
-        # If we are in MPI environment, skip non-MPI tests to avoid conflicts
-        skip_non_mpi = pytest.mark.skip(
-            reason="Skipping non-MPI tests in MPI environment"
-        )
-        for item in items:
-            if "mpi" not in item.keywords:
-                item.add_marker(skip_non_mpi)
+    # Always skip MPI tests - we never want to run them in CI
+    skip_mpi = pytest.mark.skip(reason="MPI tests disabled in CI environment")
+    for item in items:
+        if "mpi" in item.keywords:
+            item.add_marker(skip_mpi)
 
     # Handle slow tests based on command line options
     if not config.getoption("--runslow", default=False):
@@ -70,36 +55,16 @@ def pytest_runtest_setup(item):
         if not item.config.getoption("--runperformance"):
             pytest.skip("need --runperformance option to run performance tests")
 
-    # Additional MPI-specific setup
+    # Always skip MPI tests - they should never run in CI
     if "mpi" in item.keywords:
-        # Verify MPI environment is properly set up
-        try:
-            from one_pass.mpi import MPI_LAUNCHED, MPI_SIZE
-
-            if MPI_LAUNCHED:
-                # Check minimum size requirement
-                min_size = 2  # default
-                mpi_marker = item.get_closest_marker("mpi")
-                if mpi_marker and mpi_marker.kwargs.get("min_size"):
-                    min_size = mpi_marker.kwargs["min_size"]
-
-                if MPI_SIZE < min_size:
-                    pytest.skip(
-                        f"MPI test requires at least {min_size} processes, got {MPI_SIZE}"
-                    )
-        except ImportError:
-            pytest.skip("MPI support not available")
+        pytest.skip("MPI tests disabled in CI environment")
 
 
 @pytest.fixture(scope="session")
 def mpi_info():
     """Provide MPI information for tests."""
-    try:
-        from one_pass.mpi import MPI_LAUNCHED, MPI_RANK, MPI_SIZE
-
-        return {"launched": MPI_LAUNCHED, "rank": MPI_RANK, "size": MPI_SIZE}
-    except ImportError:
-        return {"launched": False, "rank": None, "size": None}
+    # MPI tests are disabled in CI, so always return False
+    return {"launched": False, "rank": None, "size": None}
 
 
 @pytest.fixture(scope="session")
@@ -124,64 +89,26 @@ def temp_test_dir():
 
 
 # Custom assertion helpers for MPI tests
-def assert_mpi_consistent(values, rtol=1e-12, atol=1e-12):
+def assert_mpi_consistent(
+    values, rtol=1e-12, atol=1e-12
+):  # pylint: disable=unused-argument
     """Assert that values from different MPI ranks are consistent."""
-    try:
-        from one_pass.mpi import MPI_COMM, MPI_RANK
-
-        if MPI_COMM is not None:
-            all_values = MPI_COMM.allgather(values)
-            if MPI_RANK == 0:
-                import numpy as np
-
-                for i, other_values in enumerate(all_values[1:], 1):
-                    np.testing.assert_allclose(
-                        all_values[0],
-                        other_values,
-                        rtol=rtol,
-                        atol=atol,
-                        err_msg=f"Values differ between rank 0 and rank {i}",
-                    )
-    except ImportError:
-        # Not in MPI environment, skip check
-        pass
+    # MPI tests are disabled in CI, so this function does nothing
 
 
 # Pytest plugin for better MPI test output
 class MPITestPlugin:
     """Pytest plugin to handle MPI test output and reporting."""
 
-    def pytest_runtest_logreport(self, report):
+    def pytest_runtest_logreport(self, report):  # pylint: disable=unused-argument
         """Customize test result reporting for MPI tests."""
-        if hasattr(report, "keywords") and "mpi" in report.keywords:
-            try:
-                from one_pass.mpi import MPI_RANK
-
-                if MPI_RANK is not None and MPI_RANK != 0:
-                    # Suppress output from non-root ranks to avoid clutter
-                    report.sections = []
-            except ImportError:
-                pass
+        # MPI tests are disabled in CI, so this plugin does nothing
 
 
 # Register the MPI test plugin in the existing pytest_configure function above
 
 
 # Error handling for MPI-specific issues
-def pytest_exception_interact(node, call, report):
+def pytest_exception_interact(node, call, report):  # pylint: disable=unused-argument
     """Handle MPI-specific exceptions."""
-    if hasattr(call, "excinfo") and call.excinfo:
-        exc_info = call.excinfo
-        exc_value = exc_info.value
-
-        # Handle common MPI errors gracefully
-        if "mpi" in str(exc_value).lower():
-            # Add helpful information about MPI environment
-            try:
-                from one_pass.mpi import MPI_LAUNCHED, MPI_RANK, MPI_SIZE
-
-                mpi_info = f"MPI Environment: launched={MPI_LAUNCHED}, rank={MPI_RANK}, size={MPI_SIZE}"
-                if hasattr(report, "longrepr"):
-                    report.longrepr = f"{report.longrepr}\n\n{mpi_info}"
-            except ImportError:
-                pass
+    # MPI tests are disabled in CI, so this function does nothing

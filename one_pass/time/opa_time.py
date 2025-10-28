@@ -10,6 +10,7 @@ from typing import Optional, TYPE_CHECKING
 import numpy as np
 from pandas import Timestamp
 
+from one_pass.log import clone_logger
 from one_pass.options import FrequencyKey
 from .conversion import (
     get_minutes_into_word,
@@ -80,6 +81,7 @@ class OpaTime:  # pylint: disable=R0902
         self.first_timestamp: Optional[Timestamp] = None
         self.continuous = opa.request.stat_freq == FrequencyKey.CONTINUOUS
         self.timestep = opa.request.time_step
+        self.logger = clone_logger(opa.logger, "OpaTime")
 
     @property
     def first_year(self) -> int:
@@ -153,9 +155,24 @@ class OpaTime:  # pylint: disable=R0902
         bool
             True if all statistics have been computed and output, False otherwise.
         """
-        if self.continuous:
-            return self.n_data == self.count
-        return self.n_data == self.count and self.num_statistics == self.cur_statistics
+        continuous = self.continuous
+        cur_statistics = self.cur_statistics
+        num_statistics = self.num_statistics
+
+        assert continuous or (cur_statistics <= num_statistics), (
+            "Error in accumulation of aggregations "
+            f"(found: {cur_statistics}, expected: {num_statistics})"
+        )
+        done_aggregation = self.n_data == self.count
+        done_accumulation = cur_statistics == num_statistics
+
+        if continuous:
+            # Requirement for continuous is that aggregation is finalized
+            return done_aggregation
+
+        # Requirement for non-continuous is that current aggregation is finalized
+        # and accumulation is done (there are enough aggregations to match output freq)
+        return done_aggregation and done_accumulation
 
     def _initialize_multiple(self, timestamp):
         """Initialize time tracking for multiple appended statistics.
@@ -241,6 +258,10 @@ class OpaTime:  # pylint: disable=R0902
         self.stat_freq_minutes = convert_word_to_minutes(time_word, timestamp)
         self._validate_timestep(opa, timestamp)
 
+        self.logger.info(
+            "Initializing Opa.time with timestamp %s", timestamp.isoformat()
+        )
+
         timestamp_minutes = get_minutes_into_word(
             timestamp, time_word, opa.time.first_year
         )
@@ -258,7 +279,7 @@ class OpaTime:  # pylint: disable=R0902
 
         if timestamp_minutes != 0 and (time_step % timestamp_minutes) != 0:
             # Incoming timestamp misaligned with timestep
-            opa.logger.warning("Timings of input data span over new statistic")
+            self.logger.warning("Timings of input data span over new statistic")
 
         self.n_data = int(self.stat_freq_minutes / time_step)
 
@@ -273,7 +294,7 @@ class OpaTime:  # pylint: disable=R0902
             # first timestamp.
             self._initialize_multiple(timestamp)
 
-            opa.logger.debug(
+            self.logger.debug(
                 "Incoming time stamp %s corresponds to the start of the output_freq '%s'. "
                 "Therefore, initialsing the xr.Dataset with %d statistics "
                 "with stat_freq '%s'.",
@@ -284,26 +305,50 @@ class OpaTime:  # pylint: disable=R0902
             )
 
         else:
-            opa.logger.debug(
-                f"Incoming time stamp {self.last_timestamp} corresponds to middway "
-                f"through the {output_freq.value} output_freq. So "
-                f"initialsing the xr.Dataset with {opa.time.num_statistics} "
-                f"{stat_freq.value} statistics."
+            self.logger.debug(
+                "Incoming time stamp %s corresponds to middway "
+                "through the %s output_freq. So "
+                "initialsing the xr.Dataset with %d "
+                "%s statistics.",
+                str(self.last_timestamp),
+                output_freq.value,
+                opa.time.num_statistics,
+                stat_freq.value,
             )
 
-    def reset(self):
+    def reset(self, hard=False):
         """Reset time tracking for the next statistic period.
 
         Clears temporal state while preserving finalization status and
         overall computation progress (like num_statistics).
+        OpaTime.initialize needs to be called again after the reset.
+
+        Note: OpaTime.finalized status is maintained, since it needs to be
+        accessed after the reset. However, initialized=False already signals that
+        `initialize()` needs to be called again and ensures that no further
+        aggregation can be done.
         """
 
-        self.finalized = self._done()
+        self.logger.info("Resetting (hard=%s) Opa.time", hard)
+
+        # OpaTime.finalized will persist reset because it needs to be accessed after.
+        # However, OpaTime.initialized will be reset to False, which signals that
+        # initialize() needs to be called again and ensures that no further aggregation.
+        self.finalized = self.finalized or self._done()
         self.initialized = False
         self.count = None
         self.init_timestamp = None
         self.last_timestamp = None
         self._stat_freq_minutes = None
+
+        if hard:
+            # May be called after an output NetCDF.
+            self.n_data = None
+            self.init_count_timestamp = None
+            self.cur_statistics = 0
+            self.num_statistics = 0
+            self.filename = ""
+            self.first_timestamp = None
 
     def update(self, weight: int, timestamp: Timestamp):
         """Update time tracking after processing new data.

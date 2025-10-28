@@ -1,3 +1,5 @@
+"""T-Digest functionality library."""
+
 from one_pass.mpi import MPI_LAUNCHED
 from .initialize import initialise_no_mpi, initialise_mpi
 from .update import update_mpi, update_no_mpi

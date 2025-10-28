@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.9.1 - 2025/10/28
+
+### Added
+- OPA properties `Opa.result` and `Opa.finalized`
+- Checkpoint to custom location
+
+### Updated
+- Improved logging
+- Merge CI linting jobs in a single one
+
+### Fixed
+- Stop accumulation in instance after output
+- Test data collection in CI pipeline
+- Disable pytest plugins to prevent MPI errors in CI pipeline
+
 ## v0.9.0 - 2025/10/17
 
 ### Added

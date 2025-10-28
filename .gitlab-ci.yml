@@ -14,7 +14,7 @@ buildcloud:
     - python3.11 -m venv venv
     - source venv/bin/activate
     - python3.11 -m pip install --upgrade pip
-    - pip3.11 install -e .[all]
+    - pip3.11 install -e .[tests]
     - pip3.11 install pylint
 
 buildcloud312:
@@ -28,7 +28,7 @@ buildcloud312:
     - python3.12 -m venv venv
     - source venv/bin/activate
     - python3.12 -m pip install --upgrade pip
-    - pip3.12 install -e .[all]
+    - pip3.12 install -e .[tests]
     - pip3.12 install pylint
 
 ###################################################
@@ -60,7 +60,7 @@ cache:
     - 'venv'
 
 
-lint-opa:
+lint:
   id_tokens:
     CI_JOB_JWT:
       aud: https://earth.bsc.es/gitlab
@@ -74,361 +74,7 @@ lint-opa:
   stage: lint
   script:
     - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/opa.py
-
-lint-validate_request:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  tags:
-    - csccloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/validation/request.py
-
-lint-request:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  tags:
-    - csccloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint  --fail-under=9.5 one_pass/request.py
-
-lint-convert_time:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  tags:
-    - csccloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/convert_time.py
-
-lint-init:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  tags:
-    - csccloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/__init__.py
-
-lint-update_statistics:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/statistics/update_statistics.py
-
-lint-bc:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/statistics/bias_correction.py
-
-lint-raw:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/statistics/raw_data.py
-
-lint-get_final_statistics:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  stage: lint
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/statistics/get_final_statistics.py
-
-lint-create_data_sets:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  stage: lint
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/saving/create_data_sets.py
-
-lint-create_file_names:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/saving/create_file_names.py
-
-lint-modify_attributes:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/saving/modify_attributes.py
-
-lint-save_final:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/saving/save_final.py
-
-lint-remove_attributes:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/saving/remove_attributes.py
-
-lint-write_checkpoint:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/checkpointing/write_checkpoint.py
-
-lint-write_zarr:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/checkpointing/write_zarr.py
-
-lint-write_pickle:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/checkpointing/write_pickle.py
-
-lint-remove_checkpoints:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/checkpointing/remove_checkpoints.py
-
-lint-check_time:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/initialise/check_time.py
-
-
-lint-time_append:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/initialise/time_append.py
-
-
-lint-initialise_statistics:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/initialise/initialise_statistics.py
-
-lint-initialise_time:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint --fail-under=9.5 one_pass/initialise/initialise_time.py
-
-lint-check_variable:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://earth.bsc.es/gitlab
-  allow_failure: true
-  tags:
-    - csccloud
-  dependencies:
-    - buildcloud
-  needs:
-    - buildcloud
-  stage: lint
-  script:
-    - source venv/bin/activate
-    - pylint one_pass/initialise/check_variable.py
+    - pylint --fail-under=9.8 one_pass
 
 test:
   id_tokens:
@@ -445,7 +91,7 @@ test:
   stage: test
   script:
     - source venv/bin/activate
-    - tests/get_data.sh
+    - tools/get_test_data.sh
     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   # These artifacts are saved with every build in GitLab and can be reviewed later. If
@@ -473,7 +119,7 @@ test312:
   stage: test
   script:
     - source venv/bin/activate
-    - tests/get_data.sh
+    - tools/get_test_data.sh
     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   # These artifacts are saved with every build in GitLab and can be reviewed later. If
@@ -505,7 +151,7 @@ test312:
 #   stage: test
 #   script:
 #     - source venvlumi/bin/activate
-#     - tests/get_data.sh
+#     - tools/get_test_data.sh
 #     - pytest --cov-report xml --cov-report term-missing --cov=one_pass tests/
 #   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
 #   # These artifacts are saved with every build in GitLab and can be reviewed later. If

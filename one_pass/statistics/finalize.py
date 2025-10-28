@@ -247,9 +247,10 @@ def _to_dataset(
 
         # Check that timings array has the same number of dimensions as wireframe
         expected_ndim = len(wireframe.dims)
-        assert (
-            timings_array.ndim == expected_ndim
-        ), f"Wrong number of dimensions for timings. Expected {expected_ndim}, got {timings_array.ndim}."
+        assert timings_array.ndim == expected_ndim, (
+            "Wrong number of dimensions for timings. "
+            f"Expected {expected_ndim}, got {timings_array.ndim}."
+        )
 
         ds = ds.assign(
             timings=(

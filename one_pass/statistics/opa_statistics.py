@@ -1,19 +1,15 @@
 """ Initalise statistic attributes for the OPA class"""
 
-from collections import defaultdict
-from typing import Sequence, Union, Tuple, TYPE_CHECKING, List
+from typing import Union, Tuple, TYPE_CHECKING
 
-from crick import TDigest
 import numpy as np
-from numpy.typing import NDArray
 import xarray as xr
 
+from one_pass.log import clone_logger
 from one_pass.mpi import MPI_LAUNCHED, MPI_RANK
-from one_pass.options import FrequencyKey, StatKey
+from one_pass.options import FrequencyKey
 from one_pass.saving.create_file_names import create_file_name
 from .cumulative import CumulativeStats
-from .iams import Iams
-from .library.tdigest import initialise as initialise_tdigest
 
 if TYPE_CHECKING:
     from one_pass.opa import Opa
@@ -57,6 +53,7 @@ class OpaStatistics:
         self._final2 = None
         self._cumulative = None
         self.initialized = False
+        self.logger = clone_logger(opa.logger, "OpaStatistics")
 
     @property
     def cumulative(self) -> CumulativeStats:
@@ -98,7 +95,7 @@ class OpaStatistics:
             return self._final
         return (self._final, self._final2)
 
-    def reset(self, keep_final: bool = False):
+    def reset(self, hard: bool = False):
         """Resets all of the attributes in the class opa.statistics
         to None, as they are no longer needed.
 
@@ -110,9 +107,12 @@ class OpaStatistics:
                 the appended xr.Datasets and are needed in the next
                 calls
         """
+
+        self.logger.info("Resetting Opa.statistics (hard=%s)", hard)
+
         self._cumulative = None
         self.initialized = False
-        if not keep_final:
+        if hard:
             self._final = None
             self._final2 = None
 
@@ -140,6 +140,9 @@ class OpaStatistics:
         zeros_shape = np.shape(data_source_tail)
         opa.data_set_info.shape_data_source_tail = zeros_shape
         opa.data_set_info.size_data_source_tail = np.size(data_source_tail)
+
+        self.logger.info("Initializing Opa.statistics with shape %s", str(zeros_shape))
+
         self.initialized = True
         self._cumulative = CumulativeStats(opa, zeros_shape)
 
@@ -162,8 +165,26 @@ class OpaStatistics:
         dataset : Union[xr.Dataset, Tuple[xr.Dataset, xr.Dataset]]
             The finalized dataset(s) to add. Can be a single dataset or a tuple
             of two datasets (for histogram statistics).
+
+        Notes
+        -----
+        This method increments cur_statistics and concatenates the dataset
+        to the accumulated final results. It will not add statistics beyond
+        num_statistics to prevent over-accumulation.
         """
         opa = self.opa
+
+        # Guard against accumulating more statistics than expected
+        if (
+            opa.time.num_statistics > 0
+            and opa.time.cur_statistics >= opa.time.num_statistics
+        ):
+            self.logger.warning(
+                "Attempted to add statistic %d but only %d expected. Skipping.",
+                opa.time.cur_statistics + 1,
+                opa.time.num_statistics,
+            )
+            return
 
         if isinstance(dataset, tuple):
             # This occurs for histogram
@@ -175,10 +196,11 @@ class OpaStatistics:
             self._final = _concat_ds(self._final, dataset)
 
         opa.time.cur_statistics += 1
-        self.opa.logger.debug(
-            f"Appended {opa.time.cur_statistics} out of {opa.time.num_statistics} "
-            f"completed {opa.request.stat_freq.value} statistics "
-            f"to final dataset"
+        self.logger.debug(
+            "Appended %d out of %d completed %s statistics to final dataset",
+            opa.time.cur_statistics,
+            opa.time.num_statistics,
+            opa.request.stat_freq.value,
         )
 
     def load(self):

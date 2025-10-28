@@ -81,7 +81,10 @@ all = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["*"]
+include = ["one_pass*"]
+
+[tool.setuptools]
+include-package-data = false
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
@@ -96,4 +99,8 @@ addopts = """
     --ignore=examples
     --ignore=notebooks
     --ignore=tests/mpi
+    -p no:mpi
+    -p no:mpiexec
+    -p no:isolate_mpi
+    -p no:pytest_isolate_mpi
 """
