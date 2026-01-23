@@ -44,14 +44,14 @@ def _compute_window_sum(iams: Iams, start: int, length: int) -> np.ndarray:
     return part1 + part2
 
 
-def _update_windows(iams: Iams, count: int) -> None:
+def _update_windows(iams: Iams, global_count: int) -> None:
     """Update IAMS maxima for all duration windows after adding new data.
 
     Parameters
     ----------
     iams : Iams
         IAMS state object to update.
-    count : int
+    global_count : int
         Current global count (unused but part of interface).
 
     Notes
@@ -59,24 +59,19 @@ def _update_windows(iams: Iams, count: int) -> None:
     This function updates the cumulative maxima for each duration window
     once enough data has been accumulated for that window size.
     """
+
     full_length = iams.buffer.shape[0]
+    pos = global_count % full_length
 
     for idx, n_data in enumerate(iams.n_data_durations):
-        count = int(iams.count_durations[idx])
-        count_full = int(iams.count_durations_full[idx])
 
-        # Reset if buffer looped
-        if count >= full_length:
-            count = 0
+        if global_count + 1 < n_data:
+            continue  # not enough data yet
 
-        if (count_full + n_data) <= count:
-            window_sum = _compute_window_sum(iams, count, n_data)
-            iams.cumulative[idx, :] = np.maximum(window_sum, iams.cumulative[idx, :])
-            count += 1
-            count_full += 1
+        start = (pos - n_data + 1) % full_length
+        window_sum = _compute_window_sum(iams, start, n_data)
 
-        iams.count_durations[idx] = count
-        iams.count_durations_full[idx] = count_full
+        iams.cumulative[idx, :] = np.maximum(iams.cumulative[idx, :], window_sum)
 
 
 def calculate_iams(

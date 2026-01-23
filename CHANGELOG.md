@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.2 - 2026/01/23
+
+### Fixed
+- Fixed IAMS statistic
+
 ## v0.9.1 - 2025/10/28
 
 ### Added
