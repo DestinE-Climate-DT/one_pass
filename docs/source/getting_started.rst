@@ -16,7 +16,7 @@ The One Pass package implements the One-Pass method by means of the `Opa` class 
 
 Following the mathematical representation, at a given step :math:`i`, the checkpoint and the incoming data chunk would be used to compute the state of the `Opa` class at the next timestep :math:`i + 1`. Once enough data has been streamed to complete a statistics, the checkpoints are removed by default.
 
-**Parallel Processing:** OnePass supports parallel computation for ``histogram`` and ``percentile`` statistics through MPI (Message Passing Interface) for distributed computing across multiple nodes, or multiprocessing for single-node parallelism. Other statistics run in serial mode. See :doc:`advanced_usage` for details on enabling parallel processing.
+**Parallel Processing:** OnePass supports parallel computation for ``histogram`` and ``percentile`` statistics through MPI (Message Passing Interface) for distributed computing across multiple nodes, or multiprocessing (``workers > 1``) for single-node parallelism. Other statistics run in serial mode. See :doc:`parallel_computing_quick_reference` for details on enabling parallel processing.
 
 Running in Python
 --------------------

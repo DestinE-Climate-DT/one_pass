@@ -3,15 +3,181 @@
 # pylint: disable=W0613
 
 import logging
+import os
+import pickle
+import tempfile
+from pathlib import Path
 from typing import Tuple, TYPE_CHECKING
 
+from joblib import Parallel, delayed
 import numpy as np
 from numpy.typing import NDArray
 from tqdm import tqdm
+
 from one_pass.mpi import MPI, MPI_COMM, MPI_RANK, MPI_get_indices
 
 if TYPE_CHECKING:
     from one_pass.opa import Opa
+
+
+def _get_memmap_path(label: str) -> Path:
+    """Return a path on /dev/shm (Linux) or the system temp directory."""
+    filename = f"opa_mmap_{label}_{os.getpid()}.dat"
+    shm_dir = Path("/dev/shm")
+    if shm_dir.exists() and shm_dir.is_dir():
+        return shm_dir / filename
+    return Path(tempfile.gettempdir()) / filename
+
+
+def _worker_compute_histograms_mmap(
+    checkpoint_file: str,
+    bins: int,
+    hist_range: tuple,
+    counts_path: str,
+    edges_path: str,
+    counts_shape: Tuple[int, ...],
+    edges_shape: Tuple[int, ...],
+    start_index: int,
+) -> None:
+    """Worker function that computes histograms and writes to memory-mapped files.
+
+    Runs in a separate process. Loads TDigests from the checkpoint file,
+    computes histograms, and writes results directly into the memory-mapped
+    arrays at the correct column offset.
+
+    Parameters
+    ----------
+    checkpoint_file : str
+        Path to the worker's checkpoint file containing TDigests.
+    bins : int
+        Number of bins for histogram.
+    hist_range : tuple
+        Range for histogram bins.
+    counts_path : str
+        File path of the memory-mapped array for histogram counts.
+    edges_path : str
+        File path of the memory-mapped array for histogram edges.
+    counts_shape : tuple[int, ...]
+        Shape of the full counts array (bins, size_data_source).
+    edges_shape : tuple[int, ...]
+        Shape of the full edges array (bins + 1, size_data_source).
+    start_index : int
+        Column offset in the shared arrays where this worker's results begin.
+    """
+    hist_counts = np.memmap(counts_path, dtype=np.int32, mode="r+", shape=counts_shape)
+    hist_edges = np.memmap(edges_path, dtype=np.float64, mode="r+", shape=edges_shape)
+
+    with open(checkpoint_file, "rb") as f:
+        local_tdigests = pickle.load(f)
+
+    for j, tdigest in enumerate(local_tdigests):
+        histogram, bin_edges = tdigest.histogram(bins=bins, range=hist_range)
+        hist_counts[:, start_index + j] = histogram
+        hist_edges[:, start_index + j] = bin_edges
+
+    hist_counts.flush()
+    hist_edges.flush()
+
+
+def _finalize_histogram_mp(
+    opa: "Opa", bins: int, size_data_source: int
+) -> Tuple[NDArray, NDArray]:
+    """Compute histograms from worker checkpoint files in MP mode.
+
+    Creates memory-mapped arrays for counts and edges, then spawns parallel
+    workers that load their TDigests and write histogram results directly into
+    the mapped files — no per-worker arrays are returned or assembled.
+
+    Parameters
+    ----------
+    opa : Opa
+        OPA instance
+    bins : int
+        Number of bins for histogram
+    size_data_source : int
+        Total size of the data source
+
+    Returns
+    -------
+    tuple[NDArray, NDArray]
+        (hist_counts, hist_edges) arrays with shape (bins, size_data_source)
+        and (bins + 1, size_data_source) respectively
+    """
+    from one_pass.mp import MP_get_indices
+
+    checkpoint_dir = opa.request.checkpoint_filepath
+    if checkpoint_dir is None:
+        raise RuntimeError(
+            "checkpoint_filepath is None. This should have been set by update_mp "
+            "when workers > 1. Please ensure update_mp was called before finalization."
+        )
+
+    n_workers = opa.workers
+    hist_range = opa.request.range
+
+    counts_shape = (bins, size_data_source)
+    edges_shape = (bins + 1, size_data_source)
+
+    counts_path = _get_memmap_path("hist_counts")
+    edges_path = _get_memmap_path("hist_edges")
+
+    # Create memory-mapped files (w+ creates and zero-fills)
+    mmap_counts = np.memmap(counts_path, dtype=np.int32, mode="w+", shape=counts_shape)
+    mmap_edges = np.memmap(edges_path, dtype=np.float64, mode="w+", shape=edges_shape)
+    mmap_counts.flush()
+    mmap_edges.flush()
+    # Release main-process handles so workers can open independently
+    del mmap_counts, mmap_edges
+
+    try:
+        # Build worker arguments, skipping workers with no work
+        worker_args = []
+        for worker_id in range(n_workers):
+            start_index, end_index = MP_get_indices(
+                size_data_source, n_workers, worker_id
+            )
+            if end_index - start_index == 0:
+                continue
+
+            checkpoint_file = opa.request.checkpoint_file_for_worker(
+                worker_id, n_workers
+            )
+            if not os.path.exists(checkpoint_file):
+                raise FileNotFoundError(
+                    f"Missing worker file for worker {worker_id}. "
+                    f"Expected at: {checkpoint_file}"
+                )
+
+            worker_args.append(
+                (
+                    checkpoint_file,
+                    bins,
+                    hist_range,
+                    str(counts_path),
+                    str(edges_path),
+                    counts_shape,
+                    edges_shape,
+                    start_index,
+                )
+            )
+
+        # Execute histogram computation in parallel
+        Parallel(n_jobs=n_workers)(
+            delayed(_worker_compute_histograms_mmap)(*args) for args in worker_args
+        )
+
+        # Read results back from memory-mapped files into regular numpy arrays
+        hist_counts = np.array(
+            np.memmap(counts_path, dtype=np.int32, mode="r", shape=counts_shape)
+        )
+        hist_edges = np.array(
+            np.memmap(edges_path, dtype=np.float64, mode="r", shape=edges_shape)
+        )
+    finally:
+        counts_path.unlink(missing_ok=True)
+        edges_path.unlink(missing_ok=True)
+
+    return hist_counts, hist_edges
 
 
 # NOTE: Could be returned to the user as-is (no tdigest)
@@ -21,6 +187,10 @@ def finalize_histogram(opa: "Opa") -> Tuple[NDArray, NDArray]:
     with the output of the data from the t-digest histogram func.
     It then re-shapes these attributes back into the original grid.
     (https://github.com/dask/crick/blob/main/crick/tdigest.pyx)
+
+    In MP mode (opa.workers > 1), this function loads TDigests from worker
+    checkpoint files, computes histograms per worker as NDArrays, and then
+    efficiently concatenates them, avoiding TDigest serialization.
 
     Arguments
     ----------
@@ -51,23 +221,33 @@ def finalize_histogram(opa: "Opa") -> Tuple[NDArray, NDArray]:
     if bins is None:
         bins = 10
 
-    tdigests = opa.statistics.cumulative["tdigest"]
-    size_digests = len(tdigests)
+    # Handle MP mode (workers > 1) - compute histograms per worker as NDArrays
+    if opa.workers > 1:
+        hist_counts, hist_edges = _finalize_histogram_mp(opa, bins, size_data_source)
+    else:
+        # Serial mode: use existing logic with tdigests from cumulative
+        tdigests = opa.statistics.cumulative["tdigest"]
+        if tdigests is None:
+            raise RuntimeError(
+                "tdigests is None. This should have been populated during initialization. "
+                f"checkpoint_filepath={opa.request.checkpoint_filepath}, workers={opa.workers}"
+            )
+        size_digests = len(tdigests)
 
-    hist_counts = np.empty((bins, size_digests), dtype=np.int32)
-    hist_edges = np.empty(((bins + 1), size_digests), dtype=np.float64)
-    with_pbar = opa.logger.isEnabledFor(logging.DEBUG)
-    for j, tdigest in tqdm(
-        enumerate(tdigests),
-        desc="Extracting histogram from digests",
-        disable=not with_pbar,
-    ):
-        histogram, bin_edges = tdigest.histogram(
-            bins=bins,
-            range=opa.request.range,
-        )
-        hist_counts[:, j] = histogram
-        hist_edges[:, j] = bin_edges
+        hist_counts = np.empty((bins, size_digests), dtype=np.int32)
+        hist_edges = np.empty(((bins + 1), size_digests), dtype=np.float64)
+        with_pbar = opa.logger.isEnabledFor(logging.DEBUG)
+        for j, tdigest in tqdm(
+            enumerate(tdigests),
+            desc="Extracting histogram from digests",
+            disable=not with_pbar,
+        ):
+            histogram, bin_edges = tdigest.histogram(
+                bins=bins,
+                range=opa.request.range,
+            )
+            hist_counts[:, j] = histogram
+            hist_edges[:, j] = bin_edges
 
     # Add axis for time
     final_size_counts = [bins, *shape_data_source[1:]]

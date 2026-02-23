@@ -55,19 +55,31 @@ def get_logger(
     logger = logging.getLogger(name)
     if not logger.handlers:
         logging_level = logging_level.upper()
-        logger.setLevel(logging_level)
+        # Convert string level to logging constant
+        level = getattr(logging, logging_level)
+        logger.setLevel(level)
         if MPI_LAUNCHED:
             formatter = logging.Formatter(_MPI_FORMAT.format(rank=MPI_RANK))
         else:
             formatter = logging.Formatter(_FORMAT)
         if filename:
             file_handler = logging.FileHandler(filename)
+            file_handler.setLevel(level)
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
         else:
             stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(level)
             stream_handler.setFormatter(formatter)
             logger.addHandler(stream_handler)
+    else:
+        # Update level even if handlers already exist
+        logging_level = logging_level.upper()
+        level = getattr(logging, logging_level)
+        logger.setLevel(level)
+        # Update handler levels too
+        for handler in logger.handlers:
+            handler.setLevel(level)
     if hostname:
         kwargs.update({"hostname": socket.gethostname()})
     if kwargs:

@@ -56,6 +56,9 @@ buildcloud312:
 #     - pip install -e .[tests]
 
 cache:
+  key:
+    files:
+      - pyproject.toml
   paths:
     - 'venv'
 

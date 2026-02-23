@@ -9,7 +9,7 @@ Currently the supported strategies are:
 from typing import TYPE_CHECKING
 
 from crick import TDigest
-from one_pass.mpi import MPI_LAUNCHED, MPI_get_indices
+from one_pass.mpi import MPI_get_indices
 
 
 if TYPE_CHECKING:
@@ -68,9 +68,16 @@ def initialise_no_mpi(opa: "Opa"):
 
     Returns
     -------
-    list[TDigest]
-        A sequence of empty TDigest objects with specified compression
+    list[TDigest] or None
+        A sequence of empty TDigest objects with specified compression,
+        or None if using MP mode (workers > 1) where workers manage their own TDigests
     """
+
+    # In MP mode, workers manage their own TDigests (in memory or checkpoints)
+    # Main process doesn't maintain the full array
+    if opa.workers > 1:
+        opa.logger.info("Initialising MP mode (TDigests managed by workers)")
+        return None
 
     size = opa.data_set_info.size_data_source_tail
 
@@ -81,27 +88,3 @@ def initialise_no_mpi(opa: "Opa"):
 
     opa.logger.info("Initialising digests")
     return [TDigest(compression=compression) for _ in range(size)]
-
-
-def initialise(opa: "Opa"):
-    """Initialize a list of empty TDigest objects or, if using MPI, a list
-    with the local TDigest objects and None everywhere else.
-
-    The number of elements matches the number of grid points for the incoming
-    data array, and is taken from opa.data_set_info
-
-    Arguments
-    ----------
-    opa : Opa
-        The OPA object which holds the DataSetInfo with the spacial size
-
-    Returns
-    -------
-    list[TDigest or None]
-        A sequence of TDigest objects. In MPI mode, only local indices
-        contain TDigest objects, others are None.
-    """
-
-    if MPI_LAUNCHED:
-        return initialise_mpi(opa)
-    return initialise_no_mpi(opa)

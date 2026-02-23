@@ -21,7 +21,8 @@ from one_pass.saving.save_final import save_output_nc
 from one_pass.time import OpaTime, validate, split
 from one_pass.options import StatKey
 from one_pass.checkpointing.remove_checkpoints import remove_checkpoints
-from one_pass.mpi import MPI_LAUNCHED
+from one_pass.mpi import MPI_LAUNCHED, check_mp_mpi_conflict
+from one_pass.mp import MP_set_context
 
 
 @dataclass
@@ -128,6 +129,16 @@ class Opa:  # pylint: disable=R0902,R0903,R0913,R0917
         self.as_float32 = as_float32
         self.workers = workers
 
+        # Set MP context and check for conflicts with MPI
+        check_mp_mpi_conflict(workers)
+        if workers > 1 and not self.request.checkpoint:
+            raise ValueError(
+                "Multiple workers (workers > 1) require checkpointing to be enabled. "
+                "Please set checkpoint=True in the request when using workers > 1."
+            )
+        if workers > 1:
+            MP_set_context(workers)
+
         self.data_set_info = DataSetInfo()
 
         self.time: OpaTime
@@ -225,10 +236,21 @@ class Opa:  # pylint: disable=R0902,R0903,R0913,R0917
         self.logger.info("Final stage of postprocess")
 
         # Handle checkpoints (this logic comes formerly from update_statistics)
-        if self.request.checkpoint:
-            # this will not be written when count == ndata
-            if self.time.continuous or not self.time.finalized:
-                self.checkpoint()
+
+        # If checkpoint is not enabled, don't checkpoint
+        should_checkpoint = self.request.checkpoint
+
+        # In MP mode (workers > 1), the main process checkpoint uses a
+        # different filename than the per-worker TDigest checkpoints
+        # (which are written by update_mp), so there is no collision.
+
+        # If continuous, checkpoint. If finalized, don't checkpoint.
+        should_checkpoint = should_checkpoint and (
+            self.time.continuous or not self.time.finalized
+        )
+
+        if should_checkpoint:
+            self.checkpoint()
 
         if self.time.finalized:
             return self.result
@@ -273,8 +295,15 @@ class Opa:  # pylint: disable=R0902,R0903,R0913,R0917
         # finished. Without, it would checkpoint but go back and checkpoint
         # all the previous states again
         if self.time.finalized:
-            if self.request.save:
+            # For MP mode, always clean up worker checkpoint files after rotation
+            # They are intermediate state that shouldn't persist across periods
+            if not MPI_LAUNCHED and self.workers > 1:
                 remove_checkpoints(self)
+
+            if self.request.save:
+                # For serial/MPI mode or when save=True, remove checkpoints
+                if self.workers == 1 or MPI_LAUNCHED:
+                    remove_checkpoints(self)
                 self.save_nc()
             self.result = self.statistics.get_final()
             self.time.reset(hard=True)
@@ -536,10 +565,11 @@ class Opa:  # pylint: disable=R0902,R0903,R0913,R0917
             )
 
         if directory is None:
-            # NOTE: Should be renamed (-> checkpoint_dir)
-            directory = self.request.checkpoint_filepath
-
-        fpath = os.path.join(directory, self.request.checkpoint_name)
+            # Use checkpoint_file property which includes the full path
+            fpath = self.request.checkpoint_file
+        else:
+            # If custom directory provided, join with checkpoint_name
+            fpath = os.path.join(directory, self.request.checkpoint_name)
 
         self.logger.info("OPA dump to checkpoint fpath: %s", fpath)
 

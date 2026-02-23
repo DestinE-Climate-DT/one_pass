@@ -166,13 +166,28 @@ _FINALIZE_FUNCTIONS = {
     StatKey.STD: finalize_std,
 }
 
-if MPI_LAUNCHED:
-    _FINALIZE_FUNCTIONS.update(
-        {
-            StatKey.HISTOGRAM: finalize_histogram_mpi,
-            StatKey.PERCENTILE: finalize_percentile_mpi,
-        }
-    )
+
+def _get_finalize_function(stat: StatKey, opa: "Opa"):
+    """Get the appropriate finalize function based on runtime MP/MPI state.
+
+    This checks opa.workers and MPI_LAUNCHED at runtime (not import time)
+    to select the correct finalize function.
+
+    Note: For MP mode (workers > 1), finalize_histogram and finalize_percentile
+    handle MP internally, so we always use them (not MP-specific versions).
+    """
+
+    # MPI mode: use MPI-specific functions
+    if MPI_LAUNCHED and stat == StatKey.HISTOGRAM:
+        return finalize_histogram_mpi
+    if MPI_LAUNCHED and stat == StatKey.PERCENTILE:
+        return finalize_percentile_mpi
+
+    # MP mode (workers > 1) and serial mode: use regular functions
+    # (they handle MP internally)
+    if stat in _FINALIZE_FUNCTIONS:
+        return _FINALIZE_FUNCTIONS[stat]
+    return None
 
 
 def _normalize_ndarray(
@@ -306,8 +321,10 @@ def _get_final_statistic(opa: "Opa"):
 
     stat = opa.request.stat
 
-    if stat in _FINALIZE_FUNCTIONS:
-        final_stat = _FINALIZE_FUNCTIONS[stat](opa)
+    finalize_fun = _get_finalize_function(stat, opa)
+    if finalize_fun is not None:
+        opa.logger.debug("Finalize function: %s" % finalize_fun.__name__)
+        final_stat = finalize_fun(opa)
     else:
         final_stat = opa.statistics.cumulative[stat]
 

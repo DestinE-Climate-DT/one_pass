@@ -7,13 +7,11 @@ Currenty the supported strategies are:
     - MPI (Message Parsing Interface)
 """
 
-from concurrent.futures import as_completed, ProcessPoolExecutor
-import logging
 from typing import TYPE_CHECKING
 
 from crick import TDigest
+from joblib import Parallel, delayed
 import numpy as np
-import tqdm
 import xarray as xr
 
 from one_pass.mpi import MPI_LAUNCHED, MPI_get_indices
@@ -92,7 +90,7 @@ def update_mp(opa: "Opa", data_source: xr.DataArray, weight: int):
 
         else:
             data_source_values = data_source.values.reshape((weight, -1))
-            inputs = [(j, data_source_values[:, j], digests[j]) for j in size]
+            inputs = [(j, data_source_values[:, j], digests[j]) for j in range(size)]
             outputs = [None] * size
 
         return inputs, outputs
@@ -103,20 +101,13 @@ def update_mp(opa: "Opa", data_source: xr.DataArray, weight: int):
         return j, digest
 
     inputs, outputs = get_input_and_output_structure(opa, data_source, weight)
-    with_pbar = opa.logger.isEnabledFor(logging.DEBUG)
 
-    with ProcessPoolExecutor(max_workers=opa.workers) as executor:
-        futures = {
-            executor.submit(update_single_digest, *args): args[0] for args in inputs
-        }
-        for future in tqdm.tqdm(
-            as_completed(futures),
-            total=len(outputs),
-            desc="Updating digests",
-            disable=not with_pbar,
-        ):
-            j, updated_digest = future.result()
-            outputs[j] = updated_digest
+    results = Parallel(n_jobs=opa.workers)(
+        delayed(update_single_digest)(j, value, digest) for j, value, digest in inputs
+    )
+
+    for j, updated_digest in results:
+        outputs[j] = updated_digest
 
     # Replace old digests with updated ones
     opa.statistics.cumulative["tdigest"] = outputs

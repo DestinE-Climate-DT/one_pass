@@ -255,27 +255,97 @@ class Request:  # pylint: disable=R0902
             raise RequestError(f"Unrecognized fields: {', '.join(missing_fields)}.")
         return cls(**user_request, _logger=logger)
 
+    def _checkpoint_name_base(self) -> str:
+        """Generate base checkpoint filename without parallel suffix.
+
+        Returns
+        -------
+        str
+            Base checkpoint filename incorporating variable, frequencies, timestep,
+            and statistic type, without .pkl extension or parallel suffix.
+        """
+        return (
+            f"checkpoint_{self.variable}_"
+            f"{self.stat_freq.value}_"
+            f"timestep_{self.time_step}_"
+            f"{self.output_freq.value}_"
+            f"{self.stat.value}"
+        )
+
+    def checkpoint_name_for_worker(self, worker_id: int, n_workers: int) -> str:
+        """Generate checkpoint filename for a specific worker/rank in parallel mode.
+
+        Works for both MPI ranks and MP workers, as they use the same naming pattern.
+
+        Parameters
+        ----------
+        worker_id : int
+            Worker/rank ID (0-indexed)
+        n_workers : int
+            Total number of workers/ranks
+
+        Returns
+        -------
+        str
+            Checkpoint filename for the specified worker/rank, incorporating variable,
+            frequencies, timestep, and statistic type, with parallel suffix.
+        """
+        name_stem = self._checkpoint_name_base()
+        name_stem += f".{worker_id:06d}-{n_workers:06d}"
+        return name_stem + ".pkl"
+
     # IDEA: Change name to checkpoint_name for clarity? (Involved change)
     @property
     def checkpoint_name(self) -> str:
         """Generate checkpoint filename based on request properties.
 
+        Automatically handles MPI and serial/MP modes:
+        - MPI: Appends .RANK-SIZE (e.g., .000000-000004)
+        - Serial / MP: No suffix (MP workers use checkpoint_file_for_worker directly)
+
         Returns
         -------
         str
             Checkpoint filename incorporating variable, frequencies, timestep,
-            and statistic type.
+            and statistic type, with appropriate parallel suffix.
         """
-        name = (
-            f"checkpoint_{self.variable}_"
-            f"{self.stat_freq.value}_"
-            f"timestep_{self.time_step}_"
-            f"{self.output_freq.value}_"
-            f"{self.stat.value}.pkl"
-        )
+        name_stem = self._checkpoint_name_base()
         if MPI_LAUNCHED:
-            name += f".{MPI_RANK:06d}-{MPI_SIZE:06d}"
-        return name
+            return self.checkpoint_name_for_worker(MPI_RANK, MPI_SIZE)
+        # In MP mode (workers > 1), the main process uses the regular name.
+        # Worker processes use checkpoint_file_for_worker() directly and never
+        # go through this property, so there is no name collision.
+        return name_stem + ".pkl"
+
+    def checkpoint_file_for_worker(self, worker_id: int, n_workers: int) -> str:
+        """Full checkpoint file path for a specific worker/rank in parallel mode.
+
+        Works for both MPI ranks and MP workers. Primarily used when iterating
+        over workers/ranks (e.g., in MP mode to gather checkpoints from all workers).
+
+        Parameters
+        ----------
+        worker_id : int
+            Worker/rank ID (0-indexed)
+        n_workers : int
+            Total number of workers/ranks
+
+        Returns
+        -------
+        str
+            Complete path to checkpoint file for the specified worker/rank.
+
+        Raises
+        ------
+        ValueError
+            If checkpoint_filepath was not set in the request.
+        """
+        checkpoint_filepath = self.checkpoint_filepath
+        if checkpoint_filepath is None:
+            raise ValueError("Checkpoint filepath wasn't set.")
+        return os.path.join(
+            checkpoint_filepath, self.checkpoint_name_for_worker(worker_id, n_workers)
+        )
 
     # TODO: Rename to checkpoint_dir
     @property

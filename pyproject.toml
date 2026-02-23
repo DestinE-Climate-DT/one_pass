@@ -25,6 +25,7 @@ dependencies = [
     "tqdm==4.*",
     "crick==0.0.8",
     "pyarrow==18.*",
+    "joblib==1.*",
 ]
 dynamic = ["version"]
 

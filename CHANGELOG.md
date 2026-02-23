@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.10.0 - 2026/02/23
+
+### Added
+- Multiprocessing (MP) using `Opa(..., workers=n_workers)` utilizes `/dev/shm` strategy to overcome `TDigest` serialization bottleneck in MP environments
+
+### Updated
+- Centralization of serial, MP and MPI checkpoint file names for improved consistency
+
+### Fixed
+- Logging level gets properly propagated in `Opa` constructor
+- For "percentile" stats, fix output dataset dimensions so they are `("time", "percentile" (string), "height", "lat", "lon")`
+
 ## v0.9.2 - 2026/01/23
 
 ### Fixed

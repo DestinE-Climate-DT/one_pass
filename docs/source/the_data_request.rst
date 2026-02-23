@@ -314,6 +314,8 @@ These parameters are passed to the ``Opa`` constructor and are separate from the
 
 - ``as_float32`` (bool, default True): if True, converts float64 variables to float32 before saving to disk. This can significantly reduce file size while maintaining sufficient precision for most climate data applications. Set to False to preserve float64 outputs.
 
+- ``workers`` (int, default 1): number of worker processes to use for parallel computation. Only ``histogram`` and ``percentile`` statistics support parallelization. When ``workers > 1``, ``checkpoint=True`` must be set in the request. Cannot be combined with MPI (i.e. launching via ``mpirun``/``mpiexec``). See :doc:`parallel_computing_quick_reference` for details on the shared-memory strategy used internally.
+
 Save
 ------------
 
@@ -325,6 +327,16 @@ Checkpoint
 -----------------
 
 Either ``True`` or ``False``. If this key:value pair is not provided it will default to ``True``. This defines if you want to write intermediate checkpoint files as the one_pass is provided new data. If ``True``, a checkpoint file will be written for every new chunk of incoming data. If set to ``False`` the rolling statistic will only be stored in memory and will be lost of if the programme crashes. Setting to ``True`` will allow for the statistics to be rolled back in time if the model crashes. It is highly recommended to set this to ``True``.
+
+.. note::
+
+   When using multiprocessing (``workers > 1``), ``checkpoint=True`` is **mandatory**.
+   In MP mode each worker independently maintains its own slice of TDigest objects and
+   saves them to a per-worker checkpoint file between calls to ``compute()``. These
+   files are required for the finalization step to collect and assemble the distributed
+   results. A ``ValueError`` is raised at ``Opa`` construction time if ``workers > 1``
+   and ``checkpoint=False`` (or omitted with the default ``True`` overridden to
+   ``False``).
 
 
 Checkpoint Filepath

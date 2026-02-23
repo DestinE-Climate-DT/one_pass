@@ -93,7 +93,7 @@ For parallel computing with MPI (Message Passing Interface), you need to install
    module load openmpi  # or similar
    pip install mpi4py
 
-MPI support enables distributed parallel computation of histogram and percentile statistics across multiple nodes. See :doc:`advanced_usage` for details on using MPI with OnePass.
+MPI support enables distributed parallel computation of histogram and percentile statistics across multiple nodes. See :doc:`parallel_computing_quick_reference` for details on using MPI with OnePass.
 
 
 Bias adjustment

@@ -12,6 +12,7 @@ __all__ = [
     "MPI_RANK",
     "MPI_SIZE",
     "MPI_get_indices",
+    "check_mp_mpi_conflict",
 ]
 
 # Check if we are under an MPI environment
@@ -94,3 +95,24 @@ def MPI_get_indices(  # pylint: disable=C0103
         end_index = min((MPI_RANK + 1) * chunk_size, size)
 
     return start_index, end_index
+
+
+def check_mp_mpi_conflict(n_workers: int):
+    """Check for conflicts between MP and MPI modes.
+
+    Parameters
+    ----------
+    n_workers : int
+        Number of MP workers requested
+
+    Raises
+    ------
+    RuntimeError
+        If both MPI and MP (workers > 1) are enabled simultaneously
+    """
+    if MPI_LAUNCHED and n_workers > 1:
+        raise RuntimeError(
+            "Cannot use both MPI and multiprocessing (workers > 1) simultaneously. "
+            f"MPI is active with {MPI_SIZE} ranks, but {n_workers} MP workers were requested. "
+            "Please use either MPI (mpirun/mpiexec) OR multiprocessing (workers > 1), not both."
+        )

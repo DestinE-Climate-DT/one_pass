@@ -68,7 +68,10 @@ from .iams import finalize_iams, update_iams
 from .mean import update_mean
 from .min import update_min
 from .max import update_max
-from .percentile import finalize_percentile, finalize_percentile_mpi
+from .percentile import (
+    finalize_percentile,
+    finalize_percentile_mpi,
+)
 from .std import finalize_std
 from .sum import update_sum
 from .tdigest import initialise as initialise_tdigest, update as update_tdigest
